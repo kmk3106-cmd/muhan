@@ -23,26 +23,41 @@ fuser -k 8000/tcp 2>/dev/null || true
 fuser -k 8001/tcp 2>/dev/null || true   # 8001 폐기
 sleep 1
 
-echo "[2/7] 폴더 교체"
+echo "[2/7] Kill Switch 상태 영속화 + 폴더 교체"
+# 폴더 교체와 무관한 영속 상태 디렉터리(배포 체인 중단에도 안 사라짐).
+# 교체 직전 현재 live .kill_switch 유무를 STATE 에 스냅샷 → UI 토글도 영속.
+STATE=/root/trading_suite_state
+mkdir -p "$STATE"
+for s in infinite ddsop; do
+    if [ -f "$APP/strategies/$s/.kill_switch" ]; then
+        touch "$STATE/$s.killed"
+    elif [ -d "$APP/strategies/$s" ]; then
+        rm -f "$STATE/$s.killed"
+    fi
+done
 rm -rf "$BAK"
 [ -d "$APP" ] && mv "$APP" "$BAK"
 mv "$NEW" "$APP"
 
-echo "[3/7] DB/상태 복원"
+echo "[3/7] DB/예산/Kill Switch 복원"
 if [ -d "$BAK" ]; then
-    # 재배포: 직전 trading_suite 의 DB·예산 유지
     cp "$BAK/strategies/infinite/infinite_buy.db" "$APP/strategies/infinite/" 2>/dev/null || true
     cp "$BAK/strategies/ddsop/ddsop.db"           "$APP/strategies/ddsop/"    2>/dev/null || true
     cp "$BAK/core/_strategy_budget.json"          "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_equity.jsonl"                  "$APP/core/"                2>/dev/null || true
-    # Kill Switch 상태 보존 (정지된 전략이 재배포로 멋대로 재가동되면 안 됨)
-    cp "$BAK/strategies/infinite/.kill_switch" "$APP/strategies/infinite/" 2>/dev/null || true
-    cp "$BAK/strategies/ddsop/.kill_switch"    "$APP/strategies/ddsop/"    2>/dev/null || true
 else
-    # 최초 배포: 레거시 단일 전략 DB 에서 이관 (실거래 상태 보존)
     cp /root/infinite/infinite_buy.db "$APP/strategies/infinite/" 2>/dev/null || true
     cp /root/ddsop/ddsop.db           "$APP/strategies/ddsop/"    2>/dev/null || true
 fi
+# Kill Switch: 영속 상태(STATE) 기준으로 강제 — 정지 전략은 무슨 일이 있어도 정지 유지
+for s in infinite ddsop; do
+    if [ -f "$STATE/$s.killed" ]; then
+        touch "$APP/strategies/$s/.kill_switch"
+        echo "  [killswitch] $s = 정지 유지"
+    else
+        rm -f "$APP/strategies/$s/.kill_switch" 2>/dev/null || true
+    fi
+done
 
 echo "[4/7] venv (고정 경로, 배포마다 유지)"
 [ -d "$VENV" ] || python3 -m venv "$VENV"
