@@ -27,6 +27,13 @@ from .models import init_db, Ticker, Tranche, TradeOrder, Trade, CycleHistory, A
 from .settings_store import get_settings_for_display, save_settings, get_account_summary
 from .worker import run_worker_once, kill_switch_activate, kill_switch_deactivate, is_kill_switch_on, get_us_market_run_time_kst, get_next_worker_run_kst, get_shared_client, refresh_shared_client
 from .trading_logic import generate_orders
+from core.schedule_map import (
+    shift as sched_shift,
+    DDSOP_WORKER_MIN_OFFSET,
+    DDSOP_PRE_AUTH_LEAD_MIN,
+    DDSOP_SYNC_MINUTE,
+    DDSOP_SYNC_SECOND,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -49,37 +56,36 @@ async def lifespan(app: FastAPI):
     run_h, run_m = get_us_market_run_time_kst()
     logger.info(f"떨사오팔 스케줄: 매일 {run_h:02d}:{run_m:02d}~{(run_h+5)%24:02d}:{run_m:02d} KST (매시, 미국장 개시 30분 후)")
     scheduler = BackgroundScheduler(timezone="Asia/Seoul")
-    pre_h, pre_m = run_h, max(run_m - 5, 0)
-    if run_m < 5:
-        pre_h = (run_h - 1) % 24
-        pre_m = 60 + run_m - 5
+    pre_h, pre_m = sched_shift(run_h, run_m, -DDSOP_PRE_AUTH_LEAD_MIN)
     scheduler.add_job(_pre_auth, "cron", hour=pre_h, minute=pre_m, id="pre_auth")
     # 워커: 미국장 개시 30분 후 + 매시 정각 6회 (한 번 주문 제출되면 미체결 유지, 재실행 시 추가 제출 가능)
+    # 단일계좌 레인 분리: 무한매수법 워커(:run_m) 와 충돌하지 않도록 +오프셋 분에 실행
     for i in range(6):
         h = (run_h + i) % 24
-        scheduler.add_job(run_worker_once, "cron", hour=h, minute=run_m, id=f"worker_{i}")
+        wh, wm = sched_shift(h, run_m, DDSOP_WORKER_MIN_OFFSET)
+        scheduler.add_job(run_worker_once, "cron", hour=wh, minute=wm, id=f"worker_{i}")
 
     def _reschedule_worker_for_dst():
         """매일 9시 KST에 워커/사전인증 스케줄 재계산 → 써머타임 변경 시 자동 반영"""
         run_h, run_m = get_us_market_run_time_kst()
-        pre_h, pre_m = run_h, max(run_m - 5, 0)
-        if run_m < 5:
-            pre_h = (run_h - 1) % 24
-            pre_m = 60 + run_m - 5
+        pre_h, pre_m = sched_shift(run_h, run_m, -DDSOP_PRE_AUTH_LEAD_MIN)
         scheduler.reschedule_job("pre_auth", trigger="cron", hour=pre_h, minute=pre_m)
         for i in range(6):
             h = (run_h + i) % 24
+            wh, wm = sched_shift(h, run_m, DDSOP_WORKER_MIN_OFFSET)
             try:
-                scheduler.reschedule_job(f"worker_{i}", trigger="cron", hour=h, minute=run_m)
+                scheduler.reschedule_job(f"worker_{i}", trigger="cron", hour=wh, minute=wm)
             except Exception:
                 pass
         logger.info(f"[스케줄 갱신] 워커: {run_h:02d}:{run_m:02d}~{(run_h+5)%24:02d}:{run_m:02d} KST (매시, 써머타임 반영)")
 
     scheduler.add_job(_reschedule_worker_for_dst, "cron", hour=9, minute=0, id="reschedule_dst")
 
+    # 동기화 전용: 단일계좌 레인 분리를 위해 interval(2분 드리프트) → cron(짝수분 :40초) 전환.
+    # 빈도 동일(30회/시), 동작 동일(submit_orders=False), 무한매수법 sync(홀수분 :20초)와 비충돌.
     scheduler.add_job(
         lambda: run_worker_once(submit_orders=False),
-        "interval", minutes=2, id="sync_only",
+        "cron", minute=DDSOP_SYNC_MINUTE, second=DDSOP_SYNC_SECOND, id="sync_only",
         max_instances=1,
     )
     scheduler.start()
