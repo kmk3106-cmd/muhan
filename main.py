@@ -9,8 +9,9 @@ Starlette는 마운트된 sub-app의 lifespan을 자동 실행하지 않으므�
 import logging
 from contextlib import AsyncExitStack, asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 from strategies.infinite.main import app as infinite_app
 from strategies.ddsop.main import app as ddsop_app
@@ -36,6 +37,29 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="trading_suite (멀티전략)", lifespan=lifespan)
 app.mount("/infinite", infinite_app)
 app.mount("/ddsop", ddsop_app)
+
+
+class BudgetBody(BaseModel):
+    total_usd: float
+
+
+@app.get("/api/suite/strategies")
+def suite_strategies():
+    """전략별 활성 티커 + 시드 예산 가드레일 (통합 대시보드용)."""
+    from core.ticker_registry import all_active
+    from core.strategy_budget import summary
+    return {"active_tickers": all_active(), "budgets": summary()}
+
+
+@app.post("/api/suite/strategies/{name}/budget")
+def set_strategy_budget(name: str, body: BudgetBody):
+    """전략별 시드 할당 총액 설정 (사용자 명시 할당)."""
+    from core.strategy_budget import set_assigned_total
+    try:
+        set_assigned_total(name, body.total_usd)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"strategy": name, "assigned_total": body.total_usd}
 
 
 @app.get("/", response_class=HTMLResponse)

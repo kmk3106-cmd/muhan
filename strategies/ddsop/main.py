@@ -266,6 +266,11 @@ def api_get_tickers():
 def api_add_ticker(data: TickerCreate):
     with SessionLocal() as session:
         sym = data.ticker.upper()
+        try:
+            from core.ticker_registry import assert_ticker_available, TickerConflict
+            assert_ticker_available("ddsop", sym)
+        except TickerConflict as e:
+            raise HTTPException(status_code=409, detail=str(e))
         existing = session.scalar(select(Ticker).where(Ticker.ticker == sym))
         if existing and existing.is_active:
             raise HTTPException(status_code=400, detail=f"{sym} 이미 등록됨")

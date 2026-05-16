@@ -24,5 +24,8 @@ kis_devlp.yaml
 .vscode/
 .DS_Store
 
+# 플랫폼 런타임 상태 (배포별 보존, 소스 미포함)
+core/_strategy_budget.json
+
 # Build / archive
 *.zip

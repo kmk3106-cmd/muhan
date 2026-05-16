@@ -273,6 +273,11 @@ def create_portfolio(data: PortfolioCreate):
         version = data.strategy_version or "2.2"
         if version not in SUPPORTED_VERSIONS:
             raise HTTPException(400, f"지원하지 않는 버전: {version}. 사용가능: {SUPPORTED_VERSIONS}")
+        try:
+            from core.ticker_registry import assert_ticker_available, TickerConflict
+            assert_ticker_available("infinite", data.ticker.upper())
+        except TickerConflict as e:
+            raise HTTPException(409, str(e))
         pf = Portfolio(
             ticker=data.ticker.upper(),
             strategy_version=version,
