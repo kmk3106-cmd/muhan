@@ -229,6 +229,16 @@ border-radius:10px;font-size:12.5px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,
 transform:translateY(8px);transition:.2s;pointer-events:none}.toast.s{opacity:1;transform:none}
 @media(max-width:980px){.sb{transform:translateX(-100%);transition:.25s}.sb.open{transform:none}
 .mn{margin-left:0}.hamb{display:block}.scrim.show{display:block}.body{padding:14px}}
+.vtblk{padding:15px 18px;border-bottom:1px solid var(--line)}.vtblk:last-child{border-bottom:0}
+.vth{display:flex;align-items:center;gap:10px;font-size:13px}
+.trcells{display:flex;flex-wrap:wrap;gap:6px;padding:11px 0 10px}
+.trc{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+border-radius:8px;background:var(--bg);color:var(--c2);font-size:11px;font-weight:700;
+border:1px solid var(--line)}
+.trc.on{background:var(--green-s);color:#15803d;border-color:#bfe6cc}
+.vtblk details summary{cursor:pointer;font-size:11.5px;color:var(--blue);font-weight:600;
+list-style:none;display:inline-block}.vtblk details summary::-webkit-details-marker{display:none}
+.vtblk details[open] summary{margin-bottom:9px}
 </style></head><body>
 <div class="wrap">
   <aside class="sb" id="sb">
@@ -498,7 +508,45 @@ function pgPort(){var ss=MET.strategies||[];var rows=[];
   '</tbody></table></div>'):'<div class="muted">보유 종목 없음</div>')+'</div>';
  h+='<div class="tip"><i class="fa-solid fa-circle-info"></i>단일 공용계좌라 종목별 실시간 '+
   '평가손익은 KIS 추가호출 없이 산출하지 않습니다. 계좌 단위 평가손익은 대시보드 KPI를 참고하세요.</div>';
- $('page').innerHTML=h;}
+ var dS=STRATS.filter(function(s){return s.kind!=='infinite';});
+ if(dS.length){h+='<div class="grid">'+card('가상 트렌치 현황 · 떨사오팔 / 종사종팔','fa-layer-group',
+  '<div id="vtr"><div class="muted">트렌치 불러오는 중…</div></div>',
+  '<span style="font-size:11.5px;color:var(--c2)">매수=초록 · 대기=회색</span>')+'</div>';}
+ $('page').innerHTML=h;
+ if(dS.length)loadTranches(dS);}
+function loadTranches(dS){var box=$('vtr');var blocks=[];var pend=0;
+ function done(){if(pend<=0)box.innerHTML=blocks.length?blocks.join(''):
+  '<div class="muted">활성 트렌치 종목 없음</div>';}
+ dS.forEach(function(s){pend++;
+  fetch('/'+s.key+'/api/tickers').then(function(r){return r.json();}).then(function(tks){
+   var act=(tks||[]).filter(function(t){return t.is_active;});
+   if(!act.length){pend--;done();return;}
+   var c=0;act.forEach(function(tk){
+    fetch('/'+s.key+'/api/tickers/'+tk.id+'/tranches').then(function(r){return r.json();})
+    .then(function(d){blocks.push(trBlock(s.label,d,tk));}).catch(function(){})
+    .then(function(){c++;if(c===act.length){pend--;done();}});});
+  }).catch(function(){pend--;done();});});}
+function trBlock(strat,d,tk){var trs=(d&&d.tranches)||[];
+ var bg=trs.filter(function(t){return t.status==='BOUGHT';}).length;
+ var cells=trs.map(function(t){var on=t.status==='BOUGHT';
+  return '<span class="trc'+(on?' on':'')+'" title="T'+t.tranche_num+
+  (on?(' 평단 '+money(t.avg_price,2)+' · '+t.qty+'주'):' 대기')+'">'+t.tranche_num+'</span>';}).join('');
+ var det=trs.map(function(t){var on=t.status==='BOUGHT';
+  return '<tr><td>T'+t.tranche_num+'</td><td><span class="bdg '+(on?'run">매수':'stop">대기')+
+  '</span></td><td style="text-align:right">'+(on?money(t.avg_price,2):'—')+
+  '</td><td style="text-align:right">'+(on?t.qty:0)+'</td><td>'+esc(t.buy_date||'—')+
+  '</td><td style="text-align:right">'+(t.days_held||0)+'일</td><td style="text-align:right">'+
+  money(t.amount_per_tranche)+'</td></tr>';}).join('');
+ return '<div class="vtblk"><div class="vth"><b>'+esc((d&&d.ticker)||tk.ticker)+'</b>'+
+  '<span style="color:var(--c2);font-size:11.5px">'+esc(strat)+'</span>'+
+  '<span class="bdg run" style="margin-left:auto">'+bg+' / '+trs.length+' 매수</span></div>'+
+  '<div class="trcells">'+cells+'</div>'+
+  '<details><summary>트렌치 상세 보기</summary><div style="overflow-x:auto"><table class="tbl">'+
+  '<thead><tr><th>트렌치</th><th>상태</th><th style="text-align:right">평단</th>'+
+  '<th style="text-align:right">수량</th><th>매수일</th><th style="text-align:right">보유일</th>'+
+  '<th style="text-align:right">트렌치금액</th></tr></thead><tbody>'+
+  (det||'<tr><td colspan=7 style="text-align:center;color:#9aa3b2">트렌치 없음</td></tr>')+
+  '</tbody></table></div></details></div>';}
 /* ---------- 주문/체결 ---------- */
 function pgOrder(){$('page').innerHTML='<div class="grid">'+
  '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-receipt"></i>주문/체결</span>'+
