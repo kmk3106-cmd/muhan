@@ -44,6 +44,7 @@ def snapshot() -> dict | None:
         pt = {
             "ts": _now_kst().isoformat(timespec="seconds"),
             "total_assets": canon.get("tot_evlu", 0),
+            "net_invested": canon.get("buy_amt", 0),
             "cash": canon.get("cash", 0),
             "pnl": canon.get("pnl", 0),
             "realized": realized,
@@ -72,20 +73,45 @@ def _load() -> list[dict]:
     return out
 
 
-def today_pnl() -> float | None:
-    """금일손익 = 현재 총평가 − 오늘(KST) 최초 스냅샷 총평가."""
+def series(max_points: int = 400) -> dict:
+    """차트용 시계열: 자산추이(평가/순투입/누적손익) + 전략별 누적수익률(%).
+
+    포인트 < 2 면 빈 배열 → 프런트에서 '수집중' 표기.
+    """
     pts = _load()
     if len(pts) < 2:
-        return None
-    today = _now_kst().strftime("%Y-%m-%d")
-    todays = [p for p in pts if str(p.get("ts", "")).startswith(today)]
-    if len(todays) < 2:
-        return None
-    base = todays[0].get("total_assets")
-    last = todays[-1].get("total_assets")
-    if base is None or last is None:
-        return None
-    return round(float(last) - float(base), 2)
+        return {"points": [], "strategy_return": {}, "collecting": True}
+    if len(pts) > max_points:
+        step = len(pts) // max_points + 1
+        pts = pts[::step] + [pts[-1]]
+    try:
+        from .strategy_adapters import active_rows, ADAPTERS
+        seeds = {}
+        for k in ADAPTERS:
+            try:
+                seeds[k] = sum(s for _, s in active_rows(k))
+            except Exception:
+                seeds[k] = 0
+    except Exception:
+        seeds = {}
+    points = [{
+        "ts": p.get("ts"),
+        "total_assets": float(p.get("total_assets") or 0),
+        "net_invested": float(p.get("net_invested") or 0),
+        "cum_pnl": float(p.get("pnl") or 0),
+    } for p in pts]
+    keys = set()
+    for p in pts:
+        keys |= set((p.get("realized") or {}).keys())
+    sret: dict = {}
+    for k in keys:
+        base = seeds.get(k) or 0
+        ser = []
+        for p in pts:
+            rv = float((p.get("realized") or {}).get(k) or 0)
+            ser.append(round(rv / base * 100, 2) if base > 0 else 0.0)
+        sret[k] = ser
+    return {"points": points, "strategy_return": sret, "collecting": False}
 
 
 def _mdd(series: list[float]) -> float | None:

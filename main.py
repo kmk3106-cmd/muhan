@@ -71,9 +71,16 @@ def suite_strategies():
 
 @app.get("/api/suite/metrics")
 def suite_metrics():
-    """통합 대시보드 15개 지표 (읽기 전용 집계, 신규 KIS 호출 없음)."""
+    """통합 대시보드 지표 (읽기 전용 집계, 신규 KIS 호출 없음)."""
     from core.suite_metrics import build_metrics
     return build_metrics()
+
+
+@app.get("/api/suite/series")
+def suite_series():
+    """차트용 시계열 (자산추이 · 전략별 누적수익률). equity 스냅샷 누적분."""
+    from core.equity_snapshot import series
+    return series()
 
 
 @app.post("/api/suite/strategies/{name}/budget")
@@ -102,6 +109,7 @@ _SHELL_HTML = r"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{--primary:#4f86f7;--primary-dark:#3a6fd8;--purple:#6c5ce7;--success:#10b981;
 --warning:#f59e0b;--danger:#ef4444;--gray-50:#f9fafb;--gray-100:#f3f4f6;--gray-200:#e5e7eb;
@@ -201,6 +209,25 @@ align-items:center;justify-content:space-between}
 .etime{color:var(--gray-400);white-space:nowrap;font-size:11px}
 .muted{color:var(--gray-400);font-size:12.5px;padding:16px 22px}
 .hidden{display:none!important}
+.upd{font-size:11.5px;color:var(--gray-400);text-align:right;line-height:1.45;margin-left:auto}
+.kpi.auto{display:flex;align-items:center;gap:15px}
+.kpi.auto .pl{width:46px;height:46px;border-radius:50%;background:#ecfdf5;color:var(--success);
+display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.kpi.auto.off .pl{background:#fef2f2;color:var(--danger)}
+.kpi.auto .av{font-size:20px;font-weight:700;color:var(--gray-900)}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1100px){.charts{grid-template-columns:1fr}}
+.chwrap{position:relative;height:300px;padding:12px 16px 16px}
+.seg{display:flex;gap:4px}
+.segb{border:1px solid var(--gray-200);background:#fff;color:var(--gray-500);font-family:inherit;
+font-size:11.5px;padding:4px 11px;border-radius:7px;cursor:pointer}
+.segb.on{background:var(--gray-900);color:#fff;border-color:var(--gray-900)}
+.panels{display:grid;grid-template-columns:1.25fr 1fr 1.2fr;gap:18px}
+@media(max-width:1200px){.panels{grid-template-columns:1fr}}
+.collecting{display:flex;align-items:center;justify-content:center;height:100%;
+color:var(--gray-400);font-size:13px;text-align:center}
+.nav-group{padding:16px 20px 7px;font-size:11px;font-weight:700;color:var(--gray-400);
+letter-spacing:.06em}
 </style></head><body>
 <div class="app-layout">
   <aside class="sidebar" id="sb">
@@ -208,7 +235,6 @@ align-items:center;justify-content:space-between}
       <div class="logo"><i class="fa-solid fa-layer-group"></i></div>
       <div><b>trading_suite</b><small>멀티전략 운영 포털</small></div>
     </div>
-    <div class="nav-section-title">메뉴</div>
     <nav class="sidebar-nav" id="nav"></nav>
     <div class="sidebar-foot" id="foot">계좌 정보 불러오는 중…</div>
   </aside>
@@ -216,20 +242,32 @@ align-items:center;justify-content:space-between}
   <main class="main">
     <header class="topbar">
       <button class="hamb" id="hamb"><i class="fa-solid fa-bars"></i></button>
-      <div class="page-title" id="ptitle">—</div>
+      <div class="page-title" id="ptitle">통합 대시보드</div>
+      <div class="upd" id="upd"></div>
       <button class="btn btn-secondary" id="refresh"><i class="fa-solid fa-rotate"></i> 새로고침</button>
     </header>
     <div class="content">
       <section id="overview">
         <div class="kpi-grid" id="kpi"></div>
-        <div class="card" style="margin-top:18px">
-          <div class="card-header"><span class="ct">전략 성과</span>
-            <span style="font-size:12px;color:#9ca3af">실현손익 기준 · 보유는 평단·원가</span></div>
-          <div class="sgrid" id="sgrid"><div class="muted">불러오는 중…</div></div>
+        <div class="charts" style="margin-top:18px">
+          <div class="card">
+            <div class="card-header"><span class="ct">전체 자산추이</span>
+              <div class="seg" id="seg1"></div></div>
+            <div class="chwrap"><canvas id="ch1"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="ct">전략별 누적수익률</span>
+              <div class="seg" id="seg2"></div></div>
+            <div class="chwrap"><canvas id="ch2"></canvas></div>
+          </div>
         </div>
-        <div class="card" style="margin-top:18px">
-          <div class="card-header"><span class="ct">최근 매매로그</span></div>
-          <div id="tlogwrap"><div class="muted">불러오는 중…</div></div>
+        <div class="panels" style="margin-top:18px">
+          <div class="card"><div class="card-header"><span class="ct">전략 성과 요약</span></div>
+            <div id="pstrat" style="overflow-x:auto"><div class="muted">불러오는 중…</div></div></div>
+          <div class="card"><div class="card-header"><span class="ct">보유종목 현황</span></div>
+            <div id="phold" style="overflow-x:auto"><div class="muted">불러오는 중…</div></div></div>
+          <div class="card"><div class="card-header"><span class="ct">최근 매매 로그</span></div>
+            <div id="ptrade" style="overflow-x:auto"><div class="muted">불러오는 중…</div></div></div>
         </div>
         <div class="card" style="margin-top:18px">
           <div class="card-header"><span class="ct">주문 · API 오류상태</span></div>
@@ -247,7 +285,8 @@ align-items:center;justify-content:space-between}
   </main>
 </div>
 <script>
-var STRATS=__STRATS__;var view='ov';var curi=0;
+var STRATS=__STRATS__;var view='ov';var curi=0;var SER=null;var R1='6M';var R2='6M';
+var CH1=null;var CH2=null;var PAL=['#4f86f7','#ef4444','#10b981','#f59e0b','#6c5ce7'];
 var nav=document.getElementById('nav');
 function fmt(n){return (n==null||n==='')?'—':'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:2});}
 function sgn(n){if(n==null)return '<span class="muted" style="padding:0">—</span>';
@@ -258,74 +297,86 @@ function pctv(n){if(n==null)return '<span class="muted" style="padding:0">—</s
 function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(m){
  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];});}
 function buildNav(){
- var items=[{ov:1,label:'통합 현황',sub:'계좌·전략·로그·오류',icon:'fa-gauge-high'}]
-  .concat(STRATS.map(function(s){return {ov:0,label:s.label,sub:s.sub,icon:s.icon};}));
- items.forEach(function(it,idx){
-  var b=document.createElement('button');b.className='nav-item'+(idx===0?' active':'');
-  b.dataset.idx=idx;
-  b.innerHTML='<span class="ic"><i class="fa-solid '+it.icon+'"></i></span>'+
-  '<span class="tx"><b>'+it.label+'</b><span>'+it.sub+'</span></span>'+
-  (it.ov?'':'<span class="dot" id="dot'+(idx-1)+'"></span>');
-  b.onclick=function(){pick(+this.dataset.idx);};nav.appendChild(b);});}
-function setActive(idx){[].forEach.call(nav.children,function(b,j){
- b.className='nav-item'+(j===idx?' active':'');});}
+ var html='<div class="nav-group">현황</div>';
+ html+='<button class="nav-item active" data-idx="0"><span class="ic">'+
+  '<i class="fa-solid fa-gauge-high"></i></span><span class="tx"><b>통합 대시보드</b>'+
+  '<span>계좌·전략·차트</span></span></button>';
+ html+='<div class="nav-group">전략</div>';
+ STRATS.forEach(function(s,i){html+='<button class="nav-item" data-idx="'+(i+1)+'">'+
+  '<span class="ic"><i class="fa-solid '+s.icon+'"></i></span><span class="tx"><b>'+
+  esc(s.label)+'</b><span>'+esc(s.sub)+'</span></span><span class="dot" id="dot'+i+'"></span></button>';});
+ nav.innerHTML=html;
+ [].forEach.call(nav.querySelectorAll('.nav-item'),function(b){
+  b.onclick=function(){pick(+b.dataset.idx);};});}
+function setActive(idx){[].forEach.call(nav.querySelectorAll('.nav-item'),function(b){
+ b.classList.toggle('active',+b.dataset.idx===idx);});}
 function pick(idx){setActive(idx);closeSb();
  if(idx===0){view='ov';curi=0;
   document.getElementById('overview').classList.remove('hidden');
   document.getElementById('stratview').classList.add('hidden');
-  document.getElementById('ptitle').innerHTML='통합 현황 <small>공용계좌 69567573 · 멀티전략</small>';
-  loadMetrics();
+  document.getElementById('ptitle').innerHTML='통합 대시보드 <small>공용계좌 69567573 · 멀티전략</small>';
+  loadMetrics();loadSeries();
  }else{view='st';curi=idx-1;var s=STRATS[curi];
   document.getElementById('overview').classList.add('hidden');
   document.getElementById('stratview').classList.remove('hidden');
   var f=document.getElementById('frame');if(f.src.indexOf(s.path)<0)f.src=s.path;
-  document.getElementById('ptitle').innerHTML=s.label+' <small>'+s.sub+'</small>';
+  document.getElementById('ptitle').innerHTML=esc(s.label)+' <small>'+esc(s.sub)+'</small>';
   document.getElementById('fctitle').textContent=s.label+' 대시보드';}}
 function kpiCard(lab,ic,val,sub,cls){return '<div class="kpi"><div class="lab"><i class="fa-solid '+
- ic+'"></i>'+lab+'</div><div class="val">'+val+'</div><div class="sub '+(cls||'')+'">'+(sub||'')+'</div></div>';}
+ ic+'"></i>'+lab+'</div><div class="val '+(cls||'')+'">'+val+'</div><div class="sub">'+(sub||'')+'</div></div>';}
 function dirCls(n){return n==null?'':(n>=0?'up':'down');}
-function renderKPI(a){
+function renderKPI(a,au){
+ var rp=a.total_return_pct;
  document.getElementById('kpi').innerHTML=
-  kpiCard('총 평가자산','fa-wallet',fmt(a.total_assets),'공용계좌 스냅샷')+
-  kpiCard('순투입(매입)','fa-money-bill-transfer',fmt(a.net_invested),'')+
-  kpiCard('총손익','fa-scale-balanced',(a.total_pnl>=0?'+':'')+fmt(a.total_pnl),
-   (a.total_return_pct==null?'':(a.total_return_pct>=0?'+':'')+Number(a.total_return_pct).toFixed(2)+'%'),dirCls(a.total_pnl))+
-  kpiCard('총수익률','fa-percent',(a.total_return_pct==null?'—':(a.total_return_pct>=0?'+':'')+Number(a.total_return_pct).toFixed(2)+'%'),'',dirCls(a.total_return_pct))+
-  kpiCard('금일손익','fa-calendar-day',(a.today_pnl==null?'<span style="color:#9ca3af">수집중</span>':(a.today_pnl>=0?'+':'')+fmt(a.today_pnl)),'',dirCls(a.today_pnl))+
-  kpiCard('실현손익','fa-circle-check',(a.realized_pnl>=0?'+':'')+fmt(a.realized_pnl),'완료 싸이클 Σ',dirCls(a.realized_pnl))+
-  kpiCard('미실현손익','fa-chart-line',(a.unrealized_pnl>=0?'+':'')+fmt(a.unrealized_pnl),'평가손익',dirCls(a.unrealized_pnl))+
-  kpiCard('현금비중','fa-coins',(a.cash_ratio==null?'—':Number(a.cash_ratio).toFixed(1)+'%'),'현금 '+fmt(a.cash))+
-  kpiCard('계좌 MDD','fa-arrow-trend-down',(a.mdd_pct==null?'<span style="color:#9ca3af">수집중</span>':Number(a.mdd_pct).toFixed(2)+'%'),'최대낙폭','down');}
-function renderStrats(arr){
- var g=document.getElementById('sgrid');
- if(!arr||!arr.length){g.innerHTML='<div class="muted">전략 데이터 없음</div>';return;}
- g.innerHTML=arr.map(function(s){
-  var bd=s.kill_switch?'<span class="badge stop">정지</span>':'<span class="badge run">가동</span>';
-  var hold='';
-  if(s.holdings&&s.holdings.length){hold='<div class="hold"><table>'+
-   s.holdings.map(function(h){return '<tr><td><b>'+esc(h.ticker)+'</b></td><td>'+
-   h.qty+'주 @ '+fmt(h.avg_price)+'</td><td>원가 '+fmt(h.cost)+'</td></tr>';}).join('')+
-   '</table></div>';}
-  else{hold='<div class="hold" style="color:#9ca3af">보유 종목 없음</div>';}
-  return '<div class="scard"><div class="sh"><i class="fa-solid fa-circle" style="font-size:8px;color:'+
-   (s.kill_switch?'#ef4444':'#10b981')+'"></i>'+esc(s.display_name)+bd+'</div>'+
-   '<div class="mrow">'+
-   '<div class="metric"><div class="ml">수익률</div><div class="mv">'+pctv(s.return_pct)+'</div></div>'+
-   '<div class="metric"><div class="ml">누적손익</div><div class="mv">'+sgn(s.realized_pnl)+'</div></div>'+
-   '<div class="metric"><div class="ml">MDD</div><div class="mv">'+
-    (s.mdd_pct==null?'<span class="muted" style="padding:0">수집중</span>':'<span class="neg">'+Number(s.mdd_pct).toFixed(2)+'%</span>')+'</div></div>'+
-   '<div class="metric"><div class="ml">보유종목</div><div class="mv">'+s.holdings_count+'</div></div>'+
-   '<div class="metric"><div class="ml">싸이클</div><div class="mv">'+s.cycles+'</div></div>'+
-   '</div>'+hold+'</div>';}).join('');}
+  kpiCard('총 평가자산','fa-wallet',fmt(a.total_assets),'공용계좌 69567573')+
+  kpiCard('총 수익률','fa-chart-pie',(rp==null?'—':(rp>=0?'+':'')+Number(rp).toFixed(2)+'%'),
+   '총손익 '+(a.total_pnl>=0?'+':'')+fmt(a.total_pnl),dirCls(rp))+
+  kpiCard('실현손익','fa-circle-check',(a.realized_pnl>=0?'+':'')+fmt(a.realized_pnl),
+   '완료 싸이클 누적',dirCls(a.realized_pnl))+
+  kpiCard('미실현손익','fa-chart-line',(a.unrealized_pnl>=0?'+':'')+fmt(a.unrealized_pnl),
+   '현금비중 '+(a.cash_ratio==null?'—':Number(a.cash_ratio).toFixed(1)+'%'),dirCls(a.unrealized_pnl))+
+  '<div class="kpi auto'+(au&&au.running?'':' off')+'"><div class="pl"><i class="fa-solid '+
+   (au&&au.running?'fa-play':'fa-pause')+'"></i></div><div><div class="lab" style="margin:0">'+
+   '자동매매 상태</div><div class="av">'+(au&&au.running?'운영중':'정지')+'</div>'+
+   '<div class="sub">'+((au&&au.active)||0)+' / '+((au&&au.total)||0)+' 전략 가동</div></div></div>';}
+function renderStratTable(arr){
+ var w=document.getElementById('pstrat');
+ if(!arr||!arr.length){w.innerHTML='<div class="muted">데이터 없음</div>';return;}
+ w.innerHTML='<table class="tbl"><thead><tr><th>전략</th>'+
+  '<th style="text-align:right">투입금액</th><th style="text-align:right">누적손익</th>'+
+  '<th style="text-align:right">수익률</th><th style="text-align:right">MDD</th>'+
+  '<th style="text-align:right">승률</th><th>상태</th></tr></thead><tbody>'+
+  arr.map(function(s){
+   var st=s.kill_switch?'<span class="badge stop">정지</span>':'<span class="badge run">가동</span>';
+   var md=s.mdd_pct==null?'<span class="muted" style="padding:0">수집중</span>':
+    '<span class="neg">'+Number(s.mdd_pct).toFixed(2)+'%</span>';
+   var wr=s.win_rate==null?'—':Number(s.win_rate).toFixed(1)+'%';
+   return '<tr><td><b>'+esc(s.display_name)+'</b></td>'+
+   '<td style="text-align:right">'+fmt(s.invested)+'</td>'+
+   '<td style="text-align:right">'+sgn(s.realized_pnl)+'</td>'+
+   '<td style="text-align:right">'+pctv(s.return_pct)+'</td>'+
+   '<td style="text-align:right">'+md+'</td>'+
+   '<td style="text-align:right">'+wr+'</td><td>'+st+'</td></tr>';}).join('')+'</tbody></table>';}
+function renderHold(arr){
+ var w=document.getElementById('phold');var rows=[];
+ (arr||[]).forEach(function(s){(s.holdings||[]).forEach(function(h){
+  rows.push({d:s.display_name,t:h.ticker,q:h.qty,a:h.avg_price,c:h.cost});});});
+ if(!rows.length){w.innerHTML='<div class="muted">보유 종목 없음</div>';return;}
+ w.innerHTML='<table class="tbl"><thead><tr><th>종목</th><th>전략</th>'+
+  '<th style="text-align:right">수량</th><th style="text-align:right">평단가</th>'+
+  '<th style="text-align:right">매입금액</th></tr></thead><tbody>'+
+  rows.map(function(r){return '<tr><td><b>'+esc(r.t)+'</b></td><td>'+esc(r.d)+'</td>'+
+  '<td style="text-align:right">'+r.q+'</td><td style="text-align:right">'+fmt(r.a)+'</td>'+
+  '<td style="text-align:right">'+fmt(r.c)+'</td></tr>';}).join('')+'</tbody></table>';}
 function renderTrades(ts){
- var w=document.getElementById('tlogwrap');
+ var w=document.getElementById('ptrade');
  if(!ts||!ts.length){w.innerHTML='<div class="muted">매매 내역 없음</div>';return;}
  w.innerHTML='<table class="tbl"><thead><tr><th>일자</th><th>전략</th><th>종목</th>'+
-  '<th>구분</th><th>유형</th><th style="text-align:right">수량</th>'+
-  '<th style="text-align:right">가격</th><th style="text-align:right">금액</th></tr></thead><tbody>'+
+  '<th>구분</th><th style="text-align:right">수량</th><th style="text-align:right">체결가</th>'+
+  '<th style="text-align:right">금액</th></tr></thead><tbody>'+
   ts.map(function(t){var sd=t.side==='buy'?'<span class="tag buy">매수</span>':'<span class="tag sell">매도</span>';
   return '<tr><td>'+esc(t.trade_date)+'</td><td>'+esc(t.display_name)+'</td><td><b>'+esc(t.ticker)+
-  '</b></td><td>'+sd+'</td><td>'+esc(t.order_type)+'</td><td style="text-align:right">'+t.qty+
+  '</b></td><td>'+sd+'</td><td style="text-align:right">'+t.qty+
   '</td><td style="text-align:right">'+fmt(t.price)+'</td><td style="text-align:right">'+fmt(t.amount)+
   '</td></tr>';}).join('')+'</tbody></table>';}
 function renderErrors(arr){
@@ -335,22 +386,64 @@ function renderErrors(arr){
  if(!rows.length){e.innerHTML='<div class="muted"><i class="fa-solid fa-circle-check" '+
   'style="color:#10b981"></i> 최근 주문/API 오류 없음</div>';return;}
  rows.sort(function(a,b){return (b.t||'').localeCompare(a.t||'');});
- e.innerHTML='<div class="elist">'+rows.slice(0,20).map(function(r){
+ e.innerHTML='<div class="elist">'+rows.slice(0,15).map(function(r){
   return '<div class="eitem"><span class="lvl '+esc(r.lv)+'">'+esc(r.lv)+'</span>'+
   '<span class="emsg">['+esc(r.d)+'] '+esc(r.m)+'</span>'+
   '<span class="etime">'+esc((r.t||'').replace('T',' ').slice(0,19))+'</span></div>';}).join('')+'</div>';}
 function loadMetrics(){fetch('/api/suite/metrics').then(function(r){return r.json();})
- .then(function(d){renderKPI(d.account||{});renderStrats(d.strategies||[]);
-  renderTrades(d.recent_trades||[]);renderErrors(d.strategies||[]);
+ .then(function(d){renderKPI(d.account||{},d.automation||{});renderStratTable(d.strategies||[]);
+  renderHold(d.strategies||[]);renderTrades(d.recent_trades||[]);renderErrors(d.strategies||[]);
   (d.strategies||[]).forEach(function(s,i){var dt=document.getElementById('dot'+i);
    if(dt)dt.className='dot '+(s.kill_switch?'off':'on');});
+  document.getElementById('upd').innerHTML='마지막 업데이트<br>'+
+   esc((d.generated_at||'').replace('T',' ').slice(0,19));
   var f=document.getElementById('foot');
   f.innerHTML='<b>공용 계좌</b> 69567573 · real<br>스냅샷 '+
-   esc((d.account&&d.account.snapshot_at||'').replace('T',' ').slice(0,16))+
-   '<br>갱신 '+esc((d.generated_at||'').replace('T',' ').slice(11,19));})
- .catch(function(){document.getElementById('sgrid').innerHTML=
-  '<div class="muted">지표 로드 실패</div>';});}
-function refreshAll(){if(view==='ov'){loadMetrics();}
+   esc(((d.account&&d.account.snapshot_at)||'').replace('T',' ').slice(0,16));})
+ .catch(function(){document.getElementById('pstrat').innerHTML='<div class="muted">지표 로드 실패</div>';});}
+function days(r){return {'1M':30,'3M':90,'6M':180,'1Y':365,'전체':99999}[r]||180;}
+function filt(pts,r){if(!pts.length)return pts;var n=days(r);
+ var last=new Date(pts[pts.length-1].ts);var cut=new Date(last.getTime()-n*864e5);
+ return pts.filter(function(p){return new Date(p.ts)>=cut;});}
+function lbl(ts){return String(ts).slice(5,10).replace('-','/');}
+function axes(pfx){return {responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+ plugins:{legend:{position:'bottom',labels:{boxWidth:12,boxHeight:3,font:{size:11},color:'#6b7280'}}},
+ scales:{x:{grid:{color:'#f3f4f6'},ticks:{color:'#9ca3af',font:{size:10},maxTicksLimit:8}},
+ y:{grid:{color:'#f3f4f6'},ticks:{color:'#9ca3af',font:{size:10},
+  callback:function(v){return pfx==='%'?v+'%':'$'+Number(v).toLocaleString();}}}}};}
+function noData(id,msg){var c=document.getElementById(id);var w=c.parentNode;
+ w.innerHTML='<div class="collecting">'+msg+'</div>';}
+function drawCharts(){if(!SER)return;
+ if(SER.collecting||!SER.points||SER.points.length<2){
+  noData('ch1','자산추이 데이터 수집중<br>(스냅샷 30분 주기 누적 시 표시)');
+  noData('ch2','전략별 수익률 데이터 수집중');
+  return;}
+ if(CH1){CH1.destroy();CH1=null;}if(CH2){CH2.destroy();CH2=null;}
+ var p1=filt(SER.points,R1);var L1=p1.map(function(p){return lbl(p.ts);});
+ CH1=new Chart(document.getElementById('ch1'),{type:'line',data:{labels:L1,datasets:[
+  {label:'평가자산',data:p1.map(function(p){return p.total_assets;}),borderColor:'#4f86f7',
+   backgroundColor:'rgba(79,134,247,.08)',borderWidth:2,pointRadius:0,fill:true,tension:.25},
+  {label:'순투입금액',data:p1.map(function(p){return p.net_invested;}),borderColor:'#f59e0b',
+   borderWidth:2,pointRadius:0,tension:.25},
+  {label:'누적손익',data:p1.map(function(p){return p.cum_pnl;}),borderColor:'#10b981',
+   borderWidth:2,pointRadius:0,tension:.25}]},options:axes('$')});
+ var p2=filt(SER.points,R2);var L2=p2.map(function(p){return lbl(p.ts);});
+ var ds=[];var i=0;for(var k in (SER.strategy_return||{})){
+  var nm=(STRATS.filter(function(s){return s.key===k;})[0]||{}).label||k;
+  var full=SER.strategy_return[k];var off=SER.points.length-p2.length;
+  ds.push({label:nm,data:full.slice(off),borderColor:PAL[i%PAL.length],
+   borderWidth:2,pointRadius:0,tension:.25});i++;}
+ CH2=new Chart(document.getElementById('ch2'),{type:'line',
+  data:{labels:L2,datasets:ds},options:axes('%')});}
+function loadSeries(){fetch('/api/suite/series').then(function(r){return r.json();})
+ .then(function(d){SER=d;drawCharts();}).catch(function(){
+  noData('ch1','자산추이 로드 실패');noData('ch2','수익률 로드 실패');});}
+function buildSeg(id,cur,cb){var box=document.getElementById(id);
+ ['1M','3M','6M','1Y','전체'].forEach(function(r){var b=document.createElement('button');
+  b.className='segb'+(r===cur?' on':'');b.textContent=r;b.onclick=function(){
+   [].forEach.call(box.children,function(x){x.classList.remove('on');});
+   b.classList.add('on');cb(r);};box.appendChild(b);});}
+function refreshAll(){if(view==='ov'){loadMetrics();loadSeries();}
  else{var f=document.getElementById('frame');if(f.src)f.src=f.src;}}
 function closeSb(){document.getElementById('sb').classList.remove('open');
  document.getElementById('scrim').classList.remove('show');}
@@ -359,8 +452,10 @@ document.getElementById('hamb').onclick=function(){
  document.getElementById('scrim').classList.toggle('show');};
 document.getElementById('scrim').onclick=closeSb;
 document.getElementById('refresh').onclick=refreshAll;
+buildSeg('seg1',R1,function(r){R1=r;drawCharts();});
+buildSeg('seg2',R2,function(r){R2=r;drawCharts();});
 buildNav();pick(0);
-setInterval(function(){if(view==='ov')loadMetrics();},60000);
+setInterval(function(){if(view==='ov'){loadMetrics();loadSeries();}},60000);
 </script></body></html>"""
 
 

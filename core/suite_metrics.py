@@ -52,8 +52,17 @@ def _engine(strategy: str):
     return create_engine(cfg.DATABASE_URL)
 
 
+def _invested(strategy: str) -> float:
+    """전략 투입금액 = 활성 종목 per-ticker 시드 합 (KIS 무호출)."""
+    try:
+        from .strategy_adapters import active_rows
+        return round(sum(seed for _, seed in active_rows(strategy)), 2)
+    except Exception:
+        return 0.0
+
+
 def _cycles(strategy: str) -> dict:
-    """전략별 실현손익(완료 싸이클): Σprofit, 수익률, 건수."""
+    """전략별 실현손익(완료 싸이클): Σprofit, 수익률, 건수, 승률."""
     try:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
@@ -63,10 +72,17 @@ def _cycles(strategy: str) -> dict:
             rows = s.execute(select(CH.profit, CH.total_buy_amount)).all()
         profit = round(sum(float(p or 0) for p, _ in rows), 2)
         buy = sum(float(b or 0) for _, b in rows)
-        pct = round(profit / buy * 100, 2) if buy > 0 else 0.0
-        return {"realized": profit, "realized_pct": pct, "cycles": len(rows)}
+        inv = _invested(strategy)
+        # 수익률: 투입금액 기준(없으면 매수금액 기준 폴백)
+        base = inv if inv > 0 else buy
+        pct = round(profit / base * 100, 2) if base > 0 else 0.0
+        wins = sum(1 for p, _ in rows if float(p or 0) > 0)
+        win_rate = round(wins / len(rows) * 100, 1) if rows else None
+        return {"realized": profit, "realized_pct": pct, "cycles": len(rows),
+                "win_rate": win_rate, "invested": inv}
     except Exception:
-        return {"realized": None, "realized_pct": None, "cycles": 0}
+        return {"realized": None, "realized_pct": None, "cycles": 0,
+                "win_rate": None, "invested": _invested(strategy)}
 
 
 def _holdings(strategy: str) -> dict:
@@ -199,24 +215,26 @@ def build_metrics() -> dict:
             "strategy": k,
             "display_name": DISPLAY_NAMES.get(k, k),
             "kill_switch": er["kill_switch"],
-            "realized_pnl": cy["realized"],          # 10 전략누적손익(실현)
-            "return_pct": cy["realized_pct"],          # 9 전략수익률(실현기준)
+            "invested": cy.get("invested", 0.0),       # 투입금액(시드합)
+            "realized_pnl": cy["realized"],            # 전략누적손익(실현)
+            "return_pct": cy["realized_pct"],          # 전략수익률
+            "win_rate": cy.get("win_rate"),            # 승률
             "cycles": cy["cycles"],
-            "holdings_count": hd["count"],             # 12 보유종목수
-            "holdings": hd["items"],                   # 13 보유종목별(평단·원가)
-            "errors": er["logs"],                      # 15 (전략별)
+            "holdings_count": hd["count"],             # 보유종목수
+            "holdings": hd["items"],                   # 보유종목별(평단·원가)
+            "errors": er["logs"],                      # 오류
         })
 
-    # 5 금일손익 · 11 MDD : equity 시계열에서
+    # MDD : equity 시계열에서 (금일손익은 사용자 요청으로 제거)
     try:
-        from .equity_snapshot import today_pnl, mdd_by_strategy, account_mdd
-        tpnl = today_pnl()
+        from .equity_snapshot import mdd_by_strategy, account_mdd
         mdd = mdd_by_strategy()
         acc_mdd = account_mdd()
     except Exception:
-        tpnl, mdd, acc_mdd = None, {}, None
+        mdd, acc_mdd = {}, None
     for p in per:
-        p["mdd_pct"] = mdd.get(p["strategy"])           # 11 전략 MDD
+        p["mdd_pct"] = mdd.get(p["strategy"])           # 전략 MDD
+    active_strats = sum(1 for p in per if not p["kill_switch"])
 
     trades = []
     for k in strategies:
@@ -231,13 +249,17 @@ def build_metrics() -> dict:
             "net_invested": canon.get("buy_amt", 0),   # 2 순투입(매입원금)
             "total_pnl": pnl,                          # 3 총손익(평가)
             "total_return_pct": canon.get("pnl_rt", 0),# 4 총수익률
-            "today_pnl": tpnl,                         # 5 금일손익
             "realized_pnl": round(realized_all, 2),    # 6 실현손익(전 전략 Σ)
             "unrealized_pnl": pnl,                     # 7 미실현(평가손익)
             "cash": cash,
             "cash_ratio": round(cash / tot * 100, 2) if tot else None,  # 8 현금비중
             "mdd_pct": acc_mdd,                         # 11 계좌 MDD
             "snapshot_at": canon.get("updated_at"),
+        },
+        "automation": {                                 # 자동매매 상태
+            "active": active_strats,
+            "total": len(per),
+            "running": active_strats > 0,
         },
         "strategies": per,                              # 9~13,15
         "recent_trades": trades,                        # 14 매매로그
