@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual envs
+venv/
+.venv/
+env/
+
+# DB (전략별 데이터는 배포 시 보존, 소스에는 미포함)
+*.db
+strategies/*/data/*.db
+
+# Secrets / keys
+*.pem
+*.key
+kis_devlp.yaml
+
+# Editors / OS
+.idea/
+.cursor/
+.vscode/
+.DS_Store
+
+# Build / archive
+*.zip

@@ -1,0 +1,37 @@
+========================================
+ 무한매수법 V2.2 - 서버 배포 가이드
+========================================
+
+■ 수정 사항 (이번 배포) - 무한매수법 + 떨사오팔 공통
+- 토큰 공유(get_shared_client): KIS 1분당 1회 제한 회피, API/워커 동시 호출 시 충돌 방지
+- 워커 로그 AppLog 기록: 대시보드 로그 화면에 워커 실행/스킵/완료/오류 표시
+- 설정 저장 시 공유 클라이언트 초기화
+- [무한매수법] 동기화 최적화: inquire_ccnl 중복 제거, inquire_present_balance 1회만 조회
+
+■ 배포 방법
+
+1. 무한매수법만 배포
+   - C:\Users\USER\infinite_buy_v22\deploy.bat 더블클릭
+   - 또는 deploy.ps1 실행
+
+2. 무한매수법 + 떨사오팔 함께 배포
+   - C:\Users\USER\deploy_all.bat 더블클릭
+
+3. PEM 비밀번호 없이 배포하려면 (한 번만)
+   - C:\Users\USER\remove_pem_passphrase.bat 실행
+   - 현재 비밀번호 입력 → 새 비밀번호는 엔터만 (비우기)
+
+■ 배포 후 확인
+
+- 무한매수법: http://49.50.135.220:8000/dashboard
+- 떨사오팔:    http://49.50.135.220:8001/dashboard
+
+■ 서버에서 수동 재시작 (필요 시)
+
+ssh root@49.50.135.220
+
+# 무한매수법만
+bash /root/infinite/scripts/run_server.sh
+
+# 두 앱 모두
+bash /root/run_server_all.sh

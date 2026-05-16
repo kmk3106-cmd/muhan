@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Infinite Buy Dashboard - Clean Design Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg0:#070A12;--bg1:#0B1020;
+      --panel:rgba(255,255,255,.06);--panel2:rgba(255,255,255,.09);
+      --stroke:rgba(255,255,255,.10);
+      --text:#E9EEFF;--muted:rgba(233,238,255,.66);--muted2:rgba(233,238,255,.46);
+      --good:#3CF2A0;--bad:#FF4D6D;--warn:#FFCC66;
+      --accent:#7C5CFF;--accent2:#4DD7FF;
+      --shadow:0 20px 60px rgba(0,0,0,.45);
+      --radius:18px;--radius2:24px;--gap:16px;
+      --font:"Inter","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+      --mono:"D2Coding","Consolas","Noto Sans KR",monospace;
+    }
+    [data-theme="light"]{
+      --bg0:#F6F7FB;--bg1:#FFFFFF;
+      --panel:rgba(12,16,32,.06);--panel2:rgba(12,16,32,.08);
+      --stroke:rgba(12,16,32,.10);
+      --text:#0C1020;--muted:rgba(12,16,32,.62);--muted2:rgba(12,16,32,.45);
+      --shadow:0 16px 50px rgba(16,24,40,.12);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    html,body{height:100%}
+    body{
+      font-family:var(--font);color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 18% -10%,rgba(124,92,255,.35),transparent 60%),
+        radial-gradient(900px 500px at 90% 0%,rgba(77,215,255,.22),transparent 55%),
+        radial-gradient(900px 800px at 30% 100%,rgba(60,242,160,.15),transparent 60%),
+        linear-gradient(180deg,var(--bg0),var(--bg1));
+      overflow-x:hidden;font-size:13px;
+    }
+    .app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+
+    /* ===== Sidebar ===== */
+    .side{position:sticky;top:0;height:100vh;padding:18px;border-right:1px solid var(--stroke);background:linear-gradient(180deg,rgba(255,255,255,.03),transparent);backdrop-filter:blur(16px);display:flex;flex-direction:column}
+    .brand{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--stroke);background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .logo{width:34px;height:34px;border-radius:12px;background:conic-gradient(from 200deg,var(--accent),var(--accent2),var(--good),var(--accent));box-shadow:0 10px 30px rgba(124,92,255,.25);flex-shrink:0}
+    .brand h1{font-size:13px;letter-spacing:.2px}
+    .brand p{margin-top:2px;font-size:11px;color:var(--muted)}
+    .nav{margin-top:14px;padding:10px;border:1px solid var(--stroke);background:var(--panel);border-radius:var(--radius2)}
+    .nav a{display:flex;align-items:center;justify-content:space-between;text-decoration:none;color:var(--muted);padding:11px 12px;border-radius:14px;font-size:12.5px;transition:.15s ease}
+    .nav a:hover{background:var(--panel2);color:var(--text)}
+    .nav a.active{background:linear-gradient(135deg,rgba(124,92,255,.25),rgba(77,215,255,.16));color:var(--text);border:1px solid rgba(124,92,255,.25)}
+    .chip{font-size:10px;padding:3px 7px;border-radius:999px;border:1px solid var(--stroke);background:rgba(0,0,0,.12);color:var(--muted);white-space:nowrap}
+    [data-theme="light"] .chip{background:rgba(255,255,255,.6)}
+    .side-footer{margin-top:auto;display:grid;gap:10px}
+    .mini{padding:11px 12px;border-radius:var(--radius);border:1px solid var(--stroke);background:var(--panel);display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .mini b{font-size:12px}
+    .mini span{font-size:11px;color:var(--muted)}
+    .toggle-theme{cursor:pointer;border:1px solid var(--stroke);background:var(--panel2);color:var(--text);padding:10px 12px;border-radius:14px;font-size:12px;width:100%;text-align:center}
+    .toggle-theme:hover{background:var(--panel)}
+
+    /* ===== Main ===== */
+    .main{padding:22px;display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .title h2{font-size:20px;letter-spacing:.2px}
+    .title p{margin-top:4px;font-size:12px;color:var(--muted)}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .status-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;border:1px solid var(--stroke);background:var(--panel)}
+    .dot{width:10px;height:10px;border-radius:50%;background:var(--good);box-shadow:0 0 0 6px rgba(60,242,160,.12);flex-shrink:0}
+    .dot.off{background:var(--bad);box-shadow:0 0 0 6px rgba(255,77,109,.12)}
+    .status-bar b{font-size:12px}
+    .status-bar span{font-size:11px;color:var(--muted)}
+
+    .btn{border:1px solid var(--stroke);background:var(--panel);color:var(--text);padding:9px 14px;border-radius:14px;font-size:12px;cursor:pointer;transition:.15s ease;font-family:var(--font);white-space:nowrap}
+    .btn:hover{transform:translateY(-1px);background:var(--panel2)}
+    .btn.primary{border:1px solid rgba(124,92,255,.35);background:linear-gradient(135deg,rgba(124,92,255,.35),rgba(77,215,255,.18))}
+    .btn.danger{border:1px solid rgba(255,77,109,.3);background:rgba(255,77,109,.15);color:var(--bad)}
+    .btn.danger:hover{background:rgba(255,77,109,.25)}
+    .btn-sm{padding:6px 10px;font-size:11px;border-radius:10px}
+
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap)}
+    .card{border:1px solid var(--stroke);background:var(--panel);border-radius:var(--radius2);box-shadow:var(--shadow);overflow:hidden;position:relative}
+    .card::before{content:"";position:absolute;inset:-1px;background:radial-gradient(600px 120px at 10% 0%,rgba(124,92,255,.22),transparent 60%);pointer-events:none;opacity:.9}
+    .card .in{position:relative;padding:14px 14px 12px}
+    .kpiLabel{font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .kpiValue{margin-top:8px;font-size:22px;font-weight:700;letter-spacing:.2px}
+    .kpiSub{margin-top:6px;font-size:11.5px;color:var(--muted2)}
+    .up{color:var(--good)}
+    .down{color:var(--bad)}
+    .pnl-plus{color:var(--good)}
+    .pnl-minus{color:var(--bad)}
+
+    .sec{margin-top:4px}
+    .sec-inner{position:relative;padding:16px}
+    .sec-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+    .sec-header h3{font-size:15px;font-weight:600}
+    .filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .date-input{padding:7px 10px;background:var(--panel2);border:1px solid var(--stroke);border-radius:10px;color:var(--text);font-size:12px;font-family:var(--mono)}
+    .filter-sep{color:var(--muted2);font-size:12px}
+    .tab{font-size:11px;padding:7px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(0,0,0,.10);color:var(--muted);cursor:pointer;font-family:var(--font);white-space:nowrap}
+    [data-theme="light"] .tab{background:rgba(255,255,255,.6)}
+    .tab:hover{color:var(--text);border-color:rgba(124,92,255,.25)}
+    .tab.active{color:var(--text);border-color:rgba(124,92,255,.35);background:rgba(124,92,255,.18)}
+
+    table{width:100%;border-collapse:separate;border-spacing:0 8px;font-size:16px}
+    thead th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;padding:0 10px;text-transform:uppercase;letter-spacing:.5px}
+    tbody tr{background:rgba(255,255,255,.04)}
+    tbody td{padding:11px 10px;border-top:1px solid var(--stroke);border-bottom:1px solid var(--stroke)}
+    tbody td:first-child{border-left:1px solid var(--stroke);border-top-left-radius:14px;border-bottom-left-radius:14px}
+    tbody td:last-child{border-right:1px solid var(--stroke);border-top-right-radius:14px;border-bottom-right-radius:14px}
+    .pill{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;border:1px solid var(--stroke);font-size:11px;font-weight:500}
+    .pill.buy{border-color:rgba(255,77,109,.25);color:rgba(255,77,109,.95);background:rgba(255,77,109,.08)}
+    .pill.sell{border-color:rgba(60,242,160,.25);color:rgba(60,242,160,.95);background:rgba(60,242,160,.08)}
+    .ticker-name{font-weight:700;font-size:17px}
+    .ticker-sub{font-size:10.5px;color:var(--muted2);margin-top:2px}
+    .text-right{text-align:right!important}
+    .text-muted{color:var(--muted2);font-size:15.5px}
+    .text-mono{font-family:var(--mono);font-size:17px}
+    .log-area{font-family:var(--mono);font-size:12px;background:rgba(0,0,0,.25);padding:14px;border-radius:14px;max-height:200px;overflow-y:auto;border:1px solid var(--stroke);line-height:1.7}
+    @media(max-width:1100px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}; .app{grid-template-columns:1fr}; .side{position:relative;height:auto} }
+    @media(max-width:600px){ .kpis{grid-template-columns:1fr}; .main{padding:14px}; .topbar{flex-direction:column;align-items:flex-start} }
+
+    /* =========================
+       CLEAN UI PATCH (drop-in)
+       - JS / id / class 유지
+       ========================= */
+
+    /* 1) 타이포그래피 규칙 통일 */
+    html, body {
+      font-size: 14px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    :root {
+      --radius: 14px;
+      --radius2: 18px;
+      --gap: 14px;
+      --panel: rgba(255,255,255,.045);
+      --panel2: rgba(255,255,255,.07);
+      --stroke: rgba(255,255,255,.08);
+      --shadow: 0 10px 28px rgba(0,0,0,.22);
+      --muted: rgba(233,238,255,.70);
+      --muted2: rgba(233,238,255,.52);
+    }
+
+    [data-theme="light"] {
+      --panel: rgba(12,16,32,.035);
+      --panel2: rgba(12,16,32,.055);
+      --stroke: rgba(12,16,32,.08);
+      --shadow: 0 8px 24px rgba(16,24,40,.08);
+      --muted: rgba(12,16,32,.64);
+      --muted2: rgba(12,16,32,.48);
+    }
+
+    /* 숫자 정렬 가독성 */
+    .text-mono, .kpiValue, #acct-tot, #acct-stock, #acct-cash, #acct-buy, #acct-pnl, #acct-pnl-pct,
+    table td { font-variant-numeric: tabular-nums; }
+
+    /* 2) 과한 배경/광원 효과 줄이기 */
+    body {
+      background:
+        radial-gradient(900px 420px at 20% -10%, rgba(124,92,255,.16), transparent 60%),
+        radial-gradient(700px 400px at 90% 0%, rgba(77,215,255,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+    }
+
+    .card {
+      box-shadow: var(--shadow);
+      border-radius: var(--radius2);
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+    }
+
+    .card::before {
+      opacity: .18 !important;
+      background: radial-gradient(420px 90px at 10% 0%, rgba(255,77,109,.10), transparent 60%);
+    }
+
+    /* 3) 섹션/헤더 위계 정리 */
+    .main { gap: 14px; }
+
+    .title h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .title p {
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .sec-header { margin-bottom: 12px; }
+
+    .sec-header h3 {
+      font-size: 15px;
+      font-weight: 650;
+      letter-spacing: -0.1px;
+    }
+
+    /* 4) KPI 카드 텍스트 정리 */
+    .card .in { padding: 14px; }
+
+    .kpiLabel {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .kpiValue {
+      margin-top: 6px;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.25px;
+    }
+
+    .kpiSub {
+      margin-top: 5px;
+      font-size: 12px;
+      color: var(--muted2);
+    }
+
+    /* 5) 상태바 / 버튼 / 칩 스타일 톤다운 */
+    .status-bar {
+      padding: 8px 11px !important;
+      border-radius: 12px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--stroke);
+      gap: 8px;
+    }
+    .status-bar b { font-size: 11px; font-weight: 600; }
+    .status-bar span { font-size: 11px !important; color: var(--muted); }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      box-shadow: 0 0 0 4px rgba(60,242,160,.10);
+    }
+    .dot.off { box-shadow: 0 0 0 4px rgba(255,77,109,.10); }
+
+    .btn {
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 500;
+      box-shadow: none;
+    }
+
+    .btn-sm {
+      height: 30px;
+      padding: 0 10px;
+      font-size: 11px;
+      border-radius: 8px;
+    }
+
+    .btn:hover {
+      transform: none;
+      background: var(--panel2);
+    }
+
+    .chip {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+    }
+
+    /* 6) 네비게이션 정리 */
+    .nav { padding: 8px; border-radius: 16px; }
+
+    .nav a {
+      min-height: 38px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .nav a.active {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--text);
+    }
+
+    /* 7) 테이블 가독성 개선 */
+    table {
+      font-size: 13px !important;
+      border-spacing: 0 6px;
+    }
+
+    thead th {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted2);
+      padding: 0 10px 4px 10px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    tbody tr { background: rgba(255,255,255,.025); }
+
+    tbody td {
+      padding: 10px 10px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+
+    tbody td:first-child,
+    tbody td:last-child {
+      border-left: 1px solid rgba(255,255,255,.06);
+      border-right: 1px solid rgba(255,255,255,.06);
+    }
+
+    .ticker-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.1px;
+    }
+
+    .ticker-sub {
+      font-size: 11px;
+      color: var(--muted2);
+    }
+
+    .text-muted {
+      color: var(--muted2);
+      font-size: 12px !important;
+    }
+
+    .text-mono {
+      font-size: 13px !important;
+    }
+
+    /* 8) pill 통일 */
+    .pill {
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .pill.buy {
+      background: rgba(255,77,109,.08);
+      border-color: rgba(255,77,109,.16);
+      color: #ff7d93;
+    }
+    .pill.sell {
+      background: rgba(60,242,160,.08);
+      border-color: rgba(60,242,160,.16);
+      color: #66eab2;
+    }
+
+    /* 9) 로그 영역 */
+    .log-area {
+      font-size: 12px;
+      line-height: 1.55;
+      background: rgba(0,0,0,.18);
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+    }
+
+    /* 10) 모달/폼 정리 */
+    .modal-content {
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-content h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    /* 11) 모바일 */
+    @media (max-width: 480px) {
+      .title h2 { font-size: 18px; }
+      .kpiValue { font-size: 20px; }
+      table { font-size: 12px !important; }
+      .ticker-name { font-size: 13px; }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+<div class="app">
+
+  <aside class="side">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>Infinite Buy Engine</h1>
+        <p>무한매수법 V2.2</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="active" href="#sec-overview"><span>Overview</span><span class="chip">LIVE</span></a>
+      <a href="#sec-portfolio"><span>포트폴리오</span><span class="chip">2</span></a>
+      <a href="#sec-orders"><span>오늘 주문</span><span class="chip">예정</span></a>
+      <a href="#sec-pending"><span>미체결</span><span class="chip">3</span></a>
+      <a href="#sec-trades"><span>거래내역</span><span class="chip">체결</span></a>
+      <a href="#sec-logs"><span>로그</span><span class="chip">LOG</span></a>
+    </nav>
+    <div class="side-footer">
+      <div class="mini">
+        <div><b>Kill Switch</b><br><span>정상</span></div>
+        <div style="display:flex;gap:4px">
+          <button class="chip" style="cursor:pointer;color:var(--bad)">긴급정지</button>
+          <button class="chip" style="cursor:pointer">해제</button>
+        </div>
+      </div>
+      <button class="toggle-theme" id="themeBtn">🌙 / ☀️ Theme</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar" id="sec-overview">
+      <div class="title">
+        <h2>Dashboard</h2>
+        <p>실시간 상태 · 포지션 · 수익률을 한 화면에</p>
+      </div>
+      <div class="actions">
+        <div class="status-bar">
+          <div class="dot"></div>
+          <div><b>동기화</b><br><span>2026-02-20 15:30:02</span></div>
+        </div>
+        <div class="status-bar">
+          <div><b>KIS API</b><br><span>연결됨</span></div>
+        </div>
+        <div class="status-bar">
+          <div><b>서버 시각</b><br><span>2026-02-20 15:30</span></div>
+        </div>
+        <button class="btn primary">🔄 전체 실행</button>
+        <button class="btn">동기화만</button>
+      </div>
+    </div>
+
+    <section class="kpis">
+      <div class="card"><div class="in">
+        <div class="kpiLabel"><span>계좌총액</span><span class="chip">USD</span></div>
+        <div class="kpiValue" id="acct-tot">$12,450.00</div>
+        <div class="kpiSub" id="acct-exrt">KRW 1,380원</div>
+      </div></div>
+      <div class="card"><div class="in">
+        <div class="kpiLabel"><span>주식평가</span><span class="chip">Stock</span></div>
+        <div class="kpiValue" id="acct-stock">$8,120.50</div>
+        <div class="kpiSub">예수금: <strong id="acct-cash">$4,329.50</strong></div>
+      </div></div>
+      <div class="card"><div class="in">
+        <div class="kpiLabel"><span>매입금액</span><span class="chip">Cost</span></div>
+        <div class="kpiValue" id="acct-buy">$7,850.00</div>
+        <div class="kpiSub">총 투자 원금</div>
+      </div></div>
+      <div class="card"><div class="in">
+        <div class="kpiLabel"><span>평가손익</span><span class="chip">PnL</span></div>
+        <div class="kpiValue"><span id="acct-pnl" class="pnl-plus">+$270.50</span></div>
+        <div class="kpiSub">수익률: <span id="acct-pnl-pct" class="pnl-plus">+3.45</span>%</div>
+      </div></div>
+    </section>
+
+    <section class="sec" id="sec-pending">
+      <div class="card">
+        <div class="sec-inner">
+          <div class="sec-header">
+            <h3>미체결 주문 (실시간)</h3>
+            <button class="btn btn-sm danger">주문취소</button>
+            <button class="btn btn-sm">🔄 새로고침</button>
+          </div>
+          <table>
+            <thead><tr><th>Ticker</th><th>구분</th><th>가격</th><th>수량</th><th>주문번호</th><th>주문일시</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="ticker-name">SOXL</div><div class="ticker-sub">Direxion Daily Semiconductor Bull 3X</div></td>
+                <td><span class="pill buy">LOC 매수</span></td>
+                <td class="text-mono">-</td>
+                <td class="text-mono">1주</td>
+                <td class="text-mono">0030728972</td>
+                <td class="text-muted">2026-02-25 00:00:02</td>
+              </tr>
+              <tr>
+                <td><div class="ticker-name">SOXL</div><div class="ticker-sub">Direxion Daily Semiconductor Bull 3X</div></td>
+                <td><span class="pill buy">LOC 매수</span></td>
+                <td class="text-mono">-</td>
+                <td class="text-mono">1주</td>
+                <td class="text-mono">0030728995</td>
+                <td class="text-muted">2026-02-25 00:00:02</td>
+              </tr>
+              <tr>
+                <td><div class="ticker-name">SOXL</div><div class="ticker-sub">Direxion Daily Semiconductor Bull 3X</div></td>
+                <td><span class="pill sell">LOC 매도</span></td>
+                <td class="text-mono">-</td>
+                <td class="text-mono">2주</td>
+                <td class="text-mono">0030729025</td>
+                <td class="text-muted">2026-02-25 00:00:03</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="sec-trades">
+      <div class="card">
+        <div class="sec-inner">
+          <div class="sec-header">
+            <h3>거래내역 (체결)</h3>
+            <div class="filter-bar">
+              <input type="date" class="date-input" value="2026-02-01" />
+              <span class="filter-sep">~</span>
+              <input type="date" class="date-input" value="2026-02-20" />
+              <button class="tab active">검색</button>
+              <button class="tab">📥 Excel</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>일자</th><th>Ticker</th><th>구분</th><th>가격</th><th>수량</th><th>금액</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="text-muted">2026-02-20</td>
+                <td><div class="ticker-name">SOXL</div></td>
+                <td><span class="pill buy">LOC</span></td>
+                <td class="text-mono">$45.20</td>
+                <td class="text-mono">2주</td>
+                <td class="text-mono text-right">$90.40</td>
+              </tr>
+              <tr>
+                <td class="text-muted">2026-02-19</td>
+                <td><div class="ticker-name">SOXL</div></td>
+                <td><span class="pill sell">MOC</span></td>
+                <td class="text-mono">$46.80</td>
+                <td class="text-mono">1주</td>
+                <td class="text-mono text-right">$46.80</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="sec-logs">
+      <div class="card">
+        <div class="sec-inner">
+          <div class="sec-header"><h3>로그</h3></div>
+          <div class="log-area">
+            <div>2026-02-20 15:30:02 [INFO] 동기화 완료. 주식 $8,120.50 / 예수금 $4,329.50</div>
+            <div>2026-02-20 15:30:01 [INFO] KIS API 연결 확인</div>
+            <div>2026-02-20 15:29:58 [INFO] 워커 스케줄: 다음 15:45</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+document.getElementById('themeBtn').addEventListener('click', function() {
+  document.body.dataset.theme = (document.body.dataset.theme === 'dark') ? 'light' : 'dark';
+});
+</script>
+</body>
+</html>

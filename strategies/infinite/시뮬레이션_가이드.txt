@@ -1,0 +1,92 @@
+========================================
+ 무한매수법 V2.2 시뮬레이션 테스트 가이드
+========================================
+
+※ 실제 거래 DB(infinite_buy.db)와 완전 분리됩니다.
+※ 시뮬레이션 전용 DB: infinite_buy_sim.db
+
+
+[1] 시뮬레이션 실행 (cmd에서)
+----------------------------------------
+
+cd C:\Users\USER\infinite_buy_v22
+
+# 기본 시나리오 (하락→횡보→반등→익절, 50일)
+.venv\Scripts\python simulate.py --reset --scenario default --days 50
+
+# 폭락 시나리오 (60일 폭락 + 40일 회복 = 100일, QUARTER 모드 테스트)
+.venv\Scripts\python simulate.py --reset --scenario crash --days 60
+
+# V자 반등 (급락 후 빠른 회복, 50일)
+.venv\Scripts\python simulate.py --reset --scenario recovery --days 50
+
+# 시드/목표수익률/시작가 변경
+.venv\Scripts\python simulate.py --reset --seed 10000 --R 12 --price 30
+
+# 티커명 변경
+.venv\Scripts\python simulate.py --reset --ticker SOXL
+
+
+[2] 옵션 설명
+----------------------------------------
+
+--reset          기존 시뮬 데이터 초기화 후 실행 (권장)
+--ticker         시뮬용 티커명 (기본: SIM_TEST)
+--seed           시드 금액 $ (기본: 4000)
+--A              분할 일수 (기본: 40)
+--R              목표수익률 % (기본: 10)
+--price          시작 주가 $ (기본: 50)
+--days           시뮬레이션 일수 (기본: 50)
+--scenario       시나리오 선택:
+                   default  = 하락→횡보→반등→익절
+                   crash    = 60일 폭락 + 40일 회복 (QUARTER 테스트)
+                   recovery = V자 급반등
+
+
+[3] 대시보드에서 시뮬 결과 확인
+----------------------------------------
+
+# 시뮬 DB로 서버 띄우기
+set DATABASE_URL=sqlite:///infinite_buy_sim.db
+.venv\Scripts\python main.py
+
+# 브라우저에서 접속
+http://localhost:8000
+
+# 실제 서버로 돌아가려면 (환경변수 없이)
+.venv\Scripts\python main.py
+
+
+[4] 시나리오별 검증 포인트
+----------------------------------------
+
+default (기본):
+  - NORMAL 전반전(T<20): 매수 2건 + 매도 2건 생성 확인
+  - NORMAL 후반전(T>=20): 매수 1건 + 매도 2건 생성 확인
+  - LOC/LIMIT 매도 체결 시 T 감소 확인
+  - 싸이클 종료(qty=0) → 성공리포트 생성 확인
+  - 다음 싸이클 자동 시작 확인
+
+crash (폭락):
+  - T가 39~40 도달 시 QUARTER 모드 진입 확인
+  - step 0: MOC 1/4 매도만 (매수 없음) 확인
+  - step 1~10: LOC매수 + LOC매도1/4 + LIMIT매도3/4 확인
+  - 10회 완료 후 step 0 리셋 (MOC 매도 반복) 확인
+  - 주가 회복 시 LOC매도 체결 → NORMAL 후반전 복귀 확인
+
+recovery (V자 반등):
+  - 급락 후 빠른 반등으로 매도 체결 확인
+  - 싸이클 빠르게 종료되는지 확인
+
+
+[5] 콘솔 로그 읽는 법
+----------------------------------------
+
+● = 체결됨,  ○ = 미체결
+
+예시:
+  Day 15 | 주가: $42.30 | 후반전
+    ● 매수 LOC $43.99 × 2주 → 체결 (체결가 $42.30)
+    ○ 매도 LOC $43.50 × 5주 → 미체결
+    ○ 매도 LIMIT $48.00 × 15주 → 미체결
+    → T=15.0, ☆%=3.1%, avg=$44.20, qty=32

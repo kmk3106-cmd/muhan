@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Database
+*.db
+*.sqlite3
+
+# Secrets / Keys
+*.pem
+*.key
+kis_devlp.yaml
+%USERPROFILE%/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Build / Deploy artifacts
+*.zip
+*.tar.gz
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

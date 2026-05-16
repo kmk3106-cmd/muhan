@@ -1,0 +1,17 @@
+# trading_suite - 무한매수법 + 떨사오팔 통합 (두 원본 requirements 합집합)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+sqlalchemy>=2.0.0
+apscheduler>=3.10.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+requests>=2.31.0
+pandas>=2.0.0
+pyyaml>=6.0.0
+python-dotenv>=1.0.0
+jinja2>=3.1.0
+httpx>=0.25.0
+# 코드가 임포트하나 원본 requirements에 누락되어 있던 의존 (import 회귀용으로 명시)
+websockets>=12.0
+yfinance>=0.2.0
+pytz>=2023.3

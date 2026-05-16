@@ -1,0 +1,26 @@
+# Railway / PaaS 업로드 시 제외 (업로드 용량·타임아웃 방지)
+# .gitignore와 동일 문법
+
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.cursor/
+*.db
+*.sqlite3
+*.log
+.kill_switch
+data/
+node_modules/
+.idea/
+.vscode/
+*.pem
+*.key
+kis_devlp.yaml
+*.zip
+*.tar.gz
+.DS_Store
+Thumbs.db
+Desktop.ini
