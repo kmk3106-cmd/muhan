@@ -93,8 +93,8 @@ def set_strategy_budget(name: str, body: BudgetBody):
 # 전략 표시 메타 (데이터 주도 · 신규 전략은 SUB_APPS + 여기 항목만 추가).
 # kind: 전략관리 폼/엔드포인트 분기용 (infinite=Portfolio API, ddsop=Ticker API)
 _STRAT_META = {
-    "infinite": {"sub": "무한매수법 v2.2 · 40분할", "icon": "fa-infinity", "kind": "infinite",
-        "logic": "라오어식 무한매수법. 시드를 A회(기본 40)로 분할해 매일 LOC 분할매수 — "
+    "infinite": {"sub": "무한매수법 V2.2 · 40분할", "icon": "fa-infinity", "kind": "infinite",
+        "logic": "라오어식 무한매수법 V2.2. 시드를 A회(기본 40)로 분할해 매일 LOC 분할매수 — "
                  "전반전(T<20)은 평단·☆% 2분할 공격 매수, 후반전/40회차 도달 시 쿼터손절"
                  "(QUARTER) 모드로 전환. 평단가 대비 +R% 도달 시 LOC 전량매도로 싸이클 종료."},
     "ddsop": {"sub": "떨사오팔 · n트렌치", "icon": "fa-droplet", "kind": "ddsop",
@@ -468,14 +468,20 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
  var lp=kind==='infinite'?('/'+k+'/api/portfolios'):('/'+k+'/api/tickers');
  fetch(lp).then(function(r){return r.json();}).then(function(rows){
   if(!rows||!rows.length){$('tklist').innerHTML='<div class="muted">등록된 종목 없음</div>';return;}
+  var inf=kind==='infinite';
   $('tklist').innerHTML='<table class="tbl"><thead><tr><th>티커</th>'+
-   '<th style="text-align:right">'+(kind==='infinite'?'시드':'총액')+'</th>'+
-   '<th style="text-align:right">'+(kind==='infinite'?'분할(A)':'트렌치')+'</th>'+
+   '<th style="text-align:right">'+(inf?'시드':'총액')+'</th>'+
+   '<th style="text-align:right">'+(inf?'분할(A)':'트렌치')+'</th>'+
+   (inf?'<th style="text-align:right">T(회차)</th><th style="text-align:right">☆%</th>'+
+    '<th>모드</th><th style="text-align:right">싸이클</th>':'')+
    '<th>진행</th><th></th></tr></thead><tbody>'+rows.map(function(r){
-   var amt=kind==='infinite'?r.seed:r.total_usd;var div=kind==='infinite'?r.A:r.num_tranches;
-   var on=r.trading_enabled;
+   var amt=inf?r.seed:r.total_usd;var div=inf?r.A:r.num_tranches;var on=r.trading_enabled;
+   var infc=inf?('<td style="text-align:right"><b>'+(r.T==null?'—':Number(r.T).toFixed(1))+
+    '</b></td><td style="text-align:right">'+(r.star_pct==null?'—':Number(r.star_pct).toFixed(2)+'%')+
+    '</td><td><span class="bdg '+((''+r.mode).indexOf('QUARTER')>=0?'part':'run')+'">'+
+    esc(r.mode||'NORMAL')+'</span></td><td style="text-align:right">C'+(r.current_cycle||1)+'</td>'):'';
    return '<tr><td><b>'+esc(r.ticker)+'</b></td><td style="text-align:right">'+money(amt)+
-   '</td><td style="text-align:right">'+div+'</td><td><span class="bdg '+(on?'run':'stop')+'">'+
+   '</td><td style="text-align:right">'+div+'</td>'+infc+'<td><span class="bdg '+(on?'run':'stop')+'">'+
    (on?'진행':'대기')+'</span></td><td style="text-align:right">'+
    '<button class="btn sm" onclick="togTrade(\''+k+'\','+r.id+')">진행 토글</button> '+
    '<button class="btn sm dg" onclick="delTicker(\''+k+'\','+r.id+')">삭제</button></td></tr>';
@@ -629,18 +635,64 @@ function pgRisk(){var a=MET.account||{},ss=MET.strategies||[];
   '</tbody></table></div>')+'</div>';
  $('page').innerHTML=h;}
 function pgPerf(){var ss=MET.strategies||[];
- $('page').innerHTML='<div class="tip"><i class="fa-solid fa-flask"></i>성과 분석은 전략 에이전트 '+
-  '위임 영역입니다. 현재는 완료 싸이클(실현) 기준 요약을 제공하며, 심화 분석은 확장 예정.</div>'+
-  '<div class="grid">'+card('전략별 실현 성과','fa-chart-line',
+ var h='<div class="tip"><i class="fa-solid fa-rotate"></i>무한매수법 V2.2·떨사오팔 모두 '+
+  '<b>싸이클 방식</b>입니다. 전략·종목별 싸이클 손익과 해당 싸이클의 매수/매도 거래를 확인하세요. '+
+  '진행중 싸이클은 종료 시 집계됩니다.</div>'+
+  '<div class="grid">'+card('전략 실현 성과 요약','fa-chart-line',
   '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>전략</th>'+
   '<th style="text-align:right">투입원금</th><th style="text-align:right">실현손익</th>'+
   '<th style="text-align:right">수익률</th><th style="text-align:right">승률</th>'+
-  '<th style="text-align:right">싸이클</th></tr></thead><tbody>'+ss.map(function(s){
+  '<th style="text-align:right">완료 싸이클</th></tr></thead><tbody>'+ss.map(function(s){
   return '<tr><td><b>'+esc(s.display_name)+'</b></td><td style="text-align:right">'+money(s.invested)+
   '</td><td style="text-align:right">'+sM(s.realized_pnl)+'</td><td style="text-align:right">'+
   sP(s.return_pct)+'</td><td style="text-align:right">'+(s.win_rate==null?'—':s.win_rate.toFixed(1)+
   '%')+'</td><td style="text-align:right">'+s.cycles+'회</td></tr>';}).join('')+
-  '</tbody></table></div>')+'</div>';}
+  '</tbody></table></div>')+'</div>';
+ ss.forEach(function(s){h+='<div class="grid">'+card('싸이클별 손익 · '+esc(s.display_name),
+  'fa-rotate','<div id="cyc_'+s.strategy+'"><div class="muted">싸이클 불러오는 중…</div></div>')+'</div>';});
+ $('page').innerHTML=h;
+ ss.forEach(function(s){fetch('/'+s.strategy+'/api/cycles').then(function(r){return r.json();})
+  .then(function(d){var it=(d&&d.items)||[];var sm=(d&&d.summary)||{};
+   var box=$('cyc_'+s.strategy);
+   if(!it.length){box.innerHTML='<div class="muted">완료된 싸이클 없음 (진행중이거나 미발생)</div>';return;}
+   it.sort(function(a,b){return (b.end_date||'').localeCompare(a.end_date||'')||b.cycle_number-a.cycle_number;});
+   box.innerHTML='<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>싸이클</th>'+
+    '<th>티커</th><th>기간</th><th style="text-align:right">매수합</th>'+
+    '<th style="text-align:right">매도합</th><th style="text-align:right">손익</th>'+
+    '<th style="text-align:right">수익률</th><th></th></tr></thead><tbody>'+
+    it.map(function(c){return '<tr><td><b>C'+c.cycle_number+'</b></td><td><b>'+esc(c.ticker)+
+    '</b></td><td>'+esc(c.start_date)+' ~ '+esc(c.end_date)+'</td>'+
+    '<td style="text-align:right">'+money(c.total_buy_amount)+'</td>'+
+    '<td style="text-align:right">'+money(c.total_sell_amount)+'</td>'+
+    '<td style="text-align:right">'+sM(c.profit)+'</td><td style="text-align:right">'+
+    sP(c.profit_pct)+'</td><td style="text-align:right">'+
+    '<button class="btn sm" onclick="cycTrades(\''+s.strategy+'\','+c.id+',\''+
+    esc(c.ticker)+' C'+c.cycle_number+'\')">매수/매도</button></td></tr>';}).join('')+
+    '</tbody></table></div><div id="cycd_'+s.strategy+'"></div>';
+  }).catch(function(){$('cyc_'+s.strategy).innerHTML='<div class="muted">싸이클 로드 실패</div>';});});}
+function cycTrades(k,cid,title){var box=$('cycd_'+k);
+ box.innerHTML='<div class="muted">'+esc(title)+' 거래 불러오는 중…</div>';
+ fetch('/'+k+'/api/cycles/'+cid+'/trades').then(function(r){return r.json();}).then(function(d){
+  var tr=(d&&d.trades)||[];
+  if(!tr.length){box.innerHTML='<div class="muted">'+esc(title)+' — 거래 내역 없음</div>';return;}
+  var bs=tr.filter(function(t){return t.side==='buy';}),sl=tr.filter(function(t){return t.side==='sell';});
+  var bSum=bs.reduce(function(a,t){return a+(t.amount||0);},0);
+  var sSum=sl.reduce(function(a,t){return a+(t.amount||0);},0);
+  box.innerHTML='<div style="padding:14px 18px;border-top:1px solid var(--line)">'+
+   '<b style="font-size:13px">'+esc(title)+' 매수/매도 상세</b> '+
+   '<span style="color:var(--c2);font-size:11.5px">매수 '+bs.length+'건 '+money(bSum)+
+   ' · 매도 '+sl.length+'건 '+money(sSum)+' · 손익 '+sM(sSum-bSum)+'</span>'+
+   '<div style="overflow-x:auto;margin-top:10px"><table class="tbl"><thead><tr><th>일자</th>'+
+   '<th>구분</th><th>유형</th><th style="text-align:right">트렌치/회차</th>'+
+   '<th style="text-align:right">가격</th><th style="text-align:right">수량</th>'+
+   '<th style="text-align:right">금액</th></tr></thead><tbody>'+
+   tr.map(function(t){return '<tr><td>'+esc(t.trade_date)+'</td><td><span class="tag '+
+   (t.side==='buy'?'buy">매수':'sell">매도')+'</span></td><td>'+esc(t.order_type||'')+
+   '</td><td style="text-align:right">T'+(t.tranche_num!=null?t.tranche_num:'-')+'</td>'+
+   '<td style="text-align:right">'+money(t.price,2)+'</td><td style="text-align:right">'+t.qty+
+   '</td><td style="text-align:right">'+money(t.amount,2)+'</td></tr>';}).join('')+
+   '</tbody></table></div></div>';
+ }).catch(function(){box.innerHTML='<div class="muted">거래 로드 실패</div>';});}
 function pgMon(){var ss=MET.strategies||[];
  var h='<div class="grid g-2">';
  ss.forEach(function(s){h+='<div class="card"><div class="ch"><span class="ct">'+

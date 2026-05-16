@@ -47,7 +47,7 @@ ADAPTERS = {
 }
 
 DISPLAY_NAMES = {
-    "infinite": "무한매수법",
+    "infinite": "무한매수법 V2.2",
     "ddsop": "떨사오팔",
 }
 
