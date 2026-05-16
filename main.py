@@ -93,10 +93,19 @@ def set_strategy_budget(name: str, body: BudgetBody):
 # 전략 표시 메타 (데이터 주도 · 신규 전략은 SUB_APPS + 여기 항목만 추가).
 # kind: 전략관리 폼/엔드포인트 분기용 (infinite=Portfolio API, ddsop=Ticker API)
 _STRAT_META = {
-    "infinite": {"sub": "무한매수법 v2.2 · 40분할", "icon": "fa-infinity", "kind": "infinite"},
-    "ddsop": {"sub": "떨사오팔 · n트렌치", "icon": "fa-droplet", "kind": "ddsop"},
-    "jongsajongpal": {"sub": "종사종팔 · n트렌치", "icon": "fa-clock-rotate-left", "kind": "ddsop"},
-    "infinite_v3": {"sub": "무한매수법 v3.0", "icon": "fa-infinity", "kind": "infinite"},
+    "infinite": {"sub": "무한매수법 v2.2 · 40분할", "icon": "fa-infinity", "kind": "infinite",
+        "logic": "라오어식 무한매수법. 시드를 A회(기본 40)로 분할해 매일 LOC 분할매수 — "
+                 "전반전(T<20)은 평단·☆% 2분할 공격 매수, 후반전/40회차 도달 시 쿼터손절"
+                 "(QUARTER) 모드로 전환. 평단가 대비 +R% 도달 시 LOC 전량매도로 싸이클 종료."},
+    "ddsop": {"sub": "떨사오팔 · n트렌치", "icon": "fa-droplet", "kind": "ddsop",
+        "logic": "떨어지면 사고 오르면 판다. 총액을 n개 트렌치로 분할 — 전일 종가 −x% 에 "
+                 "트렌치 1칸 LOC 매수, 평단가 +x% 에 LOC 매도. 보유 N거래일(손절일) 경과 "
+                 "트렌치는 MOC 손절매도. 첫 트렌치 매도로 싸이클 종료."},
+    "jongsajongpal": {"sub": "종사종팔 · n트렌치", "icon": "fa-clock-rotate-left", "kind": "ddsop",
+        "logic": "종가에 사고 종가에 판다. 전일 종가에 트렌치 매수, 당일 종가에 매도. "
+                 "n개 트렌치 분할.  ※ 추후 신규 개발 예정."},
+    "infinite_v3": {"sub": "무한매수법 v3.0", "icon": "fa-infinity", "kind": "infinite",
+        "logic": "무한매수법 v3.0 개선 로직.  ※ 추후 신규 개발 예정."},
 }
 
 _SHELL_HTML = r"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
@@ -421,6 +430,8 @@ function pgStrat(){var ss=MET.strategies||[];
   '<div class="form"><div class="fld"><label>전략</label><select id="sSel">'+opt+'</select></div>'+
   '<div class="fld"><label>전략 시드 할당 총액 (USD)</label><input id="sBud" type="number" placeholder="예: 10000"></div>'+
   '<div class="fnote" id="sBinfo">—</div>'+
+  '<div class="tip" style="grid-column:1/-1;margin:0" id="sLogic">'+
+  '<i class="fa-solid fa-circle-info"></i><span>전략 로직</span></div>'+
   '<div class="fact"><button class="btn p" onclick="saveBudget()">시드 할당 저장</button></div></div></div>'+
   '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-plus"></i>티커 추가</span></div>'+
   '<div id="addForm"></div></div></div>';
@@ -430,6 +441,9 @@ function pgStrat(){var ss=MET.strategies||[];
  $('sSel').onchange=loadStratMgr;loadStratMgr();}
 function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).filter(function(s){
   return s.strategy===k;})[0];
+ var sm=STRATS.filter(function(s){return s.key===k;})[0]||{};
+ $('sLogic').innerHTML='<i class="fa-solid fa-circle-info"></i><span><b>전략 로직 — '+
+  esc(sm.label||k)+'</b><br>'+esc(sm.logic||'설명 없음')+'</span>';
  fetch('/api/suite/strategies').then(function(r){return r.json();}).then(function(d){
   var b=(d.budgets||[]).filter(function(x){return x.strategy===k;})[0]||{};
   $('sBud').value=b.assigned_total!=null?b.assigned_total:'';
@@ -698,6 +712,7 @@ def root():
             "sub": _STRAT_META.get(k, {}).get("sub", k),
             "icon": _STRAT_META.get(k, {}).get("icon", "fa-chart-line"),
             "kind": _STRAT_META.get(k, {}).get("kind", "ddsop"),
+            "logic": _STRAT_META.get(k, {}).get("logic", ""),
         }
         for k in SUB_APPS
     ]
