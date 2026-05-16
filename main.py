@@ -688,7 +688,7 @@ function cycTrades(k,cid,title){var box=$('cycd_'+k);
    '<th style="text-align:right">금액</th></tr></thead><tbody>'+
    tr.map(function(t){return '<tr><td>'+esc(t.trade_date)+'</td><td><span class="tag '+
    (t.side==='buy'?'buy">매수':'sell">매도')+'</span></td><td>'+esc(t.order_type||'')+
-   '</td><td style="text-align:right">T'+(t.tranche_num!=null?t.tranche_num:'-')+'</td>'+
+   '</td><td style="text-align:right">'+(t.tranche_num!=null?('T'+t.tranche_num):(t.buy_seq!=null&&t.buy_seq!==''?('회차 '+esc(t.buy_seq)):'-'))+'</td>'+
    '<td style="text-align:right">'+money(t.price,2)+'</td><td style="text-align:right">'+t.qty+
    '</td><td style="text-align:right">'+money(t.amount,2)+'</td></tr>';}).join('')+
    '</tbody></table></div></div>';
