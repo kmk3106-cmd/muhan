@@ -17,7 +17,7 @@ except Exception:
 
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, select, desc, and_
@@ -1682,9 +1682,12 @@ _OLD_INLINE_HTML = """
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard():
+def dashboard(request: Request):
     """대시보드 페이지 (설정, 포트폴리오, 주문, 로그, Kill Switch)"""
-    return HTMLResponse(content=_load_dashboard_html(), headers={"Cache-Control": "no-store, no-cache"})
+    from core.dashboard_prefix import inject_api_base
+    base = request.scope.get("root_path", "") or ""
+    html = inject_api_base(_load_dashboard_html(), base)
+    return HTMLResponse(content=html, headers={"Cache-Control": "no-store, no-cache"})
 
 
 if __name__ == "__main__":
