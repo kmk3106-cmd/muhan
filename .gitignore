@@ -26,6 +26,7 @@ kis_devlp.yaml
 
 # 플랫폼 런타임 상태 (배포별 보존, 소스 미포함)
 core/_strategy_budget.json
+core/_equity.jsonl
 
 # Build / archive
 *.zip

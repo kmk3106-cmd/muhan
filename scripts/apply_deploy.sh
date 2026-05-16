@@ -34,6 +34,7 @@ if [ -d "$BAK" ]; then
     cp "$BAK/strategies/infinite/infinite_buy.db" "$APP/strategies/infinite/" 2>/dev/null || true
     cp "$BAK/strategies/ddsop/ddsop.db"           "$APP/strategies/ddsop/"    2>/dev/null || true
     cp "$BAK/core/_strategy_budget.json"          "$APP/core/"                2>/dev/null || true
+    cp "$BAK/core/_equity.jsonl"                  "$APP/core/"                2>/dev/null || true
     # Kill Switch 상태 보존 (정지된 전략이 재배포로 멋대로 재가동되면 안 됨)
     cp "$BAK/strategies/infinite/.kill_switch" "$APP/strategies/infinite/" 2>/dev/null || true
     cp "$BAK/strategies/ddsop/.kill_switch"    "$APP/strategies/ddsop/"    2>/dev/null || true
