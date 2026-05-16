@@ -892,6 +892,26 @@ def _check_cycle_end(session: Session, portfolio: Portfolio,
     if sell_sum <= 0:
         return False
 
+    # [정합 보강 2026-05-17] 매매규칙 §1: 부분매도로는 싸이클을 종료하지 않는다.
+    # 잔고 qty 동기화가 일시 0으로 보여도, 원장상 현재 싸이클 순보유수량
+    # (싸이클내 매수수량 − 매도수량) > 0 이면 아직 청산 전 → 종료/리셋 금지.
+    bqty_q = select(func.coalesce(func.sum(Trade.qty), 0)).where(
+        Trade.portfolio_id == portfolio.id, Trade.side == "buy")
+    sqty_q = select(func.coalesce(func.sum(Trade.qty), 0)).where(
+        Trade.portfolio_id == portfolio.id, Trade.side == "sell")
+    if cutoff_trade_id is not None:
+        bqty_q = bqty_q.where(Trade.id >= cutoff_trade_id)
+        sqty_q = sqty_q.where(Trade.id >= cutoff_trade_id)
+    elif cutoff_date:
+        bqty_q = bqty_q.where(Trade.trade_date >= cutoff_date)
+        sqty_q = sqty_q.where(Trade.trade_date >= cutoff_date)
+    else:
+        bqty_q = bqty_q.where(Trade.trade_date >= start_date)
+        sqty_q = sqty_q.where(Trade.trade_date >= start_date)
+    net_qty = (session.scalar(bqty_q) or 0) - (session.scalar(sqty_q) or 0)
+    if net_qty > 0:
+        return False
+
     # 안전장치: 현재 싸이클의 "마지막 체결"이 매도가 아닐 때는 종료하지 않는다.
     # (잔고 API 순간값/동기화 지연으로 qty=0으로 보이는 경우, 다음 매수 회차가 '최초'로
     #  잘못 리셋되는 현상을 방지)
