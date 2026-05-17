@@ -406,7 +406,7 @@ function drawLine(){var w=$('cw1');if(!SER||SER.collecting||!SER.points||SER.poi
  if(C1){C1.destroy();C1=null;}w.innerHTML='<canvas id="c1"></canvas>';
  var n=dDays(R1),p=SER.points,last=new Date(p[p.length-1].ts),cut=new Date(last-n*864e5);
  var f=p.map(function(x,i){return {x:x,i:i};}).filter(function(o){return new Date(o.x.ts)>=cut;});
- var off=f.length?f[0].i:0;var L=f.map(function(o){return String(o.x.ts).slice(5,10);});
+ var off=f.length?f[0].i:0;var L=f.map(function(o){return String(o.x.ts).slice(5,16).replace('T',' ');});
  var ds=[{label:'총자산',data:f.map(function(o){return o.x.total_assets;}),borderColor:'#2f6bff',
   backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:0,fill:true,tension:.34,yAxisID:'y'}];
  var j=1;for(var k in (SER.strategy_return||{})){var nm=(STRATS.filter(function(s){
