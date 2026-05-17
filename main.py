@@ -326,7 +326,7 @@ function pgDash(){var a=MET.account||{},au=MET.automation||{},ss=MET.strategies|
  var seg='<div class="seg" id="sg">'+['1주','1개월','3M','6M','전체'].map(function(r){
   return '<button class="sgb'+(r===R1?' on':'')+'">'+r+'</button>';}).join('')+'</div>';
  h+='<div class="grid g-3-1">'+
-  card('전체 자산추이 · 전략별 누적수익률','fa-chart-area','<div class="cw" id="cw1"><canvas id="c1"></canvas></div>',seg)+
+  card('전체 자산추이','fa-chart-area','<div class="cw" id="cw1"><canvas id="c1"></canvas></div>',seg)+
   '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-list"></i>전략 리스트</span></div>'+
   '<div id="slist"></div></div></div>';
  h+='<div class="grid g-2">'+
@@ -420,10 +420,12 @@ function drawLine(){var w=$('cw1');if(!SER||SER.collecting||!SER.points||SER.poi
   data:dp.map(function(o){return o.x.total_assets;}),borderColor:'#2f6bff',
   backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:2,fill:true,tension:.2,yAxisID:'y',
   segment:{borderDash:function(c){return (EST[c.p0DataIndex]||EST[c.p1DataIndex])?[5,4]:undefined;}}}];
- var j=1;for(var k in (SER.strategy_return||{})){var nm=(STRATS.filter(function(s){
-  return s.key===k;})[0]||{}).label||k;ds.push({label:nm+' 수익률',
-  data:dp.map(function(o){return (SER.strategy_return[k]||[])[o.i];}),borderColor:PAL[j%5],
-  borderWidth:2,pointRadius:2,tension:.2,yAxisID:'y1'});j++;}
+ if(dp.some(function(o){return o.x.deposit!=null;})){
+  ds.push({label:'입금액',data:dp.map(function(o){return o.x.deposit;}),borderColor:'#16a34a',
+   borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
+ if(dp.some(function(o){return o.x.withdraw!=null;})){
+  ds.push({label:'출금액',data:dp.map(function(o){return o.x.withdraw;}),borderColor:'#e5484d',
+   borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
  C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:ds},options:{responsive:true,
   maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',boxWidth:7,
@@ -431,9 +433,7 @@ function drawLine(){var w=$('cw1');if(!SER||SER.collecting||!SER.points||SER.poi
   scales:{x:{grid:{display:false},title:{display:true,text:'일자',color:'#9aa3b2',font:{size:10}},
    ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:10}},
   y:{position:'left',grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
-   callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}},
-  y1:{position:'right',grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10},
-   callback:function(v){return v+'%';}}}}}});}
+   callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});}
 /* ---------- 전략 관리 ---------- */
 function pgStrat(){var ss=MET.strategies||[];
  var opt=STRATS.map(function(s){return '<option value="'+s.key+'">'+esc(s.label)+'</option>';}).join('');
