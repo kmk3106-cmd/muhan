@@ -421,11 +421,11 @@ function drawLine(){var w=$('cw1');if(!SER||SER.collecting||!SER.points||SER.poi
   backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:2,fill:true,tension:.2,yAxisID:'y',
   segment:{borderDash:function(c){return (EST[c.p0DataIndex]||EST[c.p1DataIndex])?[5,4]:undefined;}}}];
  if(dp.some(function(o){return o.x.deposit!=null;})){
-  ds.push({label:'입금액',data:dp.map(function(o){return o.x.deposit;}),borderColor:'#16a34a',
-   borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
+  ds.push({label:'입금액 (누적 매수투입)',data:dp.map(function(o){return o.x.deposit;}),
+   borderColor:'#16a34a',borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
  if(dp.some(function(o){return o.x.withdraw!=null;})){
-  ds.push({label:'출금액',data:dp.map(function(o){return o.x.withdraw;}),borderColor:'#e5484d',
-   borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
+  ds.push({label:'출금액 (누적 매도회수)',data:dp.map(function(o){return o.x.withdraw;}),
+   borderColor:'#e5484d',borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
  C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:ds},options:{responsive:true,
   maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',boxWidth:7,
