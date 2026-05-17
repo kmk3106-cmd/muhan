@@ -252,7 +252,10 @@ def build_metrics() -> dict:
             "realized_pnl": round(realized_all, 2),    # 6 실현손익(전 전략 Σ)
             "unrealized_pnl": pnl,                     # 7 미실현(평가손익)
             "cash": cash,
-            "cash_ratio": round(cash / tot * 100, 2) if tot else None,  # 8 현금비중
+            # 현금비중: 예수금/(예수금+주식평가) 일관기준 (KIS 계좌총액은 출금가능 기준이라
+            # cash/tot 는 분자·분모 정의 불일치로 과대 → 현금/(현금+주식) 으로 정정)
+            "cash_ratio": (round(cash / (cash + canon.get("stock_evlu", 0)) * 100, 2)
+                           if (cash + canon.get("stock_evlu", 0)) > 0 else None),  # 8 현금비중
             "mdd_pct": acc_mdd,                         # 11 계좌 MDD
             "snapshot_at": canon.get("updated_at"),
         },

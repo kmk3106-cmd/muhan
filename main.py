@@ -414,8 +414,12 @@ function drawLine(){var w=$('cw1');if(!SER||SER.collecting||!SER.points||SER.poi
   '<div class="t">일별 추이 누적 중</div><div class="s">거래일이 2일 이상 쌓이면 일자별 추이가 표시됩니다 (현재 '+
   dp.length+'일치)</div></div>';return;}
  var L=dp.map(function(o){return String(o.x.ts).slice(5,10);});
- var ds=[{label:'총자산',data:dp.map(function(o){return o.x.total_assets;}),borderColor:'#2f6bff',
-  backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:2,fill:true,tension:.2,yAxisID:'y'}];
+ var EST=dp.map(function(o){return !!o.x.est;});
+ var hasEst=EST.indexOf(true)>=0;
+ var ds=[{label:'총자산'+(hasEst?' (점선=추정 소급)':''),
+  data:dp.map(function(o){return o.x.total_assets;}),borderColor:'#2f6bff',
+  backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:2,fill:true,tension:.2,yAxisID:'y',
+  segment:{borderDash:function(c){return (EST[c.p0DataIndex]||EST[c.p1DataIndex])?[5,4]:undefined;}}}];
  var j=1;for(var k in (SER.strategy_return||{})){var nm=(STRATS.filter(function(s){
   return s.key===k;})[0]||{}).label||k;ds.push({label:nm+' 수익률',
   data:dp.map(function(o){return (SER.strategy_return[k]||[])[o.i];}),borderColor:PAL[j%5],

@@ -73,20 +73,91 @@ def _load() -> list[dict]:
     return out
 
 
-def series(max_points: int = 400) -> dict:
-    """차트용 시계열: 자산추이(평가/순투입/누적손익) + 전략별 누적수익률(%).
+def _cycle_realized_by_date() -> dict:
+    """전략별 {YYYYMMDD: 그날 실현손익 합}. CycleHistory.end_date·profit 기반(DB만)."""
+    from .strategy_adapters import ADAPTERS
+    import importlib
+    out = {}
+    for k in ADAPTERS:
+        agg = {}
+        try:
+            from sqlalchemy import create_engine, select
+            from sqlalchemy.orm import Session
+            cfg = importlib.import_module(f"strategies.{k}.config")
+            models = importlib.import_module(f"strategies.{k}.models")
+            CH = models.CycleHistory
+            with Session(create_engine(cfg.DATABASE_URL)) as s:
+                rows = s.execute(select(CH.end_date, CH.profit)).all()
+            for ed, pf in rows:
+                d = str(ed or "").strip()
+                if len(d) == 8 and d.isdigit():
+                    agg[d] = agg.get(d, 0.0) + float(pf or 0)
+        except Exception:
+            agg = {}
+        out[k] = agg
+    return out
 
-    포인트 < 2 면 빈 배열 → 프런트에서 '수집중' 표기.
+
+def _estimated_daily(first_real_date):
+    """싸이클 실현이력으로 일별 추정 자산곡선(현재총자산 앵커, 실현기준 · 실제 MTM 아님).
+
+    estimated_total(d) = 현재총자산 − 총실현 + (그날까지 누적실현)
+    first_real_date(YYYY-MM-DD) 이전 날짜만 추정 포인트로 채움.
     """
+    try:
+        from .suite_metrics import _account
+        from .strategy_adapters import ADAPTERS, active_rows
+    except Exception:
+        return [], {}
+    canon, cts = {}, ""
+    for k in ADAPTERS:
+        a = _account(k) or {}
+        ts = str(a.get("updated_at") or "")
+        if a and (canon == {} or ts > cts):
+            canon, cts = a, ts
+    cur_total = float(canon.get("tot_evlu", 0) or 0)
+    by = _cycle_realized_by_date()
+    all_days = sorted({d for k in by for d in by[k]})
+    if not cur_total or not all_days:
+        return [], {}
+    total_realized = sum(sum(by[k].values()) for k in by)
+    seeds = {}
+    for k in ADAPTERS:
+        try:
+            seeds[k] = sum(s for _, s in active_rows(k))
+        except Exception:
+            seeds[k] = 0
+    base = cur_total - total_realized
+    pts, cum = [], {k: 0.0 for k in by}
+    sret_est = {k: [] for k in by}
+    for d in all_days:
+        iso = f"{d[:4]}-{d[4:6]}-{d[6:8]}"
+        if first_real_date and iso >= first_real_date:
+            break
+        for k in by:
+            cum[k] += by[k].get(d, 0.0)
+        pts.append({
+            "ts": iso + "T00:00:00+09:00",
+            "total_assets": round(base + sum(cum.values()), 2),
+            "net_invested": round(base, 2),
+            "cum_pnl": round(sum(cum.values()), 2),
+            "est": True,
+        })
+        for k in by:
+            sd = seeds.get(k) or 0
+            sret_est[k].append(round(cum[k] / sd * 100, 2) if sd > 0 else 0.0)
+    return pts, sret_est
+
+
+def series(max_points: int = 400) -> dict:
+    """차트용 시계열: 실측 스냅샷 + 싸이클 기반 추정 소급(est=True)."""
     pts = _load()
-    if len(pts) < 2:
-        return {"points": [], "strategy_return": {}, "collecting": True}
     if len(pts) > max_points:
         step = len(pts) // max_points + 1
         pts = pts[::step] + [pts[-1]]
     try:
         from .strategy_adapters import active_rows, ADAPTERS
-        seeds = {}
+        seeds = {k: 0 for k in ADAPTERS}
         for k in ADAPTERS:
             try:
                 seeds[k] = sum(s for _, s in active_rows(k))
@@ -94,24 +165,29 @@ def series(max_points: int = 400) -> dict:
                 seeds[k] = 0
     except Exception:
         seeds = {}
-    points = [{
+    first_real_date = str(pts[0]["ts"])[:10] if pts else None
+    est_pts, est_sret = _estimated_daily(first_real_date)
+    real_pts = [{
         "ts": p.get("ts"),
         "total_assets": float(p.get("total_assets") or 0),
         "net_invested": float(p.get("net_invested") or 0),
         "cum_pnl": float(p.get("pnl") or 0),
+        "est": False,
     } for p in pts]
-    keys = set()
+    keys = set(est_sret.keys())
     for p in pts:
         keys |= set((p.get("realized") or {}).keys())
-    sret: dict = {}
+    sret = {}
     for k in keys:
-        base = seeds.get(k) or 0
-        ser = []
+        b = seeds.get(k) or 0
+        arr = list(est_sret.get(k, []))
         for p in pts:
             rv = float((p.get("realized") or {}).get(k) or 0)
-            ser.append(round(rv / base * 100, 2) if base > 0 else 0.0)
-        sret[k] = ser
-    return {"points": points, "strategy_return": sret, "collecting": False}
+            arr.append(round(rv / b * 100, 2) if b > 0 else 0.0)
+        sret[k] = arr
+    points = est_pts + real_pts
+    return {"points": points, "strategy_return": sret,
+            "collecting": len(points) < 2, "has_estimate": bool(est_pts)}
 
 
 def _mdd(series: list[float]) -> float | None:
