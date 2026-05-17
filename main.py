@@ -406,18 +406,26 @@ function drawLine(){var w=$('cw1');if(!SER||SER.collecting||!SER.points||SER.poi
  if(C1){C1.destroy();C1=null;}w.innerHTML='<canvas id="c1"></canvas>';
  var n=dDays(R1),p=SER.points,last=new Date(p[p.length-1].ts),cut=new Date(last-n*864e5);
  var f=p.map(function(x,i){return {x:x,i:i};}).filter(function(o){return new Date(o.x.ts)>=cut;});
- var off=f.length?f[0].i:0;var L=f.map(function(o){return String(o.x.ts).slice(5,16).replace('T',' ');});
- var ds=[{label:'총자산',data:f.map(function(o){return o.x.total_assets;}),borderColor:'#2f6bff',
-  backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:0,fill:true,tension:.34,yAxisID:'y'}];
+ // 일(日) 단위 집계: 날짜별 마지막 스냅샷 1포인트 = 그날의 자산/수익률
+ var bym={},order=[];
+ f.forEach(function(o){var d=String(o.x.ts).slice(0,10);if(!(d in bym))order.push(d);bym[d]=o;});
+ var dp=order.map(function(d){return bym[d];});
+ if(dp.length<2){w.innerHTML='<div class="empty"><i class="fa-solid fa-calendar-day"></i>'+
+  '<div class="t">일별 추이 누적 중</div><div class="s">거래일이 2일 이상 쌓이면 일자별 추이가 표시됩니다 (현재 '+
+  dp.length+'일치)</div></div>';return;}
+ var L=dp.map(function(o){return String(o.x.ts).slice(5,10);});
+ var ds=[{label:'총자산',data:dp.map(function(o){return o.x.total_assets;}),borderColor:'#2f6bff',
+  backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:2,fill:true,tension:.2,yAxisID:'y'}];
  var j=1;for(var k in (SER.strategy_return||{})){var nm=(STRATS.filter(function(s){
   return s.key===k;})[0]||{}).label||k;ds.push({label:nm+' 수익률',
-  data:SER.strategy_return[k].slice(off),borderColor:PAL[j%5],borderWidth:2,pointRadius:0,
-  tension:.34,yAxisID:'y1'});j++;}
+  data:dp.map(function(o){return (SER.strategy_return[k]||[])[o.i];}),borderColor:PAL[j%5],
+  borderWidth:2,pointRadius:2,tension:.2,yAxisID:'y1'});j++;}
  C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:ds},options:{responsive:true,
   maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',boxWidth:7,
    padding:14,font:{size:11}}},tooltip:{backgroundColor:'#1a2233',padding:10,cornerRadius:8}},
-  scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:7}},
+  scales:{x:{grid:{display:false},title:{display:true,text:'일자',color:'#9aa3b2',font:{size:10}},
+   ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:10}},
   y:{position:'left',grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
    callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}},
   y1:{position:'right',grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10},
