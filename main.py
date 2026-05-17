@@ -80,6 +80,38 @@ def suite_series():
     return series()
 
 
+class CashflowBody(BaseModel):
+    date: str
+    kind: str           # 'deposit' | 'withdraw'
+    amount: float
+    memo: str = ""
+
+
+@app.get("/api/suite/cashflow")
+def suite_cashflow_list():
+    """실 현금 입출금 원장 (사용자 기록)."""
+    from core.cashflow_ledger import list_entries, summary
+    return {"entries": list_entries(), "summary": summary()}
+
+
+@app.post("/api/suite/cashflow")
+def suite_cashflow_add(body: CashflowBody):
+    from core.cashflow_ledger import add_entry
+    try:
+        rec = add_entry(body.date, body.kind, body.amount, body.memo)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return rec
+
+
+@app.delete("/api/suite/cashflow/{entry_id}")
+def suite_cashflow_del(entry_id: int):
+    from core.cashflow_ledger import delete_entry
+    if not delete_entry(entry_id):
+        raise HTTPException(404, "해당 입출금 기록 없음")
+    return {"deleted": entry_id}
+
+
 @app.post("/api/suite/strategies/{name}/budget")
 def set_strategy_budget(name: str, body: BudgetBody):
     from core.strategy_budget import set_assigned_total
@@ -421,10 +453,10 @@ function drawLine(){var w=$('cw1');if(!SER||SER.collecting||!SER.points||SER.poi
   backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:2,fill:true,tension:.2,yAxisID:'y',
   segment:{borderDash:function(c){return (EST[c.p0DataIndex]||EST[c.p1DataIndex])?[5,4]:undefined;}}}];
  if(dp.some(function(o){return o.x.deposit!=null;})){
-  ds.push({label:'입금액 (누적 매수투입)',data:dp.map(function(o){return o.x.deposit;}),
+  ds.push({label:'입금액(누적)',data:dp.map(function(o){return o.x.deposit;}),
    borderColor:'#16a34a',borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
  if(dp.some(function(o){return o.x.withdraw!=null;})){
-  ds.push({label:'출금액 (누적 매도회수)',data:dp.map(function(o){return o.x.withdraw;}),
+  ds.push({label:'출금액(누적)',data:dp.map(function(o){return o.x.withdraw;}),
    borderColor:'#e5484d',borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
  C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:ds},options:{responsive:true,
   maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
@@ -735,9 +767,45 @@ function pgSys(){var ss=MET.strategies||[];var a=MET.account||{};
    '<button class="btn sm '+(s.kill_switch?'p':'dg')+'" onclick="togKill(\''+s.strategy+'\','+
    (s.kill_switch?'false':'true')+')">'+(s.kill_switch?'재가동':'정지')+'</button></div>';}).join('')+
   '</div></div></div>'+
+  '<div class="card" style="margin-top:16px"><div class="ch"><span class="ct">'+
+  '<i class="fa-solid fa-money-bill-transfer"></i>실 현금 입출금 원장</span>'+
+  '<span style="font-size:11.5px;color:var(--c2)">차트 입금액/출금액 = 이 기록의 일자별 누적</span></div>'+
+  '<div class="form" style="grid-template-columns:repeat(4,1fr) auto">'+
+  '<div class="fld"><label>일자</label><input id="cfDate" type="date"></div>'+
+  '<div class="fld"><label>구분</label><select id="cfKind">'+
+  '<option value="deposit">입금</option><option value="withdraw">출금</option></select></div>'+
+  '<div class="fld"><label>금액 (USD)</label><input id="cfAmt" type="number" placeholder="예: 5000"></div>'+
+  '<div class="fld"><label>메모</label><input id="cfMemo" placeholder="선택"></div>'+
+  '<div class="fld" style="display:flex;align-items:flex-end"><button class="btn p" '+
+  'onclick="addCashflow()">기록 추가</button></div></div>'+
+  '<div id="cfList"><div class="muted">불러오는 중…</div></div></div>'+
   '<div class="tip"><i class="fa-solid fa-shield-halved"></i>보안상 KIS 자격증명(앱키·시크릿) 입력은 '+
-  '이 화면에서 다루지 않습니다. 자격증명 변경은 운영자가 직접 수행하세요.</div>';
- $('page').innerHTML=h;}
+  '이 화면에서 다루지 않습니다. 실 입출금은 외부 거래라 거래데이터로 산출 불가 — 직접 기록해야 정확합니다.</div>';
+ $('page').innerHTML=h;loadCashflow();}
+function loadCashflow(){fetch('/api/suite/cashflow').then(function(r){return r.json();})
+ .then(function(d){var e=d.entries||[],s=d.summary||{};var w=$('cfList');
+  var head='<div style="padding:10px 18px;font-size:12px;color:var(--c1)">총 입금 <b class="up">'+
+   money(s.total_deposit)+'</b> · 총 출금 <b class="dn">'+money(s.total_withdraw)+
+   '</b> · 순입금 <b>'+money(s.net)+'</b></div>';
+  if(!e.length){w.innerHTML=head+'<div class="muted">기록 없음 — 위에서 추가하세요</div>';return;}
+  w.innerHTML=head+'<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>일자</th>'+
+   '<th>구분</th><th style="text-align:right">금액</th><th>메모</th><th></th></tr></thead><tbody>'+
+   e.map(function(x){var d=x.date;var ds=d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8);
+   return '<tr><td>'+ds+'</td><td><span class="tag '+(x.kind==='deposit'?'sell">입금':'buy">출금')+
+   '</span></td><td style="text-align:right"><b>'+money(x.amount)+'</b></td><td>'+esc(x.memo||'')+
+   '</td><td style="text-align:right"><button class="btn sm dg" onclick="delCashflow('+x.id+
+   ')">삭제</button></td></tr>';}).join('')+'</tbody></table></div>';})
+ .catch(function(){$('cfList').innerHTML='<div class="muted">원장 로드 실패</div>';});}
+function addCashflow(){var dt=($('cfDate').value||'').replace(/-/g,'');
+ var k=$('cfKind').value,amt=parseFloat($('cfAmt').value);
+ if(dt.length!==8){toast('일자를 선택하세요');return;}
+ if(isNaN(amt)||amt<=0){toast('금액을 입력하세요');return;}
+ api('POST','/api/suite/cashflow',{date:dt,kind:k,amount:amt,memo:$('cfMemo').value||''})
+  .then(function(){toast('입출금 기록 추가됨');$('cfAmt').value='';$('cfMemo').value='';
+   loadCashflow();SER=null;}).catch(function(e){toast('실패: '+e);});}
+function delCashflow(id){if(!confirm('이 입출금 기록을 삭제할까요?'))return;
+ api('DELETE','/api/suite/cashflow/'+id).then(function(){toast('삭제됨');
+  loadCashflow();SER=null;}).catch(function(e){toast('실패: '+e);});}
 function row(k,v){return '<div style="display:flex;justify-content:space-between;padding:13px 18px;'+
  'border-bottom:1px solid var(--line);font-size:12.5px"><span style="color:var(--c1)">'+k+
  '</span><b>'+v+'</b></div>';}

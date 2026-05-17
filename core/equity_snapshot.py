@@ -98,46 +98,6 @@ def _cycle_realized_by_date() -> dict:
     return out
 
 
-def _trade_cashflow_by_date() -> dict:
-    """{YYYYMMDD: {'buy': 매수합, 'sell': 매도합}} — 두 전략 Trade 합산(DB만).
-    입금액=누적 매수투입, 출금액=누적 매도회수 산출 기반."""
-    from .strategy_adapters import ADAPTERS
-    import importlib
-    agg: dict = {}
-    for k in ADAPTERS:
-        try:
-            from sqlalchemy import create_engine, select
-            from sqlalchemy.orm import Session
-            cfg = importlib.import_module(f"strategies.{k}.config")
-            models = importlib.import_module(f"strategies.{k}.models")
-            T = models.Trade
-            with Session(create_engine(cfg.DATABASE_URL)) as s:
-                rows = s.execute(select(T.trade_date, T.side, T.amount)).all()
-            for td, side, amt in rows:
-                d = str(td or "").strip()
-                if len(d) != 8 or not d.isdigit():
-                    continue
-                e = agg.setdefault(d, {"buy": 0.0, "sell": 0.0})
-                if str(side) == "buy":
-                    e["buy"] += float(amt or 0)
-                elif str(side) == "sell":
-                    e["sell"] += float(amt or 0)
-        except Exception:
-            pass
-    return agg
-
-
-def _cum_cashflow():
-    """정렬된 [(YYYYMMDD, 누적입금=Σ매수, 누적출금=Σ매도)] 리스트."""
-    by = _trade_cashflow_by_date()
-    out, cb, cs = [], 0.0, 0.0
-    for d in sorted(by):
-        cb += by[d]["buy"]
-        cs += by[d]["sell"]
-        out.append((d, round(cb, 2), round(cs, 2)))
-    return out
-
-
 def _cf_at(cum, iso_date):
     """iso_date(YYYY-MM-DD) 시점 누적 입금/출금 (그 날짜 이하 최신)."""
     ymd = iso_date.replace("-", "")[:8]
@@ -238,8 +198,12 @@ def series(max_points: int = 400) -> dict:
             arr.append(round(rv / b * 100, 2) if b > 0 else 0.0)
         sret[k] = arr
     points = est_pts + real_pts
-    # 일자별 누적 입금(=Σ매수투입)·출금(=Σ매도회수) 부착
-    cum = _cum_cashflow()
+    # 실제 현금 입출금 원장(사용자 기록)의 일자별 누적값 부착
+    try:
+        from .cashflow_ledger import cumulative_by_date
+        cum = cumulative_by_date()
+    except Exception:
+        cum = []
     if cum:
         for pt in points:
             dep, wdr = _cf_at(cum, str(pt.get("ts", ""))[:10])
