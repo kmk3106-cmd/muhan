@@ -141,7 +141,10 @@ _STRAT_META = {
 }
 
 _SHELL_HTML = r"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#ffffff">
 <title>trading_suite · 자동매매 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -280,6 +283,89 @@ border:1px solid var(--line)}
 .vtblk details summary{cursor:pointer;font-size:11.5px;color:var(--blue);font-weight:600;
 list-style:none;display:inline-block}.vtblk details summary::-webkit-details-marker{display:none}
 .vtblk details[open] summary{margin-bottom:9px}
+
+/* ============ MOBILE OPTIMIZATION (Android + iPhone) ============ */
+/* iOS 글자 자동확대 방지 · 가로 오버플로 차단 · 부드러운 스크롤 */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{overflow-x:hidden}
+/* iOS Safari 동적 툴바 대응: 100vh → 100dvh (지원 시) */
+@supports(min-height:100dvh){.wrap{min-height:100dvh}}
+/* 가로 스크롤 영역(테이블 등) 관성 스크롤 */
+.tblw,.tbl-scroll,[data-scrollx]{-webkit-overflow-scrolling:touch}
+
+/* iPhone 노치/홈 인디케이터 안전영역 — 사이드바·헤더·토스트·스크림 */
+.sb{padding-left:env(safe-area-inset-left);
+padding-bottom:env(safe-area-inset-bottom)}
+.hd{padding-top:env(safe-area-inset-top);
+padding-left:max(24px,env(safe-area-inset-left));
+padding-right:max(24px,env(safe-area-inset-right));
+height:calc(var(--hd) + env(safe-area-inset-top))}
+.scrim{padding:0}
+
+/* 태블릿/세로 — 980px 이하: 사이드바 드로어 + 안전영역 보정 */
+@media(max-width:980px){
+  .hd{gap:10px}
+  .hd .ttl{font-size:15px;flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hamb{min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;
+  margin-left:calc(-1 * 6px)}
+  .sb{width:min(82vw,260px);box-shadow:0 0 0 100vmax rgba(0,0,0,0)}
+  .sb.open{box-shadow:8px 0 28px rgba(20,28,46,.18)}
+  .body{padding:14px max(14px,env(safe-area-inset-left)) calc(20px + env(safe-area-inset-bottom))
+  max(14px,env(safe-area-inset-right))}
+  .toast{right:max(14px,env(safe-area-inset-right));
+  bottom:calc(16px + env(safe-area-inset-bottom));left:max(14px,env(safe-area-inset-left));
+  text-align:center}
+  /* 터치 타깃 ≥44pt(Apple HIG)/48dp(Material) */
+  .ni{padding:13px 12px}
+  .btn{min-height:42px}
+  .btn.sm{min-height:38px;padding:8px 12px}
+  .sgb{min-height:34px;padding:7px 12px}
+  /* 표는 가로 관성 스크롤 (래퍼가 없어도 표 자체에 적용) */
+  .tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
+  .tbl thead,.tbl tbody,.tbl tr{display:table;width:100%;table-layout:fixed}
+  .grid{margin-top:14px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+}
+
+/* 휴대폰 — 600px 이하: 헤더 축약 · KPI 2열 · 차트 높이 보정 */
+@media(max-width:600px){
+  .hd{height:calc(54px + env(safe-area-inset-top));padding-left:max(14px,env(safe-area-inset-left));
+  padding-right:max(14px,env(safe-area-inset-right))}
+  .hd .ttl{font-size:14px}
+  .hd .dt{display:none}                 /* 날짜시계 숨김(공간확보) */
+  .hd .st #stt{display:none}            /* 연결상태 텍스트 숨김, 점만 유지 */
+  .hd .st{gap:0}
+  #refresh{font-size:0;padding:9px 11px;min-width:40px;justify-content:center} /* 아이콘만 */
+  #refresh i{font-size:14px}
+  .kpis{grid-template-columns:1fr 1fr;gap:10px}
+  .kpi{padding:13px 13px;gap:10px}
+  .kpi .ic{width:32px;height:32px;font-size:13px}
+  .kpi .v{font-size:18px}
+  .kpi .lab{font-size:11px}
+  .cw{height:230px;padding:12px 8px}
+  .donut-w{height:184px}
+  .ch{padding:13px 14px}
+  .ch .ct{font-size:12.5px}
+  .tbl th,.tbl td{padding:10px 13px}
+  .form{padding:15px;gap:12px}
+  .fact{flex-direction:column-reverse}
+  .fact .btn{width:100%;justify-content:center}
+  /* iOS 입력 포커스 시 자동 줌 방지 — 폰트 ≥16px */
+  .fld input,.fld select{font-size:16px;padding:12px 13px}
+  .btn,.btn.sm,.sgb,.ni{font-size:13px}
+}
+
+/* 소형 폰 — 380px 이하: KPI 1열 */
+@media(max-width:380px){
+  .kpis{grid-template-columns:1fr}
+  .hd .ttl{font-size:13px}
+  .body{padding:11px 11px calc(16px + env(safe-area-inset-bottom))}
+}
+
+/* 가로 모드 낮은 높이 — 차트 압축 */
+@media(max-height:480px) and (orientation:landscape){
+  .cw{height:200px}.donut-w{height:170px}
+}
 </style></head><body>
 <div class="wrap">
   <aside class="sb" id="sb">
