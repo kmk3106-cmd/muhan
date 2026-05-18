@@ -390,6 +390,7 @@ height:calc(var(--hd) + env(safe-area-inset-top))}
 <script>
 var STRATS=__STRATS__;var PAGE='dash';var MET=null;var SER=null;var R1='3M';
 var C1=null,C2=null,C3=null;var PAL=['#2f6bff','#16a34a','#6c5ce7','#d97706','#e5484d'];
+var BARPAL=['#16a34a','#2f6bff','#e5484d','#d97706','#6c5ce7'];
 var MENU=[['dash','대시보드','fa-gauge-high'],['strat','전략 관리','fa-sliders'],
 ['port','포트폴리오','fa-briefcase'],['order','주문/체결','fa-receipt'],
 ['risk','리스크 관리','fa-shield-halved'],['perf','성과 분석','fa-chart-line'],
@@ -475,7 +476,7 @@ function renderBars(ss){var mx=Math.max(1,Math.max.apply(null,ss.map(function(s)
  $('rbars').innerHTML=ss.map(function(s,i){var v=s.return_pct||0;
   return '<div class="bar"><div class="t"><span>'+esc(s.display_name)+'</span>'+sP(v)+
   '</div><div class="tr"><i style="width:'+(Math.abs(v)/mx*100)+'%;background:'+
-  (v>=0?'var(--green)':'var(--red)')+'"></i></div></div>';}).join('');}
+  BARPAL[i%BARPAL.length]+'"></i></div></div>';}).join('');}
 function renderSum(ss){$('psum').innerHTML='<table class="tbl"><thead><tr><th>전략명</th>'+
  '<th style="text-align:right">원금</th><th style="text-align:right">누적손익</th>'+
  '<th style="text-align:right">수익률</th><th style="text-align:right">승률</th>'+
