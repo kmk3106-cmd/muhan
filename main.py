@@ -699,6 +699,58 @@ function trBlock(strat,d,tk){var trs=(d&&d.tranches)||[];
   (det||'<tr><td colspan=7 style="text-align:center;color:#9aa3b2">트렌치 없음</td></tr>')+
   '</tbody></table></div></details></div>';}
 /* ---------- 주문/체결 ---------- */
+var TRD=[],TRDF={s:'',t:'',d1:'',d2:''},TRDS={k:'trade_date',d:-1};
+function trdMatch(o){
+ if(TRDF.s && o._sk!==TRDF.s) return false;
+ if(TRDF.t && (o.ticker||'').toUpperCase().indexOf(TRDF.t.toUpperCase().trim())<0) return false;
+ var d=String(o.trade_date||'');
+ if(TRDF.d1 && d<TRDF.d1) return false;
+ if(TRDF.d2 && d>TRDF.d2) return false;
+ return true;}
+function trdSort(rows){var k=TRDS.k,d=TRDS.d;
+ return rows.slice().sort(function(a,b){var va=a[k],vb=b[k];
+  if(k==='qty'||k==='price'||k==='amount'){va=+va||0;vb=+vb||0;}
+  else{va=(va==null?'':va)+'';vb=(vb==null?'':vb)+'';}
+  return va<vb?-d:(va>vb?d:0);});}
+function trdSetSort(k){if(TRDS.k===k)TRDS.d=-TRDS.d;
+ else{TRDS.k=k;TRDS.d=(k==='trade_date'||k==='qty'||k==='price'||k==='amount')?-1:1;}
+ renderTradesTable();}
+function trdReset(){TRDF={s:'',t:'',d1:'',d2:''};TRDS={k:'trade_date',d:-1};renderTradesTable();}
+function _ymd2iso(s){s=String(s||'');return s.length===8?s.substr(0,4)+'-'+s.substr(4,2)+'-'+s.substr(6,2):'';}
+function renderTradesTable(){var rows=trdSort(TRD.filter(trdMatch));
+ var arrow=function(k){return TRDS.k===k?(TRDS.d>0?' ▲':' ▼'):' ↕';};
+ var H=function(k,label,right){return '<th style="cursor:pointer;user-select:none'+
+   (right?';text-align:right':'')+'" onclick="trdSetSort(\''+k+'\')">'+label+
+   '<span style="color:var(--c3);font-size:10px">'+arrow(k)+'</span></th>';};
+ var stratOpts='<option value="">전략 전체</option>'+STRATS.map(function(s){
+   return '<option value="'+s.key+'"'+(TRDF.s===s.key?' selected':'')+'>'+esc(s.label)+'</option>';}).join('');
+ var ipStyle='padding:7px 10px;border:1px solid var(--line);border-radius:8px;'+
+   'font-family:inherit;font-size:12.5px;background:#fff;color:var(--c0)';
+ var bar='<div style="padding:12px 16px;border-bottom:1px solid var(--line);'+
+   'display:flex;flex-wrap:wrap;gap:8px;align-items:center">'+
+   '<select onchange="TRDF.s=this.value;renderTradesTable();" style="'+ipStyle+'">'+stratOpts+'</select>'+
+   '<input placeholder="티커" value="'+esc(TRDF.t||'')+'" '+
+   'oninput="TRDF.t=this.value;renderTradesTable();" style="'+ipStyle+';width:100px;text-transform:uppercase">'+
+   '<input type="date" value="'+_ymd2iso(TRDF.d1)+'" '+
+   'onchange="TRDF.d1=this.value.replace(/-/g,\'\');renderTradesTable();" style="'+ipStyle+'">'+
+   '<span style="color:var(--c2);font-size:11.5px">~</span>'+
+   '<input type="date" value="'+_ymd2iso(TRDF.d2)+'" '+
+   'onchange="TRDF.d2=this.value.replace(/-/g,\'\');renderTradesTable();" style="'+ipStyle+'">'+
+   '<button class="btn sm" onclick="trdReset();"><i class="fa-solid fa-rotate-left"></i> 초기화</button>'+
+   '<span style="color:var(--c2);font-size:11.5px;margin-left:auto">'+
+   rows.length+' / '+TRD.length+'건</span></div>';
+ var tbl=rows.length?('<div style="overflow-x:auto"><table class="tbl"><thead><tr>'+
+   H('trade_date','일자')+H('_s','전략')+H('ticker','티커')+H('side','구분')+
+   H('qty','수량',1)+H('price','체결가',1)+H('amount','금액',1)+'</tr></thead><tbody>'+
+   rows.map(function(o){return '<tr><td>'+esc(o.trade_date)+'</td><td>'+esc(o._s)+
+   '</td><td><b>'+esc(o.ticker)+'</b></td><td><span class="tag '+
+   (o.side==='buy'?'buy">매수':'sell">매도')+'</span></td>'+
+   '<td style="text-align:right">'+o.qty+'</td>'+
+   '<td style="text-align:right">'+money(o.price,2)+'</td>'+
+   '<td style="text-align:right">'+money(o.amount,2)+'</td></tr>';}).join('')+
+   '</tbody></table></div>'):
+   '<div class="muted">조건에 맞는 체결 내역 없음</div>';
+ $('otab').innerHTML=bar+tbl;}
 function pgOrder(){$('page').innerHTML='<div class="grid">'+
  '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-receipt"></i>주문/체결</span>'+
  '<div class="seg" id="og"><button class="sgb on">오늘 주문(예정)</button>'+
@@ -733,18 +785,10 @@ function oTab(i){var box=$('otab');box.innerHTML='<div class="muted">불러오�
   '</td><td style="text-align:right">'+money(o.price,2)+'</td><td>'+esc(o.order_no||'')+'</td><td>'+
   esc((o.ord_dt||'')+' '+(o.ord_tmd||''))+'</td></tr>';}).join('')+'</tbody></table>'):
   '<div class="muted">미체결 주문 없음</div>';});}
- else{Promise.all(paths.map(function(k){return fetch('/'+k+'/api/trades?limit=40')
+ else{Promise.all(paths.map(function(k){return fetch('/'+k+'/api/trades?limit=500')
   .then(function(r){return r.json();}).then(function(d){return ((d&&d.items)||[]).map(function(o){
-   o._s=labelOf(k);return o;});}).catch(function(){return [];});})).then(function(rs){
-  var all=[].concat.apply([],rs).sort(function(a,b){return (b.trade_date||'').localeCompare(a.trade_date||'');});
-  box.innerHTML=all.length?('<table class="tbl"><thead><tr><th>일자</th><th>전략</th><th>티커</th>'+
-  '<th>구분</th><th style="text-align:right">수량</th><th style="text-align:right">체결가</th>'+
-  '<th style="text-align:right">금액</th></tr></thead><tbody>'+all.slice(0,80).map(function(o){
-  return '<tr><td>'+esc(o.trade_date)+'</td><td>'+esc(o._s)+'</td><td><b>'+esc(o.ticker)+
-  '</b></td><td><span class="tag '+(o.side==='buy'?'buy">매수':'sell">매도')+'</span></td>'+
-  '<td style="text-align:right">'+o.qty+'</td><td style="text-align:right">'+money(o.price,2)+
-  '</td><td style="text-align:right">'+money(o.amount,2)+'</td></tr>';}).join('')+'</tbody></table>'):
-  '<div class="muted">체결 내역 없음</div>';});}}
+   o._s=labelOf(k);o._sk=k;return o;});}).catch(function(){return [];});})).then(function(rs){
+  TRD=[].concat.apply([],rs);renderTradesTable();});}}
 function labelOf(k){var s=STRATS.filter(function(x){return x.key===k;})[0];return s?s.label:k;}
 /* ---------- 리스크 / 성과 / 모니터링 / 설정 ---------- */
 function pgRisk(){var a=MET.account||{},ss=MET.strategies||[];
