@@ -19,7 +19,8 @@ echo [1/4] Preparing...
 set "T=%TEMP%\tsuite_deploy_%RANDOM%"
 if exist "%T%" rmdir /s /q "%T%"
 mkdir "%T%"
-robocopy "%~dp0." "%T%" /E /XD .venv venv __pycache__ .git .idea .cursor .claude /XF *.db *.pem *.pyc *.zip /NFL /NDL /NJH /NJS /nc /ns /np >nul
+REM 로컬 런타임 상태(JSONL/JSON)는 서버 측 .bak 보존본으로 복원되므로 업로드에서 제외
+robocopy "%~dp0." "%T%" /E /XD .venv venv __pycache__ .git .idea .cursor .claude /XF *.db *.pem *.pyc *.zip _equity.jsonl _t_audit.jsonl _cashflow.json _strategy_budget.json /NFL /NDL /NJH /NJS /nc /ns /np >nul
 
 echo [2/4] Uploading...
 ssh -i "%PEM%" -o StrictHostKeyChecking=no -o ConnectTimeout=30 %SRV% "rm -rf /root/trading_suite_new; mkdir -p /root/trading_suite_new"
