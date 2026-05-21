@@ -28,6 +28,7 @@ kis_devlp.yaml
 core/_strategy_budget.json
 core/_equity.jsonl
 core/_cashflow.json
+core/_t_audit.jsonl
 
 # Build / archive
 *.zip

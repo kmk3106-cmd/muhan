@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
         try:
             from apscheduler.schedulers.background import BackgroundScheduler
             from core.equity_snapshot import snapshot as _equity_snapshot
+            from core.t_audit import run as _t_audit_run
             sched = BackgroundScheduler(timezone="Asia/Seoul")
             sched.add_job(_equity_snapshot, "interval", minutes=30,
                           id="equity_snapshot", max_instances=1)
@@ -41,8 +42,14 @@ async def lifespan(app: FastAPI):
             sched.add_job(_equity_snapshot, "date",
                           run_date=datetime.now() + timedelta(seconds=75),
                           id="equity_snapshot_b2")
+            # 무한매수법 T값 일일 감시 — 매일 09:00 KST + 기동 직후 1회
+            sched.add_job(_t_audit_run, "cron", hour=9, minute=0,
+                          id="t_audit_daily", max_instances=1, coalesce=True)
+            sched.add_job(_t_audit_run, "date",
+                          run_date=datetime.now() + timedelta(seconds=45),
+                          id="t_audit_bootstrap")
             sched.start()
-            logger.info("[suite] equity 스냅샷터 시작 (30분 주기, DB-only)")
+            logger.info("[suite] equity 스냅샷터(30분) + T값 일일감사(09:00 KST) 스케줄 시작")
         except Exception as e:
             logger.warning(f"[suite] equity 스냅샷터 미시작: {e}")
         logger.info("[suite] 전체 기동 완료 (port 8000)")
@@ -66,6 +73,27 @@ def suite_strategies():
     from core.ticker_registry import all_active
     from core.strategy_budget import summary
     return {"active_tickers": all_active(), "budgets": summary()}
+
+
+@app.get("/api/suite/t_audit")
+def api_t_audit_latest():
+    """무한매수법 T값 일일감사 — 최신 결과 1건."""
+    from core.t_audit import latest
+    return latest() or {"ts": "", "overall": "none", "items": []}
+
+
+@app.get("/api/suite/t_audit/history")
+def api_t_audit_history(limit: int = 30):
+    """T값 감사 이력 (시간 오름차순)."""
+    from core.t_audit import history
+    return {"items": history(limit)}
+
+
+@app.post("/api/suite/t_audit/run")
+def api_t_audit_run_now():
+    """T값 감사 즉시 1회 실행 (UI '지금 검증' 버튼)."""
+    from core.t_audit import run
+    return run()
 
 
 @app.get("/api/suite/metrics")
@@ -910,9 +938,57 @@ function pgSys(){var ss=MET.strategies||[];var a=MET.account||{};
   '<div class="fld" style="display:flex;align-items:flex-end"><button class="btn p" '+
   'onclick="addCashflow()">기록 추가</button></div></div>'+
   '<div id="cfList"><div class="muted">불러오는 중…</div></div></div>'+
+  '<div class="card" style="margin-top:16px"><div class="ch"><span class="ct">'+
+  '<i class="fa-solid fa-magnifying-glass-chart"></i>감시 기능 · 무한매수법 T값 일일감사</span>'+
+  '<span style="font-size:11.5px;color:var(--c2)">매일 09:00 KST 자동 실행 · T = (cum_buy − cum_sell) / B</span>'+
+  '<button class="btn sm p" style="margin-left:auto" onclick="tAuditRun()">'+
+  '<i class="fa-solid fa-play"></i> 지금 검증</button></div>'+
+  '<div id="tAuditBox"><div class="muted">불러오는 중…</div></div></div>'+
   '<div class="tip"><i class="fa-solid fa-shield-halved"></i>보안상 KIS 자격증명(앱키·시크릿) 입력은 '+
   '이 화면에서 다루지 않습니다. 실 입출금은 외부 거래라 거래데이터로 산출 불가 — 직접 기록해야 정확합니다.</div>';
- $('page').innerHTML=h;loadCashflow();}
+ $('page').innerHTML=h;loadCashflow();loadTAudit();}
+function loadTAudit(){fetch('/api/suite/t_audit').then(function(r){return r.json();})
+ .then(function(d){renderTAudit(d);})
+ .catch(function(){$('tAuditBox').innerHTML='<div class="muted">감사 결과 로드 실패</div>';});}
+function renderTAudit(d){var box=$('tAuditBox');var items=(d&&d.items)||[];
+ var ts=(d&&d.ts)||'';var overall=(d&&d.overall)||'none';
+ if(!ts){box.innerHTML='<div class="muted">아직 감사 기록이 없습니다. "지금 검증"으로 1회 실행하세요.</div>';return;}
+ var badgeCls=overall==='ok'?'run':(overall==='mismatch'?'part':'stop');
+ var badgeTxt=overall==='ok'?'전부 일치':(overall==='mismatch'?'불일치 있음':'실행오류');
+ var head='<div style="padding:11px 18px;border-bottom:1px solid var(--line);'+
+  'display:flex;align-items:center;gap:10px;font-size:12px">'+
+  '<span class="bdg '+badgeCls+'">'+badgeTxt+'</span>'+
+  '<span style="color:var(--c2)">최근 검증 '+esc(ts.replace('T',' ').slice(0,19))+'</span>'+
+  '<button class="btn sm" style="margin-left:auto" onclick="tAuditHistory()">'+
+  '<i class="fa-solid fa-clock-rotate-left"></i> 이력 보기</button></div>';
+ if(!items.length){box.innerHTML=head+'<div class="muted">대상 포트폴리오 없음</div>';return;}
+ var rows=items.map(function(it){var st=it.status||'';
+  var cls=st==='ok'?'run':(st==='mismatch'?'part':'stop');
+  var lbl=st==='ok'?'일치':(st==='mismatch'?'불일치':(st==='no_state'?'상태없음':'오류'));
+  var det='';
+  if(it.T_stored!=null){det='<div style="font-size:11px;color:var(--c2);margin-top:4px">'+
+   'T(DB)='+it.T_stored+' · T(cum)='+it.T_recalc_cum+' · T(보유원가)='+it.T_from_holding+
+   ' · cum_buy='+money(it.cum_buy)+' · cum_sell='+money(it.cum_sell)+
+   ' · avg×qty='+money((it.avg_price||0)*(it.qty||0))+
+   ' · B='+money(it.B,2)+' (seed '+money(it.seed)+' / A '+it.A+')</div>';}
+  var reason=it.reason?('<div style="font-size:11.5px;color:var(--red);margin-top:5px;'+
+   'background:var(--red-s);padding:8px 10px;border-radius:8px">'+esc(it.reason)+'</div>'):'';
+  return '<div style="padding:13px 18px;border-bottom:1px solid var(--line)">'+
+   '<div style="display:flex;align-items:center;gap:10px">'+
+   '<b style="font-size:13px">'+esc(it.ticker||'-')+'</b>'+
+   '<span style="color:var(--c2);font-size:11px">싸이클 C'+(it.cycle||1)+'</span>'+
+   '<span class="bdg '+cls+'" style="margin-left:auto">'+lbl+'</span></div>'+
+   det+reason+'</div>';}).join('');
+ box.innerHTML=head+rows;}
+function tAuditRun(){toast('T값 감사 실행 중…');
+ fetch('/api/suite/t_audit/run',{method:'POST'}).then(function(r){return r.json();})
+  .then(function(d){renderTAudit(d);toast('감사 완료');})
+  .catch(function(e){toast('감사 실패: '+e);});}
+function tAuditHistory(){fetch('/api/suite/t_audit/history?limit=30').then(function(r){return r.json();})
+ .then(function(d){var arr=(d&&d.items)||[];if(!arr.length){toast('이력 없음');return;}
+  var lines=arr.slice().reverse().map(function(x){var miss=(x.items||[]).filter(function(i){return i.status==='mismatch';}).length;
+   return (x.ts||'').replace('T',' ').slice(0,16)+'  ['+x.overall+']  불일치 '+miss+'건';}).join('\n');
+  alert('T값 감사 이력 (최근 30회)\n\n'+lines);});}
 function loadCashflow(){fetch('/api/suite/cashflow').then(function(r){return r.json();})
  .then(function(d){var e=d.entries||[],s=d.summary||{};var w=$('cfList');
   var head='<div style="padding:10px 18px;font-size:12px;color:var(--c1)">총 입금 <b class="up">'+
