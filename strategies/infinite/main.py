@@ -20,7 +20,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from sqlalchemy import create_engine, select, desc, and_
+from sqlalchemy import create_engine, select, desc, and_, func
 from sqlalchemy.orm import Session, sessionmaker
 
 from .config import DATABASE_URL, RUN_HOUR, RUN_MINUTE, TRADING_MODE, CTAC_TLNO, KIS_DEVL_YAML
@@ -1050,7 +1050,12 @@ def reset_portfolio(portfolio_id: int):
         )
 
         pf.initial_buy_done = False
-        pf.current_cycle = 1
+        # 성공리포트(CycleHistory) 영구보존 — 같은 portfolio_id의 옛 싸이클 번호와
+        # 충돌하지 않도록 max+1에서 시작. (기존 hardcoded =1은 새 싸이클 종료시 cycle_history 미삽입 버그)
+        _max_cy = session.scalar(
+            select(func.max(CycleHistory.cycle_number)).where(CycleHistory.portfolio_id == portfolio_id)
+        )
+        pf.current_cycle = int(_max_cy or 0) + 1
         pf.cycle_start_date = None
         pf.cycle_start_trade_id = None
         pf.trading_enabled = False

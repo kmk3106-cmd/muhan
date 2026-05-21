@@ -282,7 +282,12 @@ def api_add_ticker(data: TickerCreate):
             tk.num_tranches = data.num_tranches
             tk.x_pct = data.x_pct
             tk.loss_cut_days = max(1, min(365, data.loss_cut_days))
-            tk.current_cycle = 1
+            # 성공리포트(CycleHistory) 영구보존 정책상 동일 ticker_id에 옛 cycle 번호가
+            # 남아있을 수 있다. 새 싸이클이 옛것과 충돌하지 않도록 max+1에서 시작.
+            _max_cy = session.scalar(
+                select(func.max(CycleHistory.cycle_number)).where(CycleHistory.ticker_id == tk.id)
+            )
+            tk.current_cycle = int(_max_cy or 0) + 1
             tk.seed_reflect_enabled = False
             _replace_ticker_tranches(session, tk, data.num_tranches, data.total_usd)
             session.commit()
@@ -405,6 +410,11 @@ def api_reset_ticker(ticker_id: int):
                 )
             )
         )
+        # 성공리포트 영구보존 — 옛 싸이클 번호와 충돌 회피: max+1에서 시작
+        _max_cy = session.scalar(
+            select(func.max(CycleHistory.cycle_number)).where(CycleHistory.ticker_id == tk.id)
+        )
+        next_cy = int(_max_cy or 0) + 1
         tranches = session.scalars(select(Tranche).where(Tranche.ticker_id == tk.id)).all()
         for t in tranches:
             t.status = TrancheStatus.IDLE.value
@@ -413,8 +423,8 @@ def api_reset_ticker(ticker_id: int):
             t.buy_price = 0.0
             t.buy_date = ""
             t.days_held = 0
-            t.cycle_number = 1
-        tk.current_cycle = 1
+            t.cycle_number = next_cy
+        tk.current_cycle = next_cy
         session.commit()
         # 오늘주문 캐시 무효화 (초기화 후 즉시 반영)
         _cached_orders["data"] = []
