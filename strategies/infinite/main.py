@@ -709,24 +709,52 @@ def get_trades(limit: int = 50, offset: int = 0,
             stmt = base.order_by(desc(order_col), desc(Trade.id))
 
         trades = session.scalars(stmt.offset(offset).limit(limit)).all()
+
+        # ── 각 trade에 cycle_number 부착 ──
+        # CycleHistory.start_date <= trade_date <= end_date → 해당 싸이클의 거래.
+        # 어느 완료된 싸이클에도 안 들어가면 진행중 = portfolio.current_cycle.
+        from collections import defaultdict
+        cy_rows = session.scalars(
+            select(CycleHistory).where(CycleHistory.portfolio_id.in_(active_ids))
+        ).all()
+        cy_by_pf = defaultdict(list)
+        for c in cy_rows:
+            cy_by_pf[c.portfolio_id].append(
+                (str(c.start_date or ""), str(c.end_date or ""), int(c.cycle_number or 0))
+            )
+        cur_cy_map = {p.id: int(p.current_cycle or 1) for p in active_pfs}
+
+        def _trade_cycle(pf_id: int, td: str) -> int:
+            for sd, ed, cn in cy_by_pf.get(pf_id, []):
+                if sd and ed and sd <= str(td or "") <= ed:
+                    return cn
+            return cur_cy_map.get(pf_id, 1)  # 진행중 싸이클
+
+        items = []
+        for t in trades:
+            bs = getattr(t, "buy_seq", None)
+            try:
+                tranche_n = int(bs) if bs not in (None, "") else None
+            except Exception:
+                tranche_n = None
+            items.append({
+                "id": t.id,
+                "portfolio_id": t.portfolio_id,
+                "ticker": ticker_map.get(t.portfolio_id, "?"),
+                "trade_date": t.trade_date,
+                "side": t.side,
+                "order_type": t.order_type,
+                "price": t.price,
+                "order_price": getattr(t, "order_price", None),
+                "qty": t.qty,
+                "amount": round(t.price * t.qty, 2),
+                "buy_seq": bs,
+                "tranche_num": tranche_n,
+                "cycle_number": _trade_cycle(t.portfolio_id, t.trade_date),
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            })
         return {
-            "items": [
-                {
-                    "id": t.id,
-                    "portfolio_id": t.portfolio_id,
-                    "ticker": ticker_map.get(t.portfolio_id, "?"),
-                    "trade_date": t.trade_date,
-                    "side": t.side,
-                    "order_type": t.order_type,
-                    "price": t.price,
-                    "order_price": getattr(t, "order_price", None),
-                    "qty": t.qty,
-                    "amount": round(t.price * t.qty, 2),
-                    "buy_seq": getattr(t, "buy_seq", None),
-                    "created_at": t.created_at.isoformat() if t.created_at else None,
-                }
-                for t in trades
-            ],
+            "items": items,
             "total_count": total_count or 0,
             "limit": limit,
             "offset": offset,

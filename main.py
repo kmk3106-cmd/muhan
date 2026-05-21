@@ -736,12 +736,15 @@ function trdMatch(o){
  if(TRDF.d2 && d>TRDF.d2) return false;
  return true;}
 function trdSort(rows){var k=TRDS.k,d=TRDS.d;
+ var numeric={qty:1,price:1,amount:1,cycle_number:1,tranche_num:1};
  return rows.slice().sort(function(a,b){var va=a[k],vb=b[k];
-  if(k==='qty'||k==='price'||k==='amount'){va=+va||0;vb=+vb||0;}
+  if(numeric[k]){va=(va==null?-1:+va);vb=(vb==null?-1:+vb);
+   if(isNaN(va))va=-1; if(isNaN(vb))vb=-1;}
   else{va=(va==null?'':va)+'';vb=(vb==null?'':vb)+'';}
   return va<vb?-d:(va>vb?d:0);});}
 function trdSetSort(k){if(TRDS.k===k)TRDS.d=-TRDS.d;
- else{TRDS.k=k;TRDS.d=(k==='trade_date'||k==='qty'||k==='price'||k==='amount')?-1:1;}
+ else{TRDS.k=k;TRDS.d=(k==='trade_date'||k==='qty'||k==='price'||k==='amount'||
+   k==='cycle_number'||k==='tranche_num')?-1:1;}
  renderTradesTable();}
 function trdReset(){TRDF={s:'',t:'',d1:'',d2:''};TRDS={k:'trade_date',d:-1};renderTradesTable();}
 function _ymd2iso(s){s=String(s||'');return s.length===8?s.substr(0,4)+'-'+s.substr(4,2)+'-'+s.substr(6,2):'';}
@@ -768,11 +771,16 @@ function renderTradesTable(){var rows=trdSort(TRD.filter(trdMatch));
    '<span style="color:var(--c2);font-size:11.5px;margin-left:auto">'+
    rows.length+' / '+TRD.length+'건</span></div>';
  var tbl=rows.length?('<div style="overflow-x:auto"><table class="tbl"><thead><tr>'+
-   H('trade_date','일자')+H('_s','전략')+H('ticker','티커')+H('side','구분')+
+   H('trade_date','일자')+H('_s','전략')+H('ticker','티커')+
+   H('cycle_number','싸이클',1)+H('tranche_num','회차',1)+H('side','구분')+
    H('qty','수량',1)+H('price','체결가',1)+H('amount','금액',1)+'</tr></thead><tbody>'+
-   rows.map(function(o){return '<tr><td>'+esc(o.trade_date)+'</td><td>'+esc(o._s)+
-   '</td><td><b>'+esc(o.ticker)+'</b></td><td><span class="tag '+
-   (o.side==='buy'?'buy">매수':'sell">매도')+'</span></td>'+
+   rows.map(function(o){var cy=(o.cycle_number!=null?'C'+o.cycle_number:'—');
+   var tr=(o.tranche_num!=null?'T'+o.tranche_num:(o.buy_seq!=null?'T'+o.buy_seq:'—'));
+   return '<tr><td>'+esc(o.trade_date)+'</td><td>'+esc(o._s)+
+   '</td><td><b>'+esc(o.ticker)+'</b></td>'+
+   '<td style="text-align:right;color:var(--c1)"><b>'+cy+'</b></td>'+
+   '<td style="text-align:right;color:var(--c1)">'+tr+'</td>'+
+   '<td><span class="tag '+(o.side==='buy'?'buy">매수':'sell">매도')+'</span></td>'+
    '<td style="text-align:right">'+o.qty+'</td>'+
    '<td style="text-align:right">'+money(o.price,2)+'</td>'+
    '<td style="text-align:right">'+money(o.amount,2)+'</td></tr>';}).join('')+
