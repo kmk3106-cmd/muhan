@@ -981,12 +981,15 @@ function renderTAudit(d){var box=$('tAuditBox');var items=(d&&d.items)||[];
    ' · B='+money(it.B,2)+' (seed '+money(it.seed)+' / A '+it.A+')</div>';}
   var reason=it.reason?('<div style="font-size:11.5px;color:var(--red);margin-top:5px;'+
    'background:var(--red-s);padding:8px 10px;border-radius:8px">'+esc(it.reason)+'</div>'):'';
+  var note=it.note?('<div style="font-size:11px;color:var(--c2);margin-top:5px;'+
+   'background:var(--bg);padding:7px 10px;border-radius:8px"><i class="fa-solid fa-circle-info"></i> '+
+   esc(it.note)+'</div>'):'';
   return '<div style="padding:13px 18px;border-bottom:1px solid var(--line)">'+
    '<div style="display:flex;align-items:center;gap:10px">'+
    '<b style="font-size:13px">'+esc(it.ticker||'-')+'</b>'+
    '<span style="color:var(--c2);font-size:11px">싸이클 C'+(it.cycle||1)+'</span>'+
    '<span class="bdg '+cls+'" style="margin-left:auto">'+lbl+'</span></div>'+
-   det+reason+'</div>';}).join('');
+   det+reason+note+'</div>';}).join('');
  box.innerHTML=head+rows;}
 function tAuditRun(){toast('T값 감사 실행 중…');
  fetch('/api/suite/t_audit/run',{method:'POST'}).then(function(r){return r.json();})

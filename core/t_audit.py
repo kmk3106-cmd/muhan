@@ -99,21 +99,29 @@ def _audit_infinite() -> list[dict]:
                     "T_recalc_cum": T_recalc,
                     "T_from_holding": T_hold,
                 })
+                # ── 핵심 불변식 ──
+                # 운영 T는 trading_logic.sync_state_from_api 369줄에서
+                #   state.T = calc_T_from_avg(avg, qty, B)  (= 보유원가/B)
+                # 로 계산·저장된다. 따라서 진짜 검증 대상은
+                #   T_stored == T_from_holding  (sync가 최신 잔고로 돌았는가)
+                # cum 기준 T와의 차이는 '부분매도 실현손익' 반영분이라 정상 — 결함 아님.
                 reasons: list[str] = []
-                if abs(T_stored - T_recalc) > _TOL_STORED:
+                if abs(T_stored - T_hold) > _TOL_STORED:
                     reasons.append(
-                        f"DB stored T({T_stored})와 (cum_buy-cum_sell)/B 재계산 값({T_recalc}) 불일치 "
-                        f"— state.T 컬럼이 최신 cum과 동기화되지 않음 (워커 sync 누락 의심)"
-                    )
-                if abs(T_recalc - T_hold) > _TOL_HOLDING:
-                    diff_amt = round((cum_b - cum_s) - avg * qty, 2)
-                    reasons.append(
-                        f"cum 기준 T({T_recalc})와 보유원가(평단×수량) 기준 T({T_hold}) 불일치 "
-                        f"— net cum과 평단×수량 차 ${diff_amt} "
-                        f"(매도 후 cum_buy 미보정 / 90일 ccnl 한계 / 기존보유분 가산 등 점검 필요)"
+                        f"DB stored T({T_stored})가 보유원가(평단×수량)/B 기준 운영 T({T_hold})와 불일치 "
+                        f"— 잔고 변경 후 state.T 동기화 누락/DB stale 의심 (운영 T = 평단×수량/B)"
                     )
                 rec["status"] = "ok" if not reasons else "mismatch"
                 rec["reason"] = " | ".join(reasons)
+                # 참고 메모(결함 아님): cum 기준 T가 보유원가 기준과 다르면 부분매도 실현손익 반영분
+                note = ""
+                if abs(T_recalc - T_hold) > _TOL_HOLDING:
+                    realized = round((cum_b - cum_s) - avg * qty, 2)
+                    note = (
+                        f"참고: cum 기준 T({T_recalc})는 매도대금(실현손익 포함)을 빼므로 "
+                        f"보유원가 기준({T_hold})과 ${realized} 차이 — 부분매도 정상 동작 (운영 T엔 미사용)"
+                    )
+                rec["note"] = note
                 out.append(rec)
     except Exception as e:  # 통상 예외도 항목 1개로 남김
         out.append({
