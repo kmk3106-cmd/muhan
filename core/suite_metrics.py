@@ -136,13 +136,28 @@ def _recent_trades(strategy: str, n: int = 12) -> list[dict]:
         T = models.Trade
         with Session(_engine(strategy)) as s:
             rows = s.scalars(select(T).order_by(T.id.desc()).limit(n)).all()
+            # 무한매수법은 Trade에 ticker 컬럼이 없고 portfolio_id만 있음 → Portfolio에서 매핑
+            pf_ticker_map: dict = {}
+            if rows and not getattr(rows[0], "ticker", None) and hasattr(rows[0], "portfolio_id"):
+                P = getattr(models, "Portfolio", None)
+                if P is not None:
+                    pids = {getattr(r, "portfolio_id", None) for r in rows
+                            if getattr(r, "portfolio_id", None) is not None}
+                    if pids:
+                        for pid, tkr in s.execute(
+                            select(P.id, P.ticker).where(P.id.in_(pids))
+                        ).all():
+                            pf_ticker_map[pid] = tkr
         out = []
         for t in rows:
+            ticker = getattr(t, "ticker", "") or pf_ticker_map.get(
+                getattr(t, "portfolio_id", None), ""
+            )
             out.append({
                 "strategy": strategy,
                 "display_name": DISPLAY_NAMES.get(strategy, strategy),
                 "trade_date": getattr(t, "trade_date", ""),
-                "ticker": getattr(t, "ticker", ""),
+                "ticker": ticker,
                 "side": getattr(t, "side", ""),
                 "order_type": getattr(t, "order_type", ""),
                 "price": float(getattr(t, "price", 0) or 0),
