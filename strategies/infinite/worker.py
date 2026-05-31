@@ -940,11 +940,15 @@ def _check_cycle_end(session: Session, portfolio: Portfolio,
     profit_pct = (profit / buy_total * 100) if buy_total > 0 else 0.0
 
     # 싸이클 이력 저장
+    # [정합 보강 2026-05-22] end_date는 "마지막 매도 일자"로 기록 — 종료 처리 실행일(today)이
+    # 다음 싸이클의 첫 매수와 겹치는 경우(같은 날 매도청산→재진입 시) 상세보기에서
+    # 다음 싸이클의 buy가 포함되는 오류를 차단. last_trade는 이미 위에서 last sell로 검증됨.
+    end_dt = last_trade[1] if (last_trade and last_trade[1]) else today
     cycle = CycleHistory(
         portfolio_id=portfolio.id,
         cycle_number=cycle_num,
         start_date=start_date,
-        end_date=today,
+        end_date=end_dt,
         total_buy_amount=round(buy_total, 2),
         total_sell_amount=round(sell_sum, 2),
         profit=round(profit, 2),
