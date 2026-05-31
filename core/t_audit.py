@@ -163,6 +163,8 @@ def _audit_cycle_integrity_infinite() -> list[dict]:
             by_pf: dict = {}
             for cy in cycles:
                 by_pf.setdefault(cy.portfolio_id, []).append(cy.cycle_number)
+            # 포트폴리오별 최신(마지막으로 닫힌) 싸이클 번호 — 그 외는 historical
+            latest_cy = {pid: max(nums) for pid, nums in by_pf.items()}
             for cy in cycles:
                 ticker = pf_map.get(cy.portfolio_id, "?")
                 is_active = pf_active.get(cy.portfolio_id, False)
@@ -213,11 +215,20 @@ def _audit_cycle_integrity_infinite() -> list[dict]:
                     problems.append(
                         f"profit ${cy.profit} ≠ sell−buy = ${expected_profit}"
                     )
-                # 소프트삭제(legacy) 포트폴리오의 mismatch는 운영영향 없음 → severity 낮춤
-                if problems and not is_active:
+                # 시그널 정제:
+                # - end_date 오류 = 항상 mismatch (UI/표시에 직접 영향)
+                # - net qty/금액 차이는 '최신 닫힌 싸이클'만 mismatch (과거분은 historical)
+                # - 비활성 포트폴리오는 모두 legacy
+                end_date_bug = any("end_date(" in p for p in problems)
+                is_latest = (cy.cycle_number == latest_cy.get(cy.portfolio_id, 0))
+                if not problems:
+                    status = "ok"
+                elif not is_active:
                     status = "legacy"
+                elif end_date_bug or is_latest:
+                    status = "mismatch"
                 else:
-                    status = "ok" if not problems else "mismatch"
+                    status = "legacy"  # 과거 닫힌 싸이클 차이 — 운영영향 없는 잔재
                 rec = {
                     "strategy": "infinite", "ticker": ticker,
                     "portfolio_id": cy.portfolio_id, "cycle": cy.cycle_number,
@@ -274,15 +285,19 @@ def _audit_cycle_integrity_ddsop() -> list[dict]:
         engine = create_engine(DDSOP_DB)
         SessionL = sessionmaker(bind=engine)
         with SessionL() as s:
-            tk_map = {t.id: t.ticker for t in s.scalars(select(DdTicker)).all()}
+            tickers_all = list(s.scalars(select(DdTicker)).all())
+            tk_map = {t.id: t.ticker for t in tickers_all}
+            tk_active = {t.id: bool(t.is_active) for t in tickers_all}
             cycles = s.scalars(
                 select(DdCycle).order_by(DdCycle.ticker_id, DdCycle.cycle_number)
             ).all()
             by_tk: dict = {}
             for cy in cycles:
                 by_tk.setdefault(cy.ticker_id, []).append(cy.cycle_number)
+            latest_cy = {tid: max(nums) for tid, nums in by_tk.items()}
             for cy in cycles:
                 ticker = cy.ticker or tk_map.get(cy.ticker_id, "?")
+                is_active = tk_active.get(cy.ticker_id, False)
                 # ddsop trade는 cycle_number를 직접 가짐 → 더 정확한 기준
                 trades = s.scalars(
                     select(DdTrade).where(
@@ -323,9 +338,25 @@ def _audit_cycle_integrity_ddsop() -> list[dict]:
                     problems.append(
                         f"profit ${cy.profit} ≠ sell−buy = ${expected_profit}"
                     )
+                end_date_bug = any("end_date(" in p for p in problems)
+                is_latest = (cy.cycle_number == latest_cy.get(cy.ticker_id, 0))
+                # ddsop는 초기화 시 trades 전부 삭제하지만 cycle_history는 보존(영구) →
+                # trades_count==0 + history 금액 > 0 인 과거분은 legacy
+                wiped_after_reset = (len(trades) == 0
+                                     and (float(cy.total_buy_amount or 0) > 0
+                                          or float(cy.total_sell_amount or 0) > 0))
+                if not problems:
+                    status = "ok"
+                elif not is_active or wiped_after_reset:
+                    status = "legacy"
+                elif end_date_bug or is_latest:
+                    status = "mismatch"
+                else:
+                    status = "legacy"
                 rec = {
                     "strategy": "ddsop", "ticker": ticker,
                     "ticker_id": cy.ticker_id, "cycle": cy.cycle_number,
+                    "tk_active": is_active,
                     "start_date": cy.start_date, "end_date": cy.end_date,
                     "trades_count": len(trades),
                     "buys_count": len(buys), "sells_count": len(sells),
@@ -335,7 +366,7 @@ def _audit_cycle_integrity_ddsop() -> list[dict]:
                     "history_sell": float(cy.total_sell_amount or 0),
                     "history_profit": float(cy.profit or 0),
                     "last_sell_date": last_sell,
-                    "status": "ok" if not problems else "mismatch",
+                    "status": status,
                     "reason": " | ".join(problems),
                 }
                 out.append(rec)
