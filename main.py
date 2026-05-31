@@ -947,8 +947,8 @@ function pgSys(){var ss=MET.strategies||[];var a=MET.account||{};
   'onclick="addCashflow()">기록 추가</button></div></div>'+
   '<div id="cfList"><div class="muted">불러오는 중…</div></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="ch"><span class="ct">'+
-  '<i class="fa-solid fa-magnifying-glass-chart"></i>감시 기능 · 무한매수법 T값 일일감사</span>'+
-  '<span style="font-size:11.5px;color:var(--c2)">매일 09:00 KST 자동 실행 · T = (cum_buy − cum_sell) / B</span>'+
+  '<i class="fa-solid fa-magnifying-glass-chart"></i>감시 기능 · 일일 정합 감사</span>'+
+  '<span style="font-size:11.5px;color:var(--c2)">매일 09:00 KST 자동 · T값 동기화 + 싸이클 이력 정합</span>'+
   '<button class="btn sm p" style="margin-left:auto" onclick="tAuditRun()">'+
   '<i class="fa-solid fa-play"></i> 지금 검증</button></div>'+
   '<div id="tAuditBox"><div class="muted">불러오는 중…</div></div></div>'+
@@ -958,47 +958,91 @@ function pgSys(){var ss=MET.strategies||[];var a=MET.account||{};
 function loadTAudit(){fetch('/api/suite/t_audit').then(function(r){return r.json();})
  .then(function(d){renderTAudit(d);})
  .catch(function(){$('tAuditBox').innerHTML='<div class="muted">감사 결과 로드 실패</div>';});}
-function renderTAudit(d){var box=$('tAuditBox');var items=(d&&d.items)||[];
+function _bdgFor(st){var m={ok:['run','일치'],mismatch:['part','불일치'],
+ audit_failed:['stop','실행오류'],no_state:['stop','상태없음'],none:['stop','없음']};
+ return m[st]||['stop',st||'?'];}
+function _sectionOverallBadge(sec,emptyLbl){var ov=(sec&&sec.overall)||'none';
+ var items=(sec&&sec.items)||[];var miss=items.filter(function(i){return i.status==='mismatch';}).length;
+ var b=_bdgFor(ov);var lbl=ov==='ok'?(items.length?'전부 일치':emptyLbl):
+  (ov==='mismatch'?('불일치 '+miss+'건'):b[1]);
+ return ' <span class="bdg '+b[0]+'" style="margin-left:auto">'+lbl+'</span>';}
+function _renderTItem(it){var b=_bdgFor(it.status);
+ var det='';
+ if(it.T_stored!=null){det='<div style="font-size:11px;color:var(--c2);margin-top:4px">'+
+  'T(DB)='+it.T_stored+' · T(cum)='+it.T_recalc_cum+' · T(보유원가)='+it.T_from_holding+
+  ' · cum_buy='+money(it.cum_buy)+' · cum_sell='+money(it.cum_sell)+
+  ' · avg×qty='+money((it.avg_price||0)*(it.qty||0))+
+  ' · B='+money(it.B,2)+' (seed '+money(it.seed)+' / A '+it.A+')</div>';}
+ var reason=it.reason?('<div style="font-size:11.5px;color:var(--red);margin-top:5px;'+
+  'background:var(--red-s);padding:8px 10px;border-radius:8px">'+esc(it.reason)+'</div>'):'';
+ var note=it.note?('<div style="font-size:11px;color:var(--c2);margin-top:5px;'+
+  'background:var(--bg);padding:7px 10px;border-radius:8px"><i class="fa-solid fa-circle-info"></i> '+
+  esc(it.note)+'</div>'):'';
+ return '<div style="padding:12px 18px;border-bottom:1px solid var(--line)">'+
+  '<div style="display:flex;align-items:center;gap:10px">'+
+  '<b style="font-size:13px">'+esc(it.ticker||'-')+'</b>'+
+  '<span style="color:var(--c2);font-size:11px">싸이클 C'+(it.cycle||1)+'</span>'+
+  '<span class="bdg '+b[0]+'" style="margin-left:auto">'+b[1]+'</span></div>'+
+  det+reason+note+'</div>';}
+function _renderCycItem(it){var b=_bdgFor(it.status);
+ var scope=it.scope==='continuity'?' · 연속성':'';
+ var det='';
+ if(it.start_date){det='<div style="font-size:11px;color:var(--c2);margin-top:4px;word-break:break-all">'+
+  esc(it.start_date)+' ~ '+esc(it.end_date)+' · trades '+(it.trades_count||0)+
+  '건 (매수 '+(it.buys_count||0)+'/'+(it.buy_qty||0)+'주 '+money(it.buy_sum)+
+  ' · 매도 '+(it.sells_count||0)+'/'+(it.sell_qty||0)+'주 '+money(it.sell_sum)+
+  ') · history(buy '+money(it.history_buy)+' / sell '+money(it.history_sell)+
+  ' / profit '+money(it.history_profit)+') · last_sell '+esc(it.last_sell_date||'-')+'</div>';}
+ var reason=it.reason?('<div style="font-size:11.5px;color:var(--red);margin-top:5px;'+
+  'background:var(--red-s);padding:8px 10px;border-radius:8px">'+esc(it.reason)+'</div>'):'';
+ return '<div style="padding:12px 18px;border-bottom:1px solid var(--line)">'+
+  '<div style="display:flex;align-items:center;gap:10px">'+
+  '<b style="font-size:13px">'+esc(it.ticker||'-')+'</b>'+
+  '<span style="color:var(--c2);font-size:11px">'+esc(it.strategy||'')+
+  ' · C'+(it.cycle||'-')+scope+'</span>'+
+  '<span class="bdg '+b[0]+'" style="margin-left:auto">'+b[1]+'</span></div>'+
+  det+reason+'</div>';}
+function renderTAudit(d){var box=$('tAuditBox');
  var ts=(d&&d.ts)||'';var overall=(d&&d.overall)||'none';
  if(!ts){box.innerHTML='<div class="muted">아직 감사 기록이 없습니다. "지금 검증"으로 1회 실행하세요.</div>';return;}
- var badgeCls=overall==='ok'?'run':(overall==='mismatch'?'part':'stop');
- var badgeTxt=overall==='ok'?'전부 일치':(overall==='mismatch'?'불일치 있음':'실행오류');
+ var b=_bdgFor(overall);
  var head='<div style="padding:11px 18px;border-bottom:1px solid var(--line);'+
-  'display:flex;align-items:center;gap:10px;font-size:12px">'+
-  '<span class="bdg '+badgeCls+'">'+badgeTxt+'</span>'+
+  'display:flex;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap">'+
+  '<span class="bdg '+b[0]+'">전체 '+b[1]+'</span>'+
   '<span style="color:var(--c2)">최근 검증 '+esc(ts.replace('T',' ').slice(0,19))+'</span>'+
   '<button class="btn sm" style="margin-left:auto" onclick="tAuditHistory()">'+
   '<i class="fa-solid fa-clock-rotate-left"></i> 이력 보기</button></div>';
- if(!items.length){box.innerHTML=head+'<div class="muted">대상 포트폴리오 없음</div>';return;}
- var rows=items.map(function(it){var st=it.status||'';
-  var cls=st==='ok'?'run':(st==='mismatch'?'part':'stop');
-  var lbl=st==='ok'?'일치':(st==='mismatch'?'불일치':(st==='no_state'?'상태없음':'오류'));
-  var det='';
-  if(it.T_stored!=null){det='<div style="font-size:11px;color:var(--c2);margin-top:4px">'+
-   'T(DB)='+it.T_stored+' · T(cum)='+it.T_recalc_cum+' · T(보유원가)='+it.T_from_holding+
-   ' · cum_buy='+money(it.cum_buy)+' · cum_sell='+money(it.cum_sell)+
-   ' · avg×qty='+money((it.avg_price||0)*(it.qty||0))+
-   ' · B='+money(it.B,2)+' (seed '+money(it.seed)+' / A '+it.A+')</div>';}
-  var reason=it.reason?('<div style="font-size:11.5px;color:var(--red);margin-top:5px;'+
-   'background:var(--red-s);padding:8px 10px;border-radius:8px">'+esc(it.reason)+'</div>'):'';
-  var note=it.note?('<div style="font-size:11px;color:var(--c2);margin-top:5px;'+
-   'background:var(--bg);padding:7px 10px;border-radius:8px"><i class="fa-solid fa-circle-info"></i> '+
-   esc(it.note)+'</div>'):'';
-  return '<div style="padding:13px 18px;border-bottom:1px solid var(--line)">'+
-   '<div style="display:flex;align-items:center;gap:10px">'+
-   '<b style="font-size:13px">'+esc(it.ticker||'-')+'</b>'+
-   '<span style="color:var(--c2);font-size:11px">싸이클 C'+(it.cycle||1)+'</span>'+
-   '<span class="bdg '+cls+'" style="margin-left:auto">'+lbl+'</span></div>'+
-   det+reason+note+'</div>';}).join('');
- box.innerHTML=head+rows;}
+ var sec=(d&&d.sections)||null;
+ if(!sec){var items=(d&&d.items)||[];
+  box.innerHTML=head+(items.length?items.map(_renderTItem).join(''):
+   '<div class="muted">대상 포트폴리오 없음</div>');return;}
+ var tv=sec.t_value||{items:[]};var ci=sec.cycle_integrity||{items:[]};
+ var hdr=function(title,icon,sec,empty){
+  return '<div style="padding:10px 18px;background:var(--bg);'+
+   'display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;color:var(--c1);'+
+   'border-bottom:1px solid var(--line);border-top:1px solid var(--line)">'+
+   '<i class="fa-solid '+icon+'" style="color:var(--c2)"></i>'+esc(title)+
+   _sectionOverallBadge(sec,empty)+'</div>';};
+ var tvHtml=hdr('T값 동기화 (state.T vs 보유원가/B)','fa-equals',tv,'대상 없음')+
+  ((tv.items||[]).length?tv.items.map(_renderTItem).join(''):
+   '<div class="muted">대상 포트폴리오 없음</div>');
+ var ciHtml=hdr('싸이클 이력 정합 (end_date · net qty · 금액 · profit)','fa-list-check',ci,'대상 없음')+
+  ((ci.items||[]).length?ci.items.map(_renderCycItem).join(''):
+   '<div class="muted">대상 싸이클 없음</div>');
+ box.innerHTML=head+tvHtml+ciHtml;}
 function tAuditRun(){toast('T값 감사 실행 중…');
  fetch('/api/suite/t_audit/run',{method:'POST'}).then(function(r){return r.json();})
   .then(function(d){renderTAudit(d);toast('감사 완료');})
   .catch(function(e){toast('감사 실패: '+e);});}
 function tAuditHistory(){fetch('/api/suite/t_audit/history?limit=30').then(function(r){return r.json();})
  .then(function(d){var arr=(d&&d.items)||[];if(!arr.length){toast('이력 없음');return;}
-  var lines=arr.slice().reverse().map(function(x){var miss=(x.items||[]).filter(function(i){return i.status==='mismatch';}).length;
-   return (x.ts||'').replace('T',' ').slice(0,16)+'  ['+x.overall+']  불일치 '+miss+'건';}).join('\n');
+  var lines=arr.slice().reverse().map(function(x){
+   var sec=x.sections||null;var tvMiss=0,ciMiss=0;
+   if(sec){tvMiss=((sec.t_value&&sec.t_value.items)||[]).filter(function(i){return i.status==='mismatch';}).length;
+    ciMiss=((sec.cycle_integrity&&sec.cycle_integrity.items)||[]).filter(function(i){return i.status==='mismatch';}).length;}
+   else{tvMiss=(x.items||[]).filter(function(i){return i.status==='mismatch';}).length;}
+   return (x.ts||'').replace('T',' ').slice(0,16)+'  ['+x.overall+']  T불일치 '+tvMiss+
+    '건 / 싸이클불일치 '+ciMiss+'건';}).join('\n');
   alert('T값 감사 이력 (최근 30회)\n\n'+lines);});}
 function loadCashflow(){fetch('/api/suite/cashflow').then(function(r){return r.json();})
  .then(function(d){var e=d.entries||[],s=d.summary||{};var w=$('cfList');
