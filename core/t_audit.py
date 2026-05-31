@@ -150,7 +150,11 @@ def _audit_cycle_integrity_infinite() -> list[dict]:
         engine = create_engine(DATABASE_URL)
         SessionL = sessionmaker(bind=engine)
         with SessionL() as s:
-            pf_map = {p.id: p.ticker for p in s.scalars(select(Portfolio)).all()}
+            ports_all = list(s.scalars(select(Portfolio)).all())
+            pf_map = {p.id: p.ticker for p in ports_all}
+            pf_active = {p.id: bool(p.is_active) for p in ports_all}
+            pf_init_cost = {p.id: float(getattr(p, "initial_holdings_cost", 0) or 0)
+                            for p in ports_all}
             cycles = s.scalars(
                 select(CycleHistory).order_by(
                     CycleHistory.portfolio_id, CycleHistory.cycle_number
@@ -161,6 +165,8 @@ def _audit_cycle_integrity_infinite() -> list[dict]:
                 by_pf.setdefault(cy.portfolio_id, []).append(cy.cycle_number)
             for cy in cycles:
                 ticker = pf_map.get(cy.portfolio_id, "?")
+                is_active = pf_active.get(cy.portfolio_id, False)
+                init_cost = pf_init_cost.get(cy.portfolio_id, 0.0)
                 trades = s.scalars(
                     select(Trade).where(
                         Trade.portfolio_id == cy.portfolio_id,
@@ -181,12 +187,14 @@ def _audit_cycle_integrity_infinite() -> list[dict]:
                         f"end_date({cy.end_date}) ≠ 범위내 마지막 매도일({last_sell}) "
                         f"— /api/cycles 상세에 다음 싸이클 거래가 잘못 끼어들 수 있음"
                     )
-                if buy_qty != sell_qty:
+                # net qty 검사: cycle 1 + initial_holdings 보유분이 있으면 매수기록 없이
+                # 매도가 더 많은 게 정상이라 관대 처리 (legacy 보정).
+                if buy_qty != sell_qty and not (cy.cycle_number == 1 and init_cost > 0):
                     problems.append(
                         f"net qty {buy_qty - sell_qty} ≠ 0 (매수 {buy_qty}주 / 매도 {sell_qty}주) "
                         f"— 부분매도 후 종료 처리 의심"
                     )
-                # cycle 1은 initial_holdings_cost가 포함될 수 있어 매수합계 검증 관대
+                # cycle 1은 initial_holdings_cost가 매수합에 포함되므로 검증 관대
                 if cy.cycle_number != 1:
                     bdiff = round(buy_sum - float(cy.total_buy_amount or 0), 2)
                     if abs(bdiff) > 0.5:
@@ -205,9 +213,15 @@ def _audit_cycle_integrity_infinite() -> list[dict]:
                     problems.append(
                         f"profit ${cy.profit} ≠ sell−buy = ${expected_profit}"
                     )
+                # 소프트삭제(legacy) 포트폴리오의 mismatch는 운영영향 없음 → severity 낮춤
+                if problems and not is_active:
+                    status = "legacy"
+                else:
+                    status = "ok" if not problems else "mismatch"
                 rec = {
                     "strategy": "infinite", "ticker": ticker,
                     "portfolio_id": cy.portfolio_id, "cycle": cy.cycle_number,
+                    "pf_active": is_active,
                     "start_date": cy.start_date, "end_date": cy.end_date,
                     "trades_count": len(trades),
                     "buys_count": len(buys), "sells_count": len(sells),
@@ -217,7 +231,7 @@ def _audit_cycle_integrity_infinite() -> list[dict]:
                     "history_sell": float(cy.total_sell_amount or 0),
                     "history_profit": float(cy.profit or 0),
                     "last_sell_date": last_sell,
-                    "status": "ok" if not problems else "mismatch",
+                    "status": status,
                     "reason": " | ".join(problems),
                 }
                 out.append(rec)
@@ -348,6 +362,7 @@ def _audit_cycle_integrity_ddsop() -> list[dict]:
 
 
 def _section_overall(items: list[dict]) -> str:
+    """전체 상태 — legacy(소프트삭제 포트폴리오 잔재)는 운영영향 없어 무시."""
     if any(it.get("status") == "audit_failed" for it in items):
         return "audit_failed"
     if any(it.get("status") == "mismatch" for it in items):

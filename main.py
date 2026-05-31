@@ -959,7 +959,8 @@ function loadTAudit(){fetch('/api/suite/t_audit').then(function(r){return r.json
  .then(function(d){renderTAudit(d);})
  .catch(function(){$('tAuditBox').innerHTML='<div class="muted">감사 결과 로드 실패</div>';});}
 function _bdgFor(st){var m={ok:['run','일치'],mismatch:['part','불일치'],
- audit_failed:['stop','실행오류'],no_state:['stop','상태없음'],none:['stop','없음']};
+ audit_failed:['stop','실행오류'],no_state:['stop','상태없음'],
+ legacy:['part','참고(레거시)'],none:['stop','없음']};
  return m[st]||['stop',st||'?'];}
 function _sectionOverallBadge(sec,emptyLbl){var ov=(sec&&sec.overall)||'none';
  var items=(sec&&sec.items)||[];var miss=items.filter(function(i){return i.status==='mismatch';}).length;
