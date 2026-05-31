@@ -540,11 +540,16 @@ def _check_and_record_cycle(session: Session, ticker_obj: Ticker, tranches: list
 
     start_dates = [t.trade_date for t in all_cycle_trades if t.trade_date]
     start_date = min(start_dates) if start_dates else today_str
+    # [정합 보강 2026-05-31] end_date = 싸이클 내 마지막 매도 일자
+    # (today_str=종료처리 실행일이면, 같은 날 다음 싸이클 첫 매수가 있을 때
+    # /api/cycles 상세에 다음 싸이클 거래가 끼어드는 표시 버그 발생 — infinite와 동일)
+    sell_dates = [t.trade_date for t in sell_trades if t.trade_date]
+    end_date = max(sell_dates) if sell_dates else today_str
 
     session.add(CycleHistory(
         ticker_id=ticker_obj.id, ticker=ticker_obj.ticker,
         cycle_number=cycle_that_ended,
-        start_date=start_date, end_date=today_str,
+        start_date=start_date, end_date=end_date,
         total_buy_amount=round(total_buy_all, 2),
         total_sell_amount=round(total_sell, 2),
         profit=profit, profit_pct=profit_pct,
