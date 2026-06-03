@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+*.db
+*.sqlite3
+*.pem
+*.key
+kis_devlp.yaml
+.idea/
+*.zip
+.kill_switch

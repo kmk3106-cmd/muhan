@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+apscheduler
+pydantic
+requests
+pyyaml
+pandas
+yfinance>=0.2.0
+websockets>=12.0
+pycryptodome>=3.19.0
