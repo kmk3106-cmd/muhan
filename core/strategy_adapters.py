@@ -40,15 +40,32 @@ def _ddsop_rows() -> list[tuple[str, float]]:
         ]
 
 
+def _jongsa_rows() -> list[tuple[str, float]]:
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import Session
+    from strategies.jongsa.config import DATABASE_URL
+    from strategies.jongsa.models import Ticker
+    eng = create_engine(DATABASE_URL)
+    with Session(eng) as s:
+        return [
+            (str(t).upper(), float(usd or 0))
+            for t, usd in s.execute(
+                select(Ticker.ticker, Ticker.total_usd).where(Ticker.is_active == True)
+            ).all()
+        ]
+
+
 # name -> 활성 (ticker, per_ticker_seed) 목록을 반환하는 콜러블
 ADAPTERS = {
     "infinite": _infinite_rows,
     "ddsop": _ddsop_rows,
+    "jongsa": _jongsa_rows,
 }
 
 DISPLAY_NAMES = {
     "infinite": "무한매수법 V2.2",
     "ddsop": "떨사오팔",
+    "jongsa": "종사종팔",
 }
 
 

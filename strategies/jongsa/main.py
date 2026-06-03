@@ -269,7 +269,7 @@ def api_add_ticker(data: TickerCreate):
         sym = data.ticker.upper()
         try:
             from core.ticker_registry import assert_ticker_available, TickerConflict
-            assert_ticker_available("ddsop", sym)
+            assert_ticker_available("jongsa", sym)
         except TickerConflict as e:
             raise HTTPException(status_code=409, detail=str(e))
         existing = session.scalar(select(Ticker).where(Ticker.ticker == sym))

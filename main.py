@@ -15,11 +15,12 @@ from pydantic import BaseModel
 
 from strategies.infinite.main import app as infinite_app
 from strategies.ddsop.main import app as ddsop_app
+from strategies.jongsa.main import app as jongsa_app
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("trading_suite")
 
-SUB_APPS = {"infinite": infinite_app, "ddsop": ddsop_app}
+SUB_APPS = {"infinite": infinite_app, "ddsop": ddsop_app, "jongsa": jongsa_app}
 
 
 @asynccontextmanager
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="trading_suite (멀티전략)", lifespan=lifespan)
 app.mount("/infinite", infinite_app)
 app.mount("/ddsop", ddsop_app)
+app.mount("/jongsa", jongsa_app)
 
 
 class BudgetBody(BaseModel):

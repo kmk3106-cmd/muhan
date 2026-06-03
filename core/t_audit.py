@@ -268,18 +268,22 @@ def _audit_cycle_integrity_infinite() -> list[dict]:
     return out
 
 
-def _audit_cycle_integrity_ddsop() -> list[dict]:
-    """떨사오팔 CycleHistory 각 행 정합 검증 (trades.cycle_number·ticker 기반)."""
+def _audit_cycle_integrity_tranche(strategy: str = "ddsop") -> list[dict]:
+    """트렌치형 전략(떨사오팔/종사종팔) CycleHistory 각 행 정합 검증.
+
+    trades.cycle_number·ticker 기반. ddsop·jongsa 모두 동일 스키마라 strategy만 바꿔 재사용.
+    """
+    import importlib
     out: list[dict] = []
     try:
         from sqlalchemy import create_engine, select
         from sqlalchemy.orm import sessionmaker
-        from strategies.ddsop.config import DATABASE_URL as DDSOP_DB
-        from strategies.ddsop.models import (
-            Ticker as DdTicker, CycleHistory as DdCycle, Trade as DdTrade,
-        )
+        cfg = importlib.import_module(f"strategies.{strategy}.config")
+        models = importlib.import_module(f"strategies.{strategy}.models")
+        DDSOP_DB = cfg.DATABASE_URL
+        DdTicker, DdCycle, DdTrade = models.Ticker, models.CycleHistory, models.Trade
     except Exception as e:
-        return [{"strategy": "ddsop", "scope": "_import_error",
+        return [{"strategy": strategy, "scope": "_import_error",
                  "status": "audit_failed", "reason": f"{type(e).__name__}: {e}"}]
     try:
         engine = create_engine(DDSOP_DB)
@@ -354,7 +358,7 @@ def _audit_cycle_integrity_ddsop() -> list[dict]:
                 else:
                     status = "legacy"
                 rec = {
-                    "strategy": "ddsop", "ticker": ticker,
+                    "strategy": strategy, "ticker": ticker,
                     "ticker_id": cy.ticker_id, "cycle": cy.cycle_number,
                     "tk_active": is_active,
                     "start_date": cy.start_date, "end_date": cy.end_date,
@@ -381,13 +385,13 @@ def _audit_cycle_integrity_ddsop() -> list[dict]:
                     gaps = [nums[i + 1] - nums[i] for i in range(len(nums) - 1)]
                     if any(g != 1 for g in gaps):
                         out.append({
-                            "strategy": "ddsop", "ticker": tk_map.get(tid, "?"),
+                            "strategy": strategy, "ticker": tk_map.get(tid, "?"),
                             "ticker_id": tid, "scope": "continuity",
                             "status": "mismatch",
                             "reason": f"cycle_number 비연속 (보유 싸이클 {nums})",
                         })
     except Exception as e:
-        out.append({"strategy": "ddsop", "scope": "_error",
+        out.append({"strategy": strategy, "scope": "_error",
                     "status": "audit_failed", "reason": f"{type(e).__name__}: {e}"})
     return out
 
@@ -405,8 +409,9 @@ def run() -> dict:
     """전체 감사 1회 실행 — T값 + 싸이클 이력 정합 (스케줄러/엔드포인트 진입점)."""
     t_items = _audit_infinite()
     cyc_inf = _audit_cycle_integrity_infinite()
-    cyc_dds = _audit_cycle_integrity_ddsop()
-    cyc_items = cyc_inf + cyc_dds
+    cyc_dds = _audit_cycle_integrity_tranche("ddsop")
+    cyc_jng = _audit_cycle_integrity_tranche("jongsa")
+    cyc_items = cyc_inf + cyc_dds + cyc_jng
     sections = {
         "t_value": {"overall": _section_overall(t_items), "items": t_items},
         "cycle_integrity": {"overall": _section_overall(cyc_items), "items": cyc_items},

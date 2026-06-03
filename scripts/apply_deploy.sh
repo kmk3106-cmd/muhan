@@ -28,7 +28,7 @@ echo "[2/7] Kill Switch 상태 영속화 + 폴더 교체"
 # 교체 직전 현재 live .kill_switch 유무를 STATE 에 스냅샷 → UI 토글도 영속.
 STATE=/root/trading_suite_state
 mkdir -p "$STATE"
-for s in infinite ddsop; do
+for s in infinite ddsop jongsa; do
     if [ -f "$APP/strategies/$s/.kill_switch" ]; then
         touch "$STATE/$s.killed"
     elif [ -d "$APP/strategies/$s" ]; then
@@ -43,6 +43,7 @@ echo "[3/7] DB/예산/Kill Switch 복원"
 if [ -d "$BAK" ]; then
     cp "$BAK/strategies/infinite/infinite_buy.db" "$APP/strategies/infinite/" 2>/dev/null || true
     cp "$BAK/strategies/ddsop/ddsop.db"           "$APP/strategies/ddsop/"    2>/dev/null || true
+    cp "$BAK/strategies/jongsa/jongsa.db"         "$APP/strategies/jongsa/"   2>/dev/null || true
     cp "$BAK/core/_strategy_budget.json"          "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_equity.jsonl"                  "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_cashflow.json"                 "$APP/core/"                2>/dev/null || true
@@ -52,7 +53,7 @@ else
     cp /root/ddsop/ddsop.db           "$APP/strategies/ddsop/"    2>/dev/null || true
 fi
 # Kill Switch: 영속 상태(STATE) 기준으로 강제 — 정지 전략은 무슨 일이 있어도 정지 유지
-for s in infinite ddsop; do
+for s in infinite ddsop jongsa; do
     if [ -f "$STATE/$s.killed" ]; then
         touch "$APP/strategies/$s/.kill_switch"
         echo "  [killswitch] $s = 정지 유지"
@@ -78,8 +79,9 @@ echo "[7/7] 헬스체크"
 code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || echo 000)
 ic=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/infinite/dashboard || echo 000)
 dc=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ddsop/dashboard || echo 000)
-echo "  / -> $code  /infinite/dashboard -> $ic  /ddsop/dashboard -> $dc"
-if [ "$code" = "200" ] && [ "$ic" = "200" ] && [ "$dc" = "200" ]; then
+jc=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/jongsa/dashboard || echo 000)
+echo "  / -> $code  /infinite/dashboard -> $ic  /ddsop/dashboard -> $dc  /jongsa/dashboard -> $jc"
+if [ "$code" = "200" ] && [ "$ic" = "200" ] && [ "$dc" = "200" ] && [ "$jc" = "200" ]; then
     echo "DONE - trading_suite 기동 OK (롤백본: $BAK)"
 else
     echo "WARN - 헬스체크 실패. app.log 확인. 롤백: rm -rf $APP; mv $BAK $APP; cd $APP; nohup $VENV/bin/python main.py > app.log 2>&1 &"
