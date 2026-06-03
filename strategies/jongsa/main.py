@@ -55,7 +55,7 @@ def _pre_auth():
 async def lifespan(app: FastAPI):
     init_db(DATABASE_URL)
     run_h, run_m = get_us_market_run_time_kst()
-    logger.info(f"종사종팔 스케줄: 매일 {run_h:02d}:{run_m:02d}~{(run_h+5)%24:02d}:{run_m:02d} KST (매시, 미국장 개시 30분 후)")
+    logger.info(f"종사종팔 스케줄: 매일 {run_h:02d}:{run_m:02d}+{DDSOP_WORKER_MIN_OFFSET}분~ KST (매시, 미국장 개시 30분 후 + jongsa 레인 오프셋)")
     scheduler = BackgroundScheduler(timezone="Asia/Seoul")
     pre_h, pre_m = sched_shift(run_h, run_m, -DDSOP_PRE_AUTH_LEAD_MIN)
     scheduler.add_job(_pre_auth, "cron", hour=pre_h, minute=pre_m, id="pre_auth")
@@ -99,7 +99,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="떨사오팔 v1", lifespan=lifespan)
+app = FastAPI(title="종사종팔 v1", lifespan=lifespan)
 
 
 # ========== Pydantic ==========
