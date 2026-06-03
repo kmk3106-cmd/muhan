@@ -618,6 +618,7 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
  // 트렌치형(떨사오팔/종사종팔): x(%) 라벨·기본값·안내문만 전략별로 다름. API/필드ID는 동일(Ticker API).
  var xLabel=jong?'목표 수익률 (%)':'x (%)';
  var xDefault=jong?'3.5':'3';
+ var ntDefault=jong?'7':'5';   // 종사종팔 기본 7트렌치 (사용자 변경 가능)
  var trNote=jong
   ?'종사종팔: 매 거래일 다음 트렌치를 <b>종가 MOC 무조건 매수</b>, 매수평단 +목표% 도달 시 LOC 익절, 40거래일 손절. 티커는 전 전략 통틀어 중복 불가.'
   :'떨사오팔: 총액을 트렌치로 분할(전일종가 −x% LOC 매수). 티커는 전 전략 통틀어 중복 불가.';
@@ -630,7 +631,7 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
    '<div class="fact"><button class="btn p" onclick="addTicker()">티커 추가</button></div></div>'):
   ('<div class="form"><div class="fld"><label>티커</label><input id="fTk" placeholder="'+(jong?'예: QQQ':'예: TECL')+'"></div>'+
    '<div class="fld"><label>총 투입금액 (USD)</label><input id="fSeed" type="number" placeholder="예: 5000"></div>'+
-   '<div class="fld"><label>트렌치 수</label><input id="fNt" type="number" value="5"></div>'+
+   '<div class="fld"><label>트렌치 수</label><input id="fNt" type="number" value="'+ntDefault+'"></div>'+
    '<div class="fld"><label>'+xLabel+'</label><input id="fX" type="number" step="0.1" value="'+xDefault+'"></div>'+
    '<div class="fld"><label>손절 거래일</label><input id="fLc" type="number" value="40"></div>'+
    '<div class="fnote">'+trNote+'</div>'+
