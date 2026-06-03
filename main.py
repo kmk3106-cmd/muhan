@@ -163,9 +163,11 @@ _STRAT_META = {
         "logic": "떨어지면 사고 오르면 판다. 총액을 n개 트렌치로 분할 — 전일 종가 −x% 에 "
                  "트렌치 1칸 LOC 매수, 평단가 +x% 에 LOC 매도. 보유 N거래일(손절일) 경과 "
                  "트렌치는 MOC 손절매도. 첫 트렌치 매도로 싸이클 종료."},
-    "jongsajongpal": {"sub": "종사종팔 · n트렌치", "icon": "fa-clock-rotate-left", "kind": "ddsop",
-        "logic": "종가에 사고 종가에 판다. 전일 종가에 트렌치 매수, 당일 종가에 매도. "
-                 "n개 트렌치 분할.  ※ 추후 신규 개발 예정."},
+    "jongsa": {"sub": "종사종팔 · n트렌치", "icon": "fa-clock-rotate-left", "kind": "jongsa",
+        "logic": "종가에 사고 종가에 판다. 총액을 n개 트렌치로 분할 — 매 거래일 다음 트렌치 1칸을 "
+                 "종가 MOC로 무조건 매수(수량=트렌치금액/전일종가). 각 트렌치는 매수평단 +목표%"
+                 "(기본 3.5%) 도달 시 LOC 익절(목표가 보장), 40거래일 내 미도달 시 MOC 손절. "
+                 "첫 트렌치 매도로 싸이클 종료. (떨사오팔과 매수 방식만 다름)"},
     "infinite_v3": {"sub": "무한매수법 v3.0", "icon": "fa-infinity", "kind": "infinite",
         "logic": "무한매수법 v3.0 개선 로직.  ※ 추후 신규 개발 예정."},
 }
@@ -612,6 +614,13 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
    (b.assigned_total==null?'미설정':money(b.assigned_total))+'</b> · 종목 '+(b.ticker_count||0)+
    (b.over_budget?' · <span class="dn">예산 초과</span>':'');});
  var kind=kindOf(k);
+ var jong=(kind==='jongsa');
+ // 트렌치형(떨사오팔/종사종팔): x(%) 라벨·기본값·안내문만 전략별로 다름. API/필드ID는 동일(Ticker API).
+ var xLabel=jong?'목표 수익률 (%)':'x (%)';
+ var xDefault=jong?'3.5':'3';
+ var trNote=jong
+  ?'종사종팔: 매 거래일 다음 트렌치를 <b>종가 MOC 무조건 매수</b>, 매수평단 +목표% 도달 시 LOC 익절, 40거래일 손절. 티커는 전 전략 통틀어 중복 불가.'
+  :'떨사오팔: 총액을 트렌치로 분할(전일종가 −x% LOC 매수). 티커는 전 전략 통틀어 중복 불가.';
  $('addForm').innerHTML=kind==='infinite'?
   ('<div class="form"><div class="fld"><label>티커</label><input id="fTk" placeholder="예: SOXL"></div>'+
    '<div class="fld"><label>시드 (USD)</label><input id="fSeed" type="number" placeholder="예: 5000"></div>'+
@@ -619,12 +628,12 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
    '<div class="fld"><label>목표수익률 R (%)</label><input id="fR" type="number" value="10"></div>'+
    '<div class="fnote">무한매수법: 시드를 A회 분할 매수. 티커는 전 전략 통틀어 중복 불가.</div>'+
    '<div class="fact"><button class="btn p" onclick="addTicker()">티커 추가</button></div></div>'):
-  ('<div class="form"><div class="fld"><label>티커</label><input id="fTk" placeholder="예: TECL"></div>'+
+  ('<div class="form"><div class="fld"><label>티커</label><input id="fTk" placeholder="'+(jong?'예: QQQ':'예: TECL')+'"></div>'+
    '<div class="fld"><label>총 투입금액 (USD)</label><input id="fSeed" type="number" placeholder="예: 5000"></div>'+
    '<div class="fld"><label>트렌치 수</label><input id="fNt" type="number" value="5"></div>'+
-   '<div class="fld"><label>x (%)</label><input id="fX" type="number" value="3"></div>'+
+   '<div class="fld"><label>'+xLabel+'</label><input id="fX" type="number" step="0.1" value="'+xDefault+'"></div>'+
    '<div class="fld"><label>손절 거래일</label><input id="fLc" type="number" value="40"></div>'+
-   '<div class="fnote">떨사오팔: 총액을 트렌치로 분할. 티커는 전 전략 통틀어 중복 불가.</div>'+
+   '<div class="fnote">'+trNote+'</div>'+
    '<div class="fact"><button class="btn p" onclick="addTicker()">티커 추가</button></div></div>');
  var lp=kind==='infinite'?('/'+k+'/api/portfolios'):('/'+k+'/api/tickers');
  fetch(lp).then(function(r){return r.json();}).then(function(rows){
