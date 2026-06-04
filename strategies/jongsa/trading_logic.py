@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 종사종팔 v1 - 트렌치 매매 로직
-종가 MOC 무조건 매수, 평단가 +목표% LOC매도(목표가 보장), N거래일 손절 MOC매도 (N=loss_cut_days)
+종가 LOC 매수(전일종가×(1+여유%) 한도, '거의 무조건 종가체결'),
+평단가 +목표% LOC매도(목표가 보장), N거래일 손절 MOC매도 (N=loss_cut_days)
 
 떨사오팔(ddsop) 대비 차이는 '매수부' 한 곳뿐:
 - 떨사오팔: 전일종가×(1-x%) 'LOC' 매수 (하락 시에만 체결)
-- 종사종팔: '종가 MOC' 무조건 매수 (매 거래일 다음 트렌치 1개, 수량은 전일종가로 산출)
+- 종사종팔: 전일종가×(1+여유%) 'LOC' 매수 (한도가 넉넉 → 큰 상승갭만 미체결, 사실상 매일 종가 매수)
 매도(익절 LOC)·손절(MOC)·트렌치·싸이클은 떨사오팔과 동일.
 여기서 x_pct 는 '매도 목표 수익률 %'로만 쓰이고 매수 임계엔 사용하지 않는다.
+
+[중요] KIS Open API는 MOC(장마감 시장가)를 '매도 전용'으로만 허용한다(매수 MOC는
+APBK1269 거부). 따라서 매수는 반드시 LOC(지정가 장마감)로 내며, 한도가를 전일종가보다
+충분히 높게(여유%) 잡아 '무조건 종가매수'에 근접시킨다. 체결가는 한도가가 아니라 실제 종가다.
 """
 import logging
 import math
@@ -17,6 +22,10 @@ from typing import Optional
 from .models import Ticker, Tranche, TrancheStatus
 
 logger = logging.getLogger(__name__)
+
+# 종사종팔 매수 LOC 한도가 여유% — 한도가 = 전일종가 × (1 + 이 값/100).
+# 클수록 '무조건 종가매수'에 가까움(미체결 확률↓). 종사종팔 전체 공통. (사용자 지정: 15%)
+BUY_LIMIT_BUFFER_PCT = 15.0
 
 @dataclass
 class OrderItem:
@@ -136,11 +145,12 @@ def generate_orders(
                 desc=f"평단 ${t.avg_price:.2f} * +{x}%",
             ))
 
-    # 종사종팔 매수: 종가 MOC 무조건 (전일종가 대비 조건 없음).
-    # 매 거래일 다음 트렌치 1개를 종가 시장가(MOC)로 매수.
-    # MOC는 지정가가 없으므로 수량은 전일종가로 산출(추가 KIS 호출 0).
+    # 종사종팔 매수: KIS가 MOC 매수를 거부(매도전용, APBK1269)하므로 LOC(지정가 장마감)로 매수.
+    # 한도가 = 전일종가 × (1 + 여유%) → 종가가 한도 이하면 종가에 체결('거의 무조건 종가매수').
+    # 매 거래일 다음 트렌치 1개. 수량은 전일종가 기준 산출(체결은 실제 종가).
     next_t = find_next_buy_tranche(tranches)
     if next_t:
+        buy_limit = round(prev_close * (1 + BUY_LIMIT_BUFFER_PCT / 100), 2)
         buy_qty = max(1, int(amt_per / prev_close))
         cy = getattr(ticker_obj, "current_cycle", 1) or 1
         orders.append(OrderItem(
@@ -149,10 +159,10 @@ def generate_orders(
             tranche_num=next_t.tranche_num,
             cycle_number=cy,
             side="buy",
-            order_type="MOC",
-            price=0.0,
+            order_type="LOC",
+            price=buy_limit,
             qty=buy_qty,
-            desc=f"종가 MOC 무조건 매수 (수량≈${amt_per:.0f}/전일종가${prev_close:.2f})",
+            desc=f"종가 LOC 매수 (한도 전일종가${prev_close:.2f}×+{BUY_LIMIT_BUFFER_PCT:.0f}%=${buy_limit:.2f})",
         ))
 
     return orders
