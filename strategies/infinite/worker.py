@@ -605,6 +605,14 @@ def _process_portfolio(
                 save_account_summary(acct, DATABASE_URL)
             else:
                 logger.warning("주식평가/매입금액/예수금 모두 0 - API 응답에서 해당 필드를 찾지 못했습니다")
+            # [추가 2026-06] 종목별 보유 상세를 플랫폼 캐시에 저장(대시보드용, 추가 KIS 호출 0).
+            # 공용계좌라 df1에 전 종목이 들어옴. 거래 로직 무관 — 실패해도 무시.
+            try:
+                if not df1.empty:
+                    from core.holdings_cache import save_from_balance_rows
+                    save_from_balance_rows(df1.to_dict("records"), source="infinite")
+            except Exception:
+                pass
         except Exception as ex:
             logger.warning(f"계좌총액 저장 실패: {ex}")
 

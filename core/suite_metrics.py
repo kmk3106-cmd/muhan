@@ -169,6 +169,28 @@ def _recent_trades(strategy: str, n: int = 12) -> list[dict]:
         return []
 
 
+def _holdings_detail() -> dict:
+    """계좌 보유종목 상세(매입단가·현재가·평가손익·수익률) — 워커가 캐시한 KIS 잔고 기반.
+
+    공용계좌라 전 종목이 한 캐시에 들어옴. 티커→소속 전략 매핑 부착. KIS 무호출(캐시만)."""
+    try:
+        from .holdings_cache import load
+        from .ticker_registry import find_owner
+        d = load()
+        items = []
+        for it in d.get("items", []):
+            owner = find_owner(it.get("ticker", ""))
+            x = dict(it)
+            x["strategy"] = owner
+            x["display_name"] = DISPLAY_NAMES.get(owner, owner) if owner else "미분류"
+            items.append(x)
+        # 평가금 큰 순 정렬
+        items.sort(key=lambda r: r.get("eval_amt", 0), reverse=True)
+        return {"ts": d.get("ts", ""), "items": items}
+    except Exception:
+        return {"ts": "", "items": []}
+
+
 def _errors(strategy: str, n: int = 8) -> dict:
     """주문/API 오류상태: 최근 ERROR/WARNING 로그 + kill_switch."""
     logs: list[dict] = []
@@ -257,6 +279,8 @@ def build_metrics() -> dict:
     trades.sort(key=lambda x: (x.get("trade_date", ""),), reverse=True)
     trades = trades[:20]
 
+    holdings = _holdings_detail()
+
     return {
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
         "account": {                                   # 공용계좌(중복합산X)
@@ -281,4 +305,5 @@ def build_metrics() -> dict:
         },
         "strategies": per,                              # 9~13,15
         "recent_trades": trades,                        # 14 매매로그
+        "holdings": holdings,                            # 16 계좌 보유종목 상세(매입단가·현재가·수익률)
     }

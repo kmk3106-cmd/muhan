@@ -487,6 +487,9 @@ function pgDash(){var a=MET.account||{},au=MET.automation||{},ss=MET.strategies|
   card('전략별 현재 누적수익률','fa-ranking-star','<div class="bars" id="rbars"></div>')+'</div>';
  h+='<div class="grid">'+card('전략별 성과 요약','fa-table-list',
   '<div id="psum" style="overflow-x:auto"></div>')+'</div>';
+ h+='<div class="grid">'+card('보유 종목 (계좌 실시간 · 매입단가·현재가·평가수익률)','fa-wallet',
+  '<div id="phold" style="overflow-x:auto"></div>',
+  '<span class="lk" id="holdts" style="color:var(--c2);cursor:default"></span>')+'</div>';
  h+='<div class="grid g-2">'+card('최근 매매 내역','fa-receipt',
   '<div id="ptr" style="overflow-x:auto"></div>')+
   card('주문 상태 · 시스템 알림','fa-bell','<div id="palert"></div>')+'</div>';
@@ -497,7 +500,7 @@ function pgDash(){var a=MET.account||{},au=MET.automation||{},ss=MET.strategies|
   '<b style="flex:1">'+esc(s.display_name)+'</b>'+sP(s.return_pct)+
   '<span class="bdg '+(s.kill_switch?'stop':'run')+'" style="margin-left:8px">'+
   (s.kill_switch?'정지':'운용중')+'</span></div>';}).join('');
- renderSum(ss);renderTr(MET.recent_trades||[]);renderAlert(ss);drawDonut(ss);
+ renderSum(ss);renderTr(MET.recent_trades||[]);renderAlert(ss);drawDonut(ss);renderHold(MET.holdings||{});
  [].forEach.call($('sg').children,function(b){b.onclick=function(){
   [].forEach.call($('sg').children,function(x){x.classList.remove('on');});
   b.classList.add('on');R1=b.textContent;drawLine();};});
@@ -529,6 +532,31 @@ function renderTr(ts){$('ptr').innerHTML=ts.length?('<table class="tbl"><thead><
  '</span></td><td style="text-align:right">'+t.qty+'</td><td style="text-align:right">'+money(t.price,2)+
  '</td><td style="text-align:right">'+money(t.amount,2)+'</td></tr>';}).join('')+'</tbody></table>'):
  '<div class="muted">매매 내역 없음</div>';}
+function renderHold(h){var its=(h&&h.items)||[];var box=$('phold');var tsEl=$('holdts');
+ if(tsEl)tsEl.textContent=h&&h.ts?('갱신 '+String(h.ts).replace('T',' ').slice(0,16)):'';
+ if(!its.length){box.innerHTML='<div class="muted">보유 종목 없음 (또는 잔고 동기화 대기중)</div>';return;}
+ var tEval=0,tPnl=0,tBuy=0;
+ its.forEach(function(x){tEval+=x.eval_amt||0;tPnl+=x.pnl||0;tBuy+=x.buy_amt||0;});
+ var tRt=tBuy>0?(tPnl/tBuy*100):0;
+ box.innerHTML='<table class="tbl"><thead><tr><th>종목</th><th>전략</th>'+
+  '<th style="text-align:right">보유수량</th><th style="text-align:right">매입단가</th>'+
+  '<th style="text-align:right">현재가</th><th style="text-align:right">매입금액</th>'+
+  '<th style="text-align:right">평가금액</th><th style="text-align:right">평가손익</th>'+
+  '<th style="text-align:right">수익률</th></tr></thead><tbody>'+
+  its.map(function(x){var up=(x.pnl||0)>=0;return '<tr><td><b>'+esc(x.ticker)+'</b>'+
+   (x.name?'<br><span style="color:var(--c2);font-size:10.5px">'+esc(x.name)+'</span>':'')+'</td>'+
+   '<td>'+esc(x.display_name||'-')+'</td>'+
+   '<td style="text-align:right">'+x.qty+'</td>'+
+   '<td style="text-align:right">'+money(x.avg_price,2)+'</td>'+
+   '<td style="text-align:right">'+money(x.now_price,2)+'</td>'+
+   '<td style="text-align:right">'+money(x.buy_amt,2)+'</td>'+
+   '<td style="text-align:right">'+money(x.eval_amt,2)+'</td>'+
+   '<td style="text-align:right" class="'+(up?'up':'dn')+'">'+(up?'+':'')+money(x.pnl,2)+'</td>'+
+   '<td style="text-align:right" class="'+(up?'up':'dn')+'">'+(up?'+':'')+Number(x.pnl_rt||0).toFixed(2)+'%</td></tr>';}).join('')+
+  '</tbody></table>'+
+  '<div style="padding:10px 18px;font-size:12px;color:var(--c1);border-top:1px solid var(--line)">'+
+  '합계 매입 <b>'+money(tBuy)+'</b> · 평가 <b>'+money(tEval)+'</b> · 평가손익 <b class="'+(tPnl>=0?'up':'dn')+'">'+
+  (tPnl>=0?'+':'')+money(tPnl)+'</b> · 수익률 <b class="'+(tRt>=0?'up':'dn')+'">'+(tRt>=0?'+':'')+tRt.toFixed(2)+'%</b></div>';}
 function renderAlert(ss){var rows=[];ss.forEach(function(s){(s.errors||[]).forEach(function(l){
  rows.push({lv:l.level,m:'['+s.display_name+'] '+l.message,t:l.created_at});});});
  rows.sort(function(a,b){return (b.t||'').localeCompare(a.t||'');});

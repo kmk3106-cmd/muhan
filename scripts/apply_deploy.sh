@@ -48,6 +48,7 @@ if [ -d "$BAK" ]; then
     cp "$BAK/core/_equity.jsonl"                  "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_cashflow.json"                 "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_t_audit.jsonl"                 "$APP/core/"                2>/dev/null || true
+    cp "$BAK/core/_holdings.json"                 "$APP/core/"                2>/dev/null || true
 else
     cp /root/infinite/infinite_buy.db "$APP/strategies/infinite/" 2>/dev/null || true
     cp /root/ddsop/ddsop.db           "$APP/strategies/ddsop/"    2>/dev/null || true
