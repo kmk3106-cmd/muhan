@@ -109,6 +109,13 @@ def api_journal(date: str = ""):
     return out
 
 
+@app.get("/api/suite/strategy_intros")
+def api_strategy_intros():
+    """전략별 소개(첫 글용) 텍스트 — 매수규칙·매도·손절·로직."""
+    from core.blog_journal import strategy_intros
+    return {"items": strategy_intros()}
+
+
 @app.get("/api/suite/metrics")
 def suite_metrics():
     from core.suite_metrics import build_metrics
@@ -1129,20 +1136,59 @@ function togKill(k,act){if(!confirm(act?'이 전략을 정지(Kill Switch ON)할
  api('POST','/'+k+'/api/kill_switch?activate='+act).then(function(){
   toast('상태 변경됨');loadAll();}).catch(function(e){toast('실패: '+e);});}
 /* ---------- 매매일지(블로그) ---------- */
-var BJ=null;
+var BJ=null;var BJMODE='journal';
 function pgBlog(){
  var h='<div class="grid"><div class="card"><div class="ch">'+
   '<span class="ct"><i class="fa-solid fa-book"></i>매매일지 · 네이버 블로그 복붙용</span>'+
-  '<input type="date" id="bjDate" style="margin-left:auto;padding:7px 10px;border:1px solid var(--line);'+
-  'border-radius:8px;font-family:inherit;font-size:12.5px">'+
-  '<button class="btn sm" onclick="loadJournal($(\'bjDate\').value.replace(/-/g,\'\'))">'+
-  '<i class="fa-solid fa-rotate"></i> 조회</button></div>'+
+  '<div class="seg" id="bjg" style="margin-left:auto"><button class="sgb'+(BJMODE==="journal"?" on":"")+
+  '">일일 일지</button><button class="sgb'+(BJMODE==="intro"?" on":"")+'">전략 소개(첫글)</button></div></div>'+
+  '<div id="bjCtl"></div>'+
   '<div class="tip" style="margin:14px 18px 0"><i class="fa-solid fa-circle-info"></i>'+
-  '<span>일자를 고르면 전략별로 그날 <b>매수·매도·싸이클</b>이 정리됩니다. '+
-  '각 전략 블록의 <b>복사</b>를 눌러 네이버 블로그에 바로 붙여넣으세요(전략당 1개 글).</span></div>'+
+  '<span id="bjTip"></span></div>'+
   '<div id="bjBody"><div class="muted">불러오는 중…</div></div></div></div>';
  $('page').innerHTML=h;
- loadJournal('');}
+ var tabs=$('bjg').children;[].forEach.call(tabs,function(b,i){b.onclick=function(){
+  [].forEach.call(tabs,function(x){x.classList.remove('on');});b.classList.add('on');
+  BJMODE=i===1?'intro':'journal';bjRenderMode();};});
+ bjRenderMode();}
+function bjRenderMode(){
+ if(BJMODE==='intro'){
+  $('bjCtl').innerHTML='';
+  $('bjTip').innerHTML='첫 글(전략 소개)용입니다. 각 전략의 <b>매수규칙·매도·손절·로직</b>을 현재 설정(종목·목표%·트렌치)대로 정리했습니다. <b>복사</b>해서 블로그 첫 글로 쓰세요.';
+  loadIntros();
+ }else{
+  $('bjCtl').innerHTML='<div style="padding:12px 18px 0;display:flex;gap:8px;align-items:center">'+
+   '<span style="font-size:12px;color:var(--c1)">일자</span>'+
+   '<input type="date" id="bjDate" style="padding:7px 10px;border:1px solid var(--line);'+
+   'border-radius:8px;font-family:inherit;font-size:12.5px">'+
+   '<button class="btn sm" onclick="loadJournal($(\'bjDate\').value.replace(/-/g,\'\'))">'+
+   '<i class="fa-solid fa-rotate"></i> 조회</button></div>';
+  $('bjTip').innerHTML='일자를 고르면 전략별로 그날 <b>매수·매도·싸이클</b>이 정리됩니다. 각 전략 블록의 <b>복사</b>를 눌러 네이버 블로그에 붙여넣으세요(전략당 1개 글).';
+  loadJournal('');
+ }}
+function loadIntros(){
+ if($('bjBody'))$('bjBody').innerHTML='<div class="muted">불러오는 중…</div>';
+ fetch('/api/suite/strategy_intros').then(function(r){return r.json();}).then(function(d){
+  var its=(d&&d.items)||[];renderIntros(its);})
+  .catch(function(){if($('bjBody'))$('bjBody').innerHTML='<div class="muted">소개 로드 실패</div>';});}
+function renderIntros(its){var box=$('bjBody');
+ box.innerHTML=its.map(function(s,i){
+  var head='<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;'+
+   'border-top:1px solid var(--line);background:var(--bg)"><b style="font-size:13px">'+
+   esc(s.display_name)+' · 전략 소개</b>'+
+   '<button class="btn sm p" style="margin-left:auto" onclick="copyIntro('+i+')">'+
+   '<i class="fa-solid fa-copy"></i> 복사</button></div>';
+  var ta='<div style="padding:10px 18px 16px"><textarea id="bjintro'+i+'" readonly '+
+   'style="width:100%;height:230px;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);'+
+   'border-radius:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;'+
+   'color:var(--c0);background:#fbfcfe;resize:vertical;white-space:pre">'+esc(s.intro||'')+'</textarea></div>';
+  return head+ta;}).join('');}
+function copyIntro(i){var ta=$('bjintro'+i);if(!ta)return;ta.focus();ta.select();
+ var done=function(){toast('복사됨 — 블로그 첫 글에 붙여넣기');};
+ if(navigator.clipboard&&navigator.clipboard.writeText){
+  navigator.clipboard.writeText(ta.value).then(done).catch(function(){
+   try{document.execCommand('copy');done();}catch(e){toast('복사 실패 — 직접 선택해 복사');}});}
+ else{try{document.execCommand('copy');done();}catch(e){toast('복사 실패 — 직접 선택해 복사');}}}
 function loadJournal(ymd){
  if($('bjBody'))$('bjBody').innerHTML='<div class="muted">불러오는 중…</div>';
  fetch('/api/suite/journal'+(ymd?('?date='+ymd):'')).then(function(r){return r.json();})
