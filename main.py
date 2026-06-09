@@ -98,6 +98,17 @@ def api_t_audit_run_now():
     return run()
 
 
+@app.get("/api/suite/journal")
+def api_journal(date: str = ""):
+    """전략별 일자별 매매일지 (네이버 블로그 복붙용). date=YYYYMMDD, 없으면 최근 체결일."""
+    from core.blog_journal import daily, latest_active_date
+    latest = latest_active_date()
+    d = (date or latest).replace("-", "")[:8]
+    out = daily(d)
+    out["latest_date"] = latest
+    return out
+
+
 @app.get("/api/suite/metrics")
 def suite_metrics():
     from core.suite_metrics import build_metrics
@@ -427,9 +438,10 @@ var BARPAL=['#16a34a','#2f6bff','#e5484d','#d97706','#6c5ce7'];
 var MENU=[['dash','대시보드','fa-gauge-high'],['strat','전략 관리','fa-sliders'],
 ['port','포트폴리오','fa-briefcase'],['order','주문/체결','fa-receipt'],
 ['risk','리스크 관리','fa-shield-halved'],['perf','성과 분석','fa-chart-line'],
+['blog','매매일지(블로그)','fa-book'],
 ['mon','모니터링','fa-desktop'],['sys','시스템 설정','fa-gear']];
 var TT={dash:'대시보드',strat:'전략 관리',port:'포트폴리오',order:'주문/체결',
-risk:'리스크 관리',perf:'성과 분석',mon:'모니터링',sys:'시스템 설정'};
+risk:'리스크 관리',perf:'성과 분석',blog:'매매일지(블로그)',mon:'모니터링',sys:'시스템 설정'};
 function $(i){return document.getElementById(i);}
 function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(m){
  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];});}
@@ -1116,10 +1128,59 @@ function row(k,v){return '<div style="display:flex;justify-content:space-between
 function togKill(k,act){if(!confirm(act?'이 전략을 정지(Kill Switch ON)할까요?':'이 전략을 재가동할까요?'))return;
  api('POST','/'+k+'/api/kill_switch?activate='+act).then(function(){
   toast('상태 변경됨');loadAll();}).catch(function(e){toast('실패: '+e);});}
+/* ---------- 매매일지(블로그) ---------- */
+var BJ=null;
+function pgBlog(){
+ var h='<div class="grid"><div class="card"><div class="ch">'+
+  '<span class="ct"><i class="fa-solid fa-book"></i>매매일지 · 네이버 블로그 복붙용</span>'+
+  '<input type="date" id="bjDate" style="margin-left:auto;padding:7px 10px;border:1px solid var(--line);'+
+  'border-radius:8px;font-family:inherit;font-size:12.5px">'+
+  '<button class="btn sm" onclick="loadJournal($(\'bjDate\').value.replace(/-/g,\'\'))">'+
+  '<i class="fa-solid fa-rotate"></i> 조회</button></div>'+
+  '<div class="tip" style="margin:14px 18px 0"><i class="fa-solid fa-circle-info"></i>'+
+  '<span>일자를 고르면 전략별로 그날 <b>매수·매도·싸이클</b>이 정리됩니다. '+
+  '각 전략 블록의 <b>복사</b>를 눌러 네이버 블로그에 바로 붙여넣으세요(전략당 1개 글).</span></div>'+
+  '<div id="bjBody"><div class="muted">불러오는 중…</div></div></div></div>';
+ $('page').innerHTML=h;
+ loadJournal('');}
+function loadJournal(ymd){
+ if($('bjBody'))$('bjBody').innerHTML='<div class="muted">불러오는 중…</div>';
+ fetch('/api/suite/journal'+(ymd?('?date='+ymd):'')).then(function(r){return r.json();})
+  .then(function(d){BJ=d;
+   var di=$('bjDate');if(di){var dd=d.date||'';di.value=dd.length===8?(dd.slice(0,4)+'-'+dd.slice(4,6)+'-'+dd.slice(6,8)):'';}
+   renderJournal(d);})
+  .catch(function(){if($('bjBody'))$('bjBody').innerHTML='<div class="muted">일지 로드 실패</div>';});}
+function renderJournal(d){var box=$('bjBody');var ss=(d&&d.strategies)||[];
+ var dd=d.date||'';var diso=dd.length===8?(dd.slice(0,4)+'-'+dd.slice(4,6)+'-'+dd.slice(6,8)):dd;
+ var html='<div style="padding:8px 18px 4px;font-size:12px;color:var(--c2)">'+esc(diso)+
+  ' 기준 · 최근 체결일 '+esc((d.latest_date||'').replace(/(\d{4})(\d{2})(\d{2})/,"$1-$2-$3"))+'</div>';
+ html+=ss.map(function(s,i){
+  var act=s.has_activity;
+  var head='<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;'+
+   'border-top:1px solid var(--line);background:var(--bg)">'+
+   '<b style="font-size:13px">'+esc(s.display_name)+'</b>'+
+   '<span style="color:var(--c2);font-size:11.5px">매수 '+(s.buy_count||0)+'건 '+money(s.buy_sum)+
+   ' · 매도 '+(s.sell_count||0)+'건 '+money(s.sell_sum)+
+   ((s.cycles_ended&&s.cycles_ended.length)?(' · 🎯싸이클종료 '+s.cycles_ended.length):'')+'</span>'+
+   '<button class="btn sm p" style="margin-left:auto" onclick="copyJournal('+i+')">'+
+   '<i class="fa-solid fa-copy"></i> 복사</button></div>';
+  var ta='<div style="padding:10px 18px 16px"><textarea id="bjtext'+i+'" readonly '+
+   'style="width:100%;height:'+(act?'200px':'120px')+';box-sizing:border-box;padding:12px 14px;'+
+   'border:1px solid var(--line);border-radius:10px;font-family:ui-monospace,Menlo,Consolas,monospace;'+
+   'font-size:12.5px;line-height:1.6;color:var(--c0);background:#fbfcfe;resize:vertical;'+
+   'white-space:pre">'+esc(s.text||'')+'</textarea></div>';
+  return head+ta;}).join('');
+ box.innerHTML=html;}
+function copyJournal(i){var ta=$('bjtext'+i);if(!ta)return;ta.focus();ta.select();
+ var done=function(){toast('복사됨 — 네이버 블로그에 붙여넣기 하세요');};
+ if(navigator.clipboard&&navigator.clipboard.writeText){
+  navigator.clipboard.writeText(ta.value).then(done).catch(function(){
+   try{document.execCommand('copy');done();}catch(e){toast('복사 실패 — 직접 선택해 복사하세요');}});}
+ else{try{document.execCommand('copy');done();}catch(e){toast('복사 실패 — 직접 선택해 복사하세요');}}}
 /* ---------- 라우터 ---------- */
 function render(){if(!MET){$('page').innerHTML='<div class="muted">불러오는 중…</div>';return;}
  ({dash:pgDash,strat:pgStrat,port:pgPort,order:pgOrder,risk:pgRisk,perf:pgPerf,
-   mon:pgMon,sys:pgSys}[PAGE]||pgDash)();}
+   blog:pgBlog,mon:pgMon,sys:pgSys}[PAGE]||pgDash)();}
 function loadAll(){return fetch('/api/suite/metrics').then(function(r){return r.json();})
  .then(function(d){MET=d;var au=d.automation||{};
   $('st').className='st'+(au.running?'':' off');
