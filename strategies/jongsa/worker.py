@@ -854,21 +854,23 @@ def _run_worker_once_impl(submit_orders: bool = True):
                             _log_structured(session, "INFO", ticker_obj.ticker, "미체결",
                                             f"KIS 미체결 {before_kis - len(orders)}건과 동일 → 제외 (신규 {len(orders)}건만 제출)")
                             logger.info(f"  [{ticker_obj.ticker}] KIS 미체결과 동일 {before_kis - len(orders)}건 제외")
-                        # LOC매수주문가 >= LOC매도주문가 이면 매수 생략 (자전거래의심 방지)
-                        # 단, 매수가 매도가보다 0.5% 이상 낮으면 유지 (반올림/가격 변동 여유)
+                        # [종사종팔 옵션A 2026-06] 자전거래 회피 + 종가매수 유지:
+                        # LOC매수 한도가 최저 익절매도가와 겹치면(>=) 매수를 '생략'하지 않고
+                        # 한도를 '최저 익절가 바로 아래(×0.995)'로 낮춘다(캡).
+                        # → 종가가 익절가 아래면 종가에 매수 체결, 익절가 위로 마감하면 익절이 체결.
+                        #   둘이 같은 종가에 동시 체결될 일이 없어 자전거래 없음. (떨사오팔은 매수가<매도가라 캡 미발동)
                         sell_prices = [o.price for o in existing_orders if o.side == "sell" and o.price > 0]
                         sell_prices += [o.price for o in orders if o.side == "sell" and o.price > 0]
                         min_sell = min(sell_prices) if sell_prices else None
-                        before_self = len(orders)
-                        buy_orders = [o for o in orders if o.side == "buy"]
-                        # 매수 >= min_sell*1.005 일 때만 생략 (0.5% 버퍼로 오차 허용)
-                        threshold = min_sell * 1.005 if min_sell else None
-                        orders = [o for o in orders if o.side != "buy" or min_sell is None or o.price < threshold]
-                        if before_self > len(orders) and buy_orders:
-                            buy_o = buy_orders[0]
-                            _log_structured(session, "WARNING", ticker_obj.ticker, "스킵",
-                                            f"LOC매수 ${buy_o.price:.2f} >= 매도가(${min_sell:.2f}) → 매수 생략 (자전거래 방지)")
-                            logger.warning(f"  [{ticker_obj.ticker}] 자전거래 방지: LOC매수 ${buy_o.price:.2f} >= ${min_sell:.2f} → 생략")
+                        if min_sell is not None:
+                            cap = round(min_sell * 0.995, 2)
+                            for o in orders:
+                                if o.side == "buy" and o.price > cap:
+                                    logger.warning(f"  [{ticker_obj.ticker}] 자전거래 회피: LOC매수 한도 "
+                                                   f"${o.price:.2f} → ${cap:.2f} 캡 (최저 익절가 ${min_sell:.2f} 아래, 매수 유지)")
+                                    _log_structured(session, "INFO", ticker_obj.ticker, "캡",
+                                                    f"LOC매수 한도 ${o.price:.2f}→${cap:.2f} (익절가 ${min_sell:.2f} 아래로 캡, 자전거래 회피·종가매수 유지)")
+                                    o.price = cap
                         skipped = len(all_orders) - len(orders)
                         if skipped:
                             _log_structured(session, "INFO", ticker_obj.ticker, "미체결",
