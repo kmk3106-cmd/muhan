@@ -1207,6 +1207,7 @@ function renderJournal(d){var box=$('bjBody');var ss=(d&&d.strategies)||[];
    '<b style="font-size:13px">'+esc(s.display_name)+'</b>'+
    '<span style="color:var(--c2);font-size:11.5px">매수 '+(s.buy_count||0)+'건 '+money(s.buy_sum)+
    ' · 매도 '+(s.sell_count||0)+'건 '+money(s.sell_sum)+
+   ' · 보유 '+(s.holdings_qty||0)+'주'+
    ((s.cycles_ended&&s.cycles_ended.length)?(' · 🎯싸이클종료 '+s.cycles_ended.length):'')+'</span>'+
    '<button class="btn sm p" style="margin-left:auto" onclick="copyJournal('+i+')">'+
    '<i class="fa-solid fa-copy"></i> 복사</button></div>';

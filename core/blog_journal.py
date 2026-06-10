@@ -98,6 +98,17 @@ def _cycles_ended_on(strategy: str, ymd: str) -> list[dict]:
     return out
 
 
+def _holdings_for(strategy: str) -> list[dict]:
+    """해당 전략 소속(티커 귀속) 현재 보유종목 — 보유수량 캐시 기반(KIS 무호출)."""
+    try:
+        from .holdings_cache import load
+        from .ticker_registry import find_owner
+        d = load()
+        return [it for it in d.get("items", []) if find_owner(it.get("ticker", "")) == strategy]
+    except Exception:
+        return []
+
+
 def _side_label(order_type: str, side: str) -> str:
     if side == "sell":
         return "손절매도(MOC)" if str(order_type).upper() == "MOC" else "익절매도(LOC)"
@@ -135,6 +146,24 @@ def _strategy_block(strategy: str, name: str, ymd: str) -> dict:
                  f"손익 {sign}{_money(c['profit'])} ({sign}{c['profit_pct']:.2f}%)")
     if not buys and not sells and not ended:
         L.append("(당일 체결·싸이클 변동 없음)")
+
+    # 현재 보유 현황(지금까지 누적 보유수량 + 평단·현재가·평가수익률)
+    hold = _holdings_for(strategy)
+    if hold:
+        hqty = sum(int(h.get("qty", 0) or 0) for h in hold)
+        heval = round(sum(float(h.get("eval_amt", 0) or 0) for h in hold), 2)
+        hbuy = round(sum(float(h.get("buy_amt", 0) or 0) for h in hold), 2)
+        hpnl = round(heval - hbuy, 2)
+        hrt = round(hpnl / hbuy * 100, 2) if hbuy > 0 else 0.0
+        sg = "+" if hpnl >= 0 else ""
+        L.append("")
+        L.append(f"▪ 보유 현황 (누적 {hqty}주 · 평가 {_money(heval)} · 평가손익 {sg}{_money(hpnl)} {sg}{hrt:.2f}%)")
+        for h in hold:
+            rt = float(h.get("pnl_rt", 0) or 0)
+            rsg = "+" if rt >= 0 else ""
+            L.append(f"   · {h['ticker']} {h['qty']}주 · 평단 {_money(h.get('avg_price'))} · "
+                     f"현재 {_money(h.get('now_price'))} ({rsg}{rt:.2f}%)")
+
     L.append("")
     L.append(f"#자동매매 #{name.replace(' ', '')} #미국주식 #{d}")
 
@@ -143,6 +172,7 @@ def _strategy_block(strategy: str, name: str, ymd: str) -> dict:
         "buy_count": len(buys), "buy_sum": buy_sum,
         "sell_count": len(sells), "sell_sum": sell_sum,
         "cycles_ended": ended, "has_activity": bool(buys or sells or ended),
+        "holdings": hold, "holdings_qty": sum(int(h.get("qty", 0) or 0) for h in hold),
         "text": "\n".join(L),
     }
 
