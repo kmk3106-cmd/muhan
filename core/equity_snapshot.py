@@ -162,7 +162,11 @@ def _estimated_daily(first_real_date):
 
 
 def series(max_points: int = 400) -> dict:
-    """차트용 시계열: 실측 스냅샷 + 싸이클 기반 추정 소급(est=True)."""
+    """차트용 시계열: 실측 스냅샷만 표시 (실측 시작일부터, 사용자 요청 2026-06).
+
+    싸이클 기반 추정 소급(점선)은 제거 — 진짜 측정값(스냅샷)만 그린다.
+    (_estimated_daily 는 보존하되 미사용.)
+    """
     pts = _load()
     if len(pts) > max_points:
         step = len(pts) // max_points + 1
@@ -177,8 +181,8 @@ def series(max_points: int = 400) -> dict:
                 seeds[k] = 0
     except Exception:
         seeds = {}
-    first_real_date = str(pts[0]["ts"])[:10] if pts else None
-    est_pts, est_sret = _estimated_daily(first_real_date)
+    # 추정 소급 제거: 실측 스냅샷만
+    est_pts, est_sret = [], {}
     real_pts = [{
         "ts": p.get("ts"),
         "total_assets": float(p.get("total_assets") or 0),
