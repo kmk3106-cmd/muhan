@@ -184,9 +184,9 @@ _STRAT_META = {
     "jongsa": {"sub": "종사종팔 · n트렌치", "icon": "fa-clock-rotate-left", "kind": "jongsa",
         "logic": "종가에 사고 종가에 판다. 총액을 n개 트렌치로 분할 — 매 거래일 다음 트렌치 1칸을 "
                  "종가 LOC로 매수(한도=전일종가+15%, 거의 무조건 종가체결 · 수량=트렌치금액/전일종가). "
-                 "※ KIS가 MOC 매수를 불허(매도전용)해 LOC로 종가매수. 각 트렌치는 매수평단 +목표%"
-                 "(기본 3.5%) 도달 시 LOC 익절(목표가 보장), 40거래일 내 미도달 시 MOC 손절. "
-                 "첫 트렌치 매도로 싸이클 종료. (떨사오팔과 매수 방식만 다름)"},
+                 "※ KIS가 MOC 매수를 불허(매도전용)해 LOC로 종가매수. 매도는 보유 전 트렌치의 "
+                 "전체평단(가중평균) +목표%(기본 3.5%) 도달 시 전량 LOC 일괄매도(목표가 보장·부분매도 없음), "
+                 "40거래일 경과 트렌치는 MOC 손절. 전량 매도로 싸이클 종료."},
     "infinite_v3": {"sub": "무한매수법 v3.0", "icon": "fa-infinity", "kind": "infinite",
         "logic": "무한매수법 v3.0 개선 로직.  ※ 추후 신규 개발 예정."},
 }
@@ -668,7 +668,7 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
  var xDefault=jong?'3.5':'3';
  var ntDefault=jong?'7':'5';   // 종사종팔 기본 7트렌치 (사용자 변경 가능)
  var trNote=jong
-  ?'종사종팔: 매 거래일 다음 트렌치를 <b>종가 LOC 매수(한도 전일종가+15%)</b>, 매수평단 +목표% 도달 시 LOC 익절, 40거래일 손절. 티커는 전 전략 통틀어 중복 불가.'
+  ?'종사종팔: 매 거래일 다음 트렌치를 <b>종가 LOC 매수(한도 전일종가+15%)</b>, <b>전체평단 +목표% 도달 시 전량 일괄매도</b>, 40거래일 손절. 티커는 전 전략 통틀어 중복 불가.'
   :'떨사오팔: 총액을 트렌치로 분할(전일종가 −x% LOC 매수). 티커는 전 전략 통틀어 중복 불가.';
  $('addForm').innerHTML=kind==='infinite'?
   ('<div class="form"><div class="fld"><label>티커</label><input id="fTk" placeholder="예: SOXL"></div>'+

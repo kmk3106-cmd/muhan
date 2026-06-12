@@ -2,12 +2,14 @@
 """
 종사종팔 v1 - 트렌치 매매 로직
 종가 LOC 매수(전일종가×(1+여유%) 한도, '거의 무조건 종가체결'),
-평단가 +목표% LOC매도(목표가 보장), N거래일 손절 MOC매도 (N=loss_cut_days)
+**전체평단 +목표% 일괄매도**(보유 전 트렌치 가중평균 평단 기준, 전량 동일 LOC 가격),
+N거래일 손절 MOC매도 (N=loss_cut_days, 트렌치별)
 
-떨사오팔(ddsop) 대비 차이는 '매수부' 한 곳뿐:
-- 떨사오팔: 전일종가×(1-x%) 'LOC' 매수 (하락 시에만 체결)
-- 종사종팔: 전일종가×(1+여유%) 'LOC' 매수 (한도가 넉넉 → 큰 상승갭만 미체결, 사실상 매일 종가 매수)
-매도(익절 LOC)·손절(MOC)·트렌치·싸이클은 떨사오팔과 동일.
+떨사오팔(ddsop) 대비 차이:
+- 매수: 전일종가×(1+여유%) LOC (사실상 매일 종가 매수; ddsop는 −x% 하락조건부)
+- 매도: [2026-06-12 변경] 트렌치별 독립 익절 → **전체 가중평균 평단 ×(1+x%) 에 전량 일괄매도**.
+  종가가 목표 이상이면 전 트렌치 동시 체결, 미만이면 전량 미체결(부분매도 없음).
+- 손절(40일 MOC, 트렌치별)·트렌치·싸이클(전량매도 → T1 IDLE → 종료)은 ddsop와 동일 골격.
 여기서 x_pct 는 '매도 목표 수익률 %'로만 쓰이고 매수 임계엔 사용하지 않는다.
 
 [중요] KIS Open API는 MOC(장마감 시장가)를 '매도 전용'으로만 허용한다(매수 MOC는
@@ -116,6 +118,7 @@ def generate_orders(
     loss_cut_ids = set()
     loss_cut_days = getattr(ticker_obj, "loss_cut_days", 40) or 40
 
+    # ── 손절 (트렌치별 유지): 40거래일 경과 트렌치는 MOC 손절 ──
     for t in bought_tranches:
         cy = getattr(t, "cycle_number", 1) or 1
         if t.days_held >= loss_cut_days:
@@ -131,26 +134,46 @@ def generate_orders(
                 desc=f"손절 (보유 {t.days_held}일 >= {loss_cut_days}일)",
             ))
             loss_cut_ids.add(t.id)
-        else:
-            sell_price = round(t.avg_price * (1 + x / 100), 2)
-            orders.append(OrderItem(
-                ticker=symbol,
-                tranche_id=t.id,
-                tranche_num=t.tranche_num,
-                cycle_number=cy,
-                side="sell",
-                order_type="LOC",
-                price=sell_price,
-                qty=t.qty,
-                desc=f"평단 ${t.avg_price:.2f} * +{x}%",
-            ))
 
-    # 종사종팔 매수: KIS가 MOC 매수를 거부(매도전용, APBK1269)하므로 LOC(지정가 장마감)로 매수.
+    # ── 익절 매도 [2026-06-12 규칙 변경: 전체평단 일괄매도] ──
+    # 보유(손절 제외) 전 트렌치의 가중평균 평단 × (1+목표%) 를 단일 목표가로,
+    # 전 트렌치를 같은 LOC 가격에 일괄 매도. 종가가 목표 이상이면 전량 동시 체결,
+    # 미만이면 전량 미체결(부분매도 없음). (기존: 트렌치별 자기 평단 +목표% 독립 매도)
+    sell_targets = [t for t in bought_tranches if t.id not in loss_cut_ids]
+    sell_target_price = None
+    if sell_targets:
+        tot_qty = sum(t.qty for t in sell_targets)
+        tot_cost = sum(t.avg_price * t.qty for t in sell_targets)
+        if tot_qty > 0 and tot_cost > 0:
+            weighted_avg = tot_cost / tot_qty
+            sell_target_price = round(weighted_avg * (1 + x / 100), 2)
+            for t in sell_targets:
+                cy = getattr(t, "cycle_number", 1) or 1
+                orders.append(OrderItem(
+                    ticker=symbol,
+                    tranche_id=t.id,
+                    tranche_num=t.tranche_num,
+                    cycle_number=cy,
+                    side="sell",
+                    order_type="LOC",
+                    price=sell_target_price,
+                    qty=t.qty,
+                    desc=f"전체평단 ${weighted_avg:.2f} * +{x}% 일괄매도 ({tot_qty}주 중 {t.qty}주)",
+                ))
+
+    # ── 매수: KIS가 MOC 매수를 거부(매도전용, APBK1269)하므로 LOC(지정가 장마감)로 매수.
     # 한도가 = 전일종가 × (1 + 여유%) → 종가가 한도 이하면 종가에 체결('거의 무조건 종가매수').
-    # 매 거래일 다음 트렌치 1개. 수량은 전일종가 기준 산출(체결은 실제 종가).
+    # [매수규칙 재조정 2026-06-12] 일괄매도 목표가와 충돌하지 않게 한도를
+    # 매도목표가 × 0.995 아래로 캡 → 종가가 목표 위면 전량매도만, 아래면 매수만 체결(자전거래 불가).
     next_t = find_next_buy_tranche(tranches)
     if next_t:
         buy_limit = round(prev_close * (1 + BUY_LIMIT_BUFFER_PCT / 100), 2)
+        cap_note = ""
+        if sell_target_price is not None:
+            cap = round(sell_target_price * 0.995, 2)
+            if buy_limit > cap:
+                buy_limit = cap
+                cap_note = f", 매도목표${sell_target_price:.2f} 아래로 캡"
         buy_qty = max(1, int(amt_per / prev_close))
         cy = getattr(ticker_obj, "current_cycle", 1) or 1
         orders.append(OrderItem(
@@ -162,7 +185,7 @@ def generate_orders(
             order_type="LOC",
             price=buy_limit,
             qty=buy_qty,
-            desc=f"종가 LOC 매수 (한도 전일종가${prev_close:.2f}×+{BUY_LIMIT_BUFFER_PCT:.0f}%=${buy_limit:.2f})",
+            desc=f"종가 LOC 매수 (한도 ${buy_limit:.2f}{cap_note})",
         ))
 
     return orders
