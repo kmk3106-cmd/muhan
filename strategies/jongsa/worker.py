@@ -299,16 +299,44 @@ def _get_kis_pending_order_keys(client: KISClient, ticker: str, ctac_tlno: str) 
     return keys
 
 
+def _get_kis_filled_odnos(client: KISClient, ticker: str, today_str: str, ctac_tlno: str) -> set[str]:
+    """최근 3일 KIS '체결내역'의 주문번호 집합 (취소 오판 방지용).
+
+    [2026-07-18 보강] 미체결 조회에서 사라진 주문은 '외부취소'가 아니라 '체결'일 수도
+    있다(특히 마감 직전 LOC). 체결내역에 있는 주문번호는 cancelled 처리하면 안 된다 —
+    오판 시 동일 주문이 재제출되어 중복 매수 사고 발생(2026-07-08 UPRO 9주 중복 실사고).
+    조회 실패 시 빈 집합 반환(기존 동작으로 폴백).
+    """
+    odnos: set[str] = set()
+    try:
+        sdt = (datetime.now() - timedelta(days=2)).strftime("%Y%m%d")
+        df = client.inquire_ccnl(
+            pdno=ticker, ord_strt_dt=sdt, ord_end_dt=today_str,
+            ccld_nccs_dvsn="01", ovrs_excg_cd="%", ctac_tlno=ctac_tlno,
+        )
+        if df is not None and not df.empty:
+            for _, row in df.iterrows():
+                raw = str(row.get("odno", row.get("ORGN_ODNO", row.get("ODNO", ""))) or "").strip()
+                if raw:
+                    odnos.add(raw)
+                    odnos.add(_normalize_odno(raw))
+    except Exception as e:
+        logger.warning(f"  [{ticker}] 체결내역 대조 조회 실패(취소판정은 기존 방식 유지): {e}")
+    return odnos
+
+
 def _sync_pending_with_kis(session: Session, client: KISClient, ticker_obj: Ticker,
                            today_str: str, ctac_tlno: str) -> int:
     """
     DB의 pending/submitted 주문 중 KIS 미체결에 없는 건 → cancelled 처리.
     외부(다른 HTS/API)에서 취소된 경우 재제출 가능하도록.
     order_date는 today+ yesterday 포함 (자정 경계 주문 포함)
+    [2026-07-18 보강] 단, '체결내역'에 있는 주문번호는 체결된 것 → cancelled 금지(중복제출 방지).
     반환: cancelled로 갱신한 건수
     """
     yesterday_str = _yesterday_kst()
     kis_odnos = _get_kis_pending_odnos(client, ticker_obj.ticker, ctac_tlno)
+    filled_odnos = _get_kis_filled_odnos(client, ticker_obj.ticker, today_str, ctac_tlno)
     db_pending = session.scalars(
         select(TradeOrder).where(
             TradeOrder.ticker == ticker_obj.ticker,
@@ -324,6 +352,10 @@ def _sync_pending_with_kis(session: Session, client: KISClient, ticker_obj: Tick
             continue
         # kno 또는 정규화된 kno가 KIS 미체결에 있으면 유지
         if kno in kis_odnos or _normalize_odno(kno) in kis_odnos:
+            continue
+        # 체결내역에 있으면 '체결된 주문' — 취소 오판 금지, 체결 매칭에 맡김
+        if kno in filled_odnos or _normalize_odno(kno) in filled_odnos:
+            logger.info(f"  [{ticker_obj.ticker}] #{kno} 미체결엔 없으나 체결내역 존재 → 체결 처리 대기 (취소 아님)")
             continue
         o.status = "cancelled"
         updated += 1
