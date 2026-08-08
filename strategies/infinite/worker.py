@@ -509,6 +509,7 @@ def _process_portfolio(
 ) -> dict:
     result = {"ticker": portfolio.ticker, "orders": [], "synced": False}
     state = ensure_portfolio_state(session, portfolio)
+    ref_close = None  # 매수 LOC 한도 캡용 참조가 (잔고 df1의 현재가, 추가 KIS 호출 없음)
 
     def _plog(level: str, msg: str):
         """포트폴리오 로그. quiet 모드에서 INFO는 생략."""
@@ -613,6 +614,18 @@ def _process_portfolio(
                     save_from_balance_rows(df1.to_dict("records"), source="infinite")
             except Exception:
                 pass
+            # [2026-08 매수캡] 이 종목 현재가(now_pric2)를 매수 한도 캡 참조가로 추출 (KIS 무호출)
+            try:
+                if not df1.empty and "now_pric2" in df1.columns:
+                    _col = "ovrs_pdno" if "ovrs_pdno" in df1.columns else None
+                    _row = (df1[df1[_col].astype(str).str.upper() == portfolio.ticker.upper()]
+                            if _col else df1)
+                    if not _row.empty:
+                        _v = float(str(_row.iloc[0]["now_pric2"]).replace(",", ""))
+                        if _v > 0:
+                            ref_close = _v
+            except Exception:
+                ref_close = None
         except Exception as ex:
             logger.warning(f"계좌총액 저장 실패: {ex}")
 
@@ -704,7 +717,7 @@ def _process_portfolio(
     # KIS에 미체결 없으면 DB 기록과 무관하게 진행 (과거 success Order = 체결/취소 완료된 것)
 
     # ----- 3) 주문 생성 -----
-    orders = generate_orders(portfolio, state, today)
+    orders = generate_orders(portfolio, state, today, ref_price=ref_close)
 
     if not orders:
         detail = (

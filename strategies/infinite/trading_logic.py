@@ -79,10 +79,14 @@ class OrderItem:
 
 
 # ========== V2.2 주문 생성 ==========
+BUY_LIMIT_BUFFER_PCT = 15.0  # 매수 LOC 한도 캡: 참조가(현재가) × (1+15%) — KIS 괴리율 거부 방지
+
+
 def _generate_orders_v22(
     portfolio: Portfolio,
     state: PortfolioState,
     today: str,
+    ref_price: float = None,
 ) -> List[OrderItem]:
     """
     무한매수법 V2.2 규칙
@@ -90,6 +94,12 @@ def _generate_orders_v22(
     NORMAL 후반(T>=20): 매수 1개(B @ ☆%) + 매도 2개
     QUARTER(1~10): 매수 1개(-10% LOC) + 매도 2개(-10% LOC, +10% 지정가)
     QUARTER(10회 직후): MOC 1/4 매도
+
+    [2026-08 매수 한도 캡] 평단이 현재가보다 크게 높으면(급락장) 규칙 매수가가
+    현재가 대비 +20% 이상 괴리 → KIS가 접수 후 거부해 매수가 유실됨(SOXL 7/29~8/5 실측).
+    매수 LOC 한도 = min(규칙가, ref_price×1.15) 로 캡. LOC는 종가 체결이라 체결가/결과
+    동일(하루 +15% 초과 급등 마감일만 미체결). ref_price 없으면 캡 미적용(기존 동일).
+    매도/T/☆%/수량 원칙 무변경.
     """
     orders: List[OrderItem] = []
     B = portfolio.B
@@ -100,8 +110,16 @@ def _generate_orders_v22(
     mode = state.mode
     quarter_step = state.quarter_step
 
+    _buy_cap = None
+    if ref_price is not None and ref_price > 0:
+        _buy_cap = round(ref_price * (1 + BUY_LIMIT_BUFFER_PCT / 100.0), 2)
+
     def buy_price(base_price: float) -> float:
-        return round(base_price - 0.01, 2)
+        p = round(base_price - 0.01, 2)
+        if _buy_cap is not None and p > _buy_cap:
+            logger.info(f"[매수캡] 규칙가 ${p:.2f} → ${_buy_cap:.2f} (참조가 ${ref_price:.2f}×1.15, 괴리율 거부 방지)")
+            return _buy_cap
+        return p
 
     def sell_price(base_price: float) -> float:
         return round(base_price, 2)
@@ -192,6 +210,7 @@ def _generate_orders_v30(
     portfolio: Portfolio,
     state: PortfolioState,
     today: str,
+    ref_price: float = None,
 ) -> List[OrderItem]:
     """
     무한매수법 V3.0 규칙 (추가 예정)
@@ -211,16 +230,18 @@ def generate_orders(
     portfolio: Portfolio,
     state: PortfolioState,
     today: str,
+    ref_price: float = None,
 ) -> List[OrderItem]:
     """
-    포트폴리오의 strategy_version에 따라 해당 버전 주문 생성 로직 호출
+    포트폴리오의 strategy_version에 따라 해당 버전 주문 생성 로직 호출.
+    ref_price: 매수 LOC 한도 캡용 참조가(현재가/전일종가). None이면 캡 미적용(기존과 동일).
     """
     version = getattr(portfolio, "strategy_version", "2.2") or "2.2"
     gen = _ORDER_GENERATORS.get(version)
     if gen is None:
         logger.warning(f"미지원 버전 {version}, V2.2로 폴백")
         gen = _generate_orders_v22
-    return gen(portfolio, state, today)
+    return gen(portfolio, state, today, ref_price)
 
 
 # ========== 상태 동기화 ==========
