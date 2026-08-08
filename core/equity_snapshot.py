@@ -73,6 +73,35 @@ def _load() -> list[dict]:
     return out
 
 
+def _despike(pts: list[dict], key: str = "total_assets", thr: float = 0.25) -> list[dict]:
+    """순간 글리치 스냅샷 제거 (MDD·차트 오염 방지).
+
+    KIS 응답 순단 등으로 총자산이 한 포인트만 급락/급등했다 즉시 복귀하는 경우
+    (예: 2026-06-15 16:29 $8,567 — 앞뒤 30분은 $16,898) MDD가 -49% 등으로 왜곡된다.
+    앞뒤 이웃이 서로 ±10% 이내로 안정적인데 현재 포인트만 이웃 평균에서 thr(25%) 이상
+    벗어나면 '일시 글리치'로 보고 제외한다. 원본 JSONL은 보존(읽기 시에만 필터).
+    """
+    if len(pts) < 3:
+        return pts
+    out = [pts[0]]
+    for i in range(1, len(pts) - 1):
+        try:
+            prev = float(pts[i - 1].get(key) or 0)
+            cur = float(pts[i].get(key) or 0)
+            nxt = float(pts[i + 1].get(key) or 0)
+        except Exception:
+            out.append(pts[i])
+            continue
+        if prev > 0 and nxt > 0:
+            base = (prev + nxt) / 2
+            neighbors_stable = abs(prev - nxt) / max(prev, nxt) < 0.10
+            if base > 0 and neighbors_stable and abs(cur - base) / base > thr:
+                continue  # 일시 스파이크 — 제외
+        out.append(pts[i])
+    out.append(pts[-1])
+    return out
+
+
 def _cycle_realized_by_date() -> dict:
     """전략별 {YYYYMMDD: 그날 실현손익 합}. CycleHistory.end_date·profit 기반(DB만)."""
     from .strategy_adapters import ADAPTERS
@@ -167,7 +196,7 @@ def series(max_points: int = 400) -> dict:
     싸이클 기반 추정 소급(점선)은 제거 — 진짜 측정값(스냅샷)만 그린다.
     (_estimated_daily 는 보존하되 미사용.)
     """
-    pts = _load()
+    pts = _despike(_load())
     if len(pts) > max_points:
         step = len(pts) // max_points + 1
         pts = pts[::step] + [pts[-1]]
@@ -250,7 +279,7 @@ def mdd_by_strategy() -> dict:
 
 
 def account_mdd() -> float | None:
-    """공용계좌 총평가자산 곡선 기준 MDD(%)."""
-    pts = _load()
-    ser = [float(p.get("total_assets") or 0) for p in pts]
+    """공용계좌 총평가자산 곡선 기준 MDD(%). 글리치 스냅샷 제거 후 계산."""
+    pts = _despike(_load())
+    ser = [float(p.get("total_assets") or 0) for p in pts if float(p.get("total_assets") or 0) > 0]
     return _mdd(ser)

@@ -618,26 +618,43 @@ function drawLine(){var w=$('cw1');if(!SER||SER.collecting||!SER.points||SER.poi
   '<div class="t">일별 추이 누적 중</div><div class="s">거래일이 2일 이상 쌓이면 일자별 추이가 표시됩니다 (현재 '+
   dp.length+'일치)</div></div>';return;}
  var L=dp.map(function(o){return String(o.x.ts).slice(5,10);});
- var EST=dp.map(function(o){return !!o.x.est;});
- var hasEst=EST.indexOf(true)>=0;
- var ds=[{label:'총자산'+(hasEst?' (점선=추정 소급)':''),
-  data:dp.map(function(o){return o.x.total_assets;}),borderColor:'#2f6bff',
-  backgroundColor:'rgba(47,107,255,.08)',borderWidth:2.4,pointRadius:2,fill:true,tension:.2,yAxisID:'y',
-  segment:{borderDash:function(c){return (EST[c.p0DataIndex]||EST[c.p1DataIndex])?[5,4]:undefined;}}}];
- if(dp.some(function(o){return o.x.deposit!=null;})){
-  ds.push({label:'입금액(누적)',data:dp.map(function(o){return o.x.deposit;}),
-   borderColor:'#16a34a',borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
- if(dp.some(function(o){return o.x.withdraw!=null;})){
-  ds.push({label:'출금액(누적)',data:dp.map(function(o){return o.x.withdraw;}),
-   borderColor:'#e5484d',borderWidth:2,pointRadius:0,tension:.1,stepped:true,yAxisID:'y'});}
+ var vals=dp.map(function(o){return o.x.total_assets;});
+ // ── 세로축 다이내믹 레인지: 데이터 min~max에 15% 패딩만 → 변화가 드라마틱하게 보이도록
+ var vmin=Math.min.apply(null,vals),vmax=Math.max.apply(null,vals);
+ var span=Math.max(vmax-vmin,vmax*0.01,1),pad=span*0.15;
+ var yMin=Math.max(0,Math.floor((vmin-pad)/50)*50),yMax=Math.ceil((vmax+pad)/50)*50;
+ // ── 입금/출금: 누적선 → 발생일 이벤트 막대(복합차트, 우측 보조축)
+ var depB=[],wdrB=[],maxBar=0;
+ dp.forEach(function(o,i){var pv=i>0?dp[i-1].x:null;
+  var d=pv?Math.max(0,(o.x.deposit||0)-(pv.deposit||0)):0;
+  var wd=pv?Math.max(0,(o.x.withdraw||0)-(pv.withdraw||0)):0;
+  depB.push(d>0?d:null);wdrB.push(wd>0?wd:null);
+  if(d>maxBar)maxBar=d;if(wd>maxBar)maxBar=wd;});
+ // ── 총자산 라인: 그라데이션 필 + 부드러운 곡선
+ var gctx=$('c1').getContext('2d');
+ var grad=gctx.createLinearGradient(0,0,0,264);
+ grad.addColorStop(0,'rgba(47,107,255,.22)');grad.addColorStop(.65,'rgba(47,107,255,.05)');
+ grad.addColorStop(1,'rgba(47,107,255,0)');
+ var ds=[{label:'총자산',type:'line',data:vals,borderColor:'#2f6bff',
+  backgroundColor:grad,borderWidth:2.6,pointRadius:0,pointHoverRadius:4,
+  pointHoverBackgroundColor:'#2f6bff',fill:true,tension:.3,yAxisID:'y',order:1}];
+ if(maxBar>0){
+  ds.push({label:'입금',type:'bar',data:depB,backgroundColor:'rgba(22,163,74,.55)',
+   borderColor:'#16a34a',borderWidth:1,borderRadius:5,maxBarThickness:16,yAxisID:'y2',order:2});
+  ds.push({label:'출금',type:'bar',data:wdrB,backgroundColor:'rgba(229,72,77,.55)',
+   borderColor:'#e5484d',borderWidth:1,borderRadius:5,maxBarThickness:16,yAxisID:'y2',order:2});}
  C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:ds},options:{responsive:true,
   maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',boxWidth:7,
-   padding:14,font:{size:11}}},tooltip:{backgroundColor:'#1a2233',padding:10,cornerRadius:8}},
+   padding:14,font:{size:11}}},tooltip:{backgroundColor:'#1a2233',padding:11,cornerRadius:9,
+   callbacks:{label:function(c){return ' '+c.dataset.label+': $'+
+    Number(c.parsed.y).toLocaleString(undefined,{maximumFractionDigits:0});}}}},
   scales:{x:{grid:{display:false},title:{display:true,text:'일자',color:'#9aa3b2',font:{size:10}},
    ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:10}},
-  y:{position:'left',grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
-   callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});}
+  y:{position:'left',min:yMin,max:yMax,grid:{color:'#eef1f6'},
+   ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:7,
+   callback:function(v){return '$'+(v>=1000?(v/1000).toFixed(1)+'k':v);}}},
+  y2:{display:false,min:0,max:Math.max(maxBar*3.2,1)}}}});}
 /* ---------- 전략 관리 ---------- */
 function pgStrat(){var ss=MET.strategies||[];
  var opt=STRATS.map(function(s){return '<option value="'+s.key+'">'+esc(s.label)+'</option>';}).join('');
