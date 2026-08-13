@@ -522,10 +522,30 @@ def _check_and_record_cycle(session: Session, ticker_obj: Ticker, tranches: list
         return
 
     last_sell = max(t1_sell_trades, key=lambda t: t.trade_date)
-    if last_sell.trade_date < (datetime.now() - timedelta(days=10)).strftime("%Y%m%d"):
+
+    # [2026-08-14 보강] 전량청산 예외 — TECL C6 실사례(미기록) 재발 방지.
+    # 원칙: 손절(MOC)은 싸이클 종료 아님(재매수 계속). 단, T1이 손절로 끝난 채
+    # 재매수 없이 '전 트렌치 IDLE(전량 청산)'이 되면 싸이클은 실질 종료 →
+    # 기록하고 마감한다(성과분석 누락 방치 방지). 부분 손절은 기존대로 계속.
+    all_idle = all(t.status == TrancheStatus.IDLE.value for t in tranches)
+
+    # 최근성 판정: 원칙은 T1 마지막 매도 기준 10일. 전량청산 시에는 T1이
+    # 오래전 손절됐어도(예: TECL 7/31 손절→8/13 전량청산) 마지막 '전체' 매도가
+    # 최근이면 진행되도록 전체 매도 최신일도 함께 본다.
+    recency_ref = last_sell.trade_date
+    if all_idle:
+        from sqlalchemy import func as _func
+        any_last = session.scalar(
+            select(_func.max(Trade.trade_date)).where(
+                Trade.ticker == ticker_obj.ticker, Trade.side == "sell",
+            )
+        )
+        if any_last and str(any_last) > recency_ref:
+            recency_ref = str(any_last)
+    if recency_ref < (datetime.now() - timedelta(days=10)).strftime("%Y%m%d"):
         return
 
-    if last_sell.order_type == "MOC":
+    if last_sell.order_type == "MOC" and not all_idle:
         return
 
     # 방금 끝난 싸이클 = T1 LOC 매도의 cycle_number. 0/None이면 1로 (fallback은 current_cycle 사용 금지)
