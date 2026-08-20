@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from strategies.infinite.main import app as infinite_app
 from strategies.ddsop.main import app as ddsop_app
 from strategies.jongsa.main import app as jongsa_app
+from strategies.vr.main import app as vr_app
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("trading_suite")
@@ -29,6 +30,9 @@ async def lifespan(app: FastAPI):
         for name, sub in SUB_APPS.items():
             await stack.enter_async_context(sub.router.lifespan_context(sub))
             logger.info(f"[suite] sub-app lifespan 기동: {name}")
+        # VR(NH 계좌)은 KIS 3전략 집계(STRATS/ADAPTERS)와 분리된 독립 모듈 — 별도 기동
+        await stack.enter_async_context(vr_app.router.lifespan_context(vr_app))
+        logger.info("[suite] sub-app lifespan 기동: vr (NH)")
         sched = None
         try:
             from apscheduler.schedulers.background import BackgroundScheduler
@@ -64,6 +68,7 @@ app = FastAPI(title="trading_suite (멀티전략)", lifespan=lifespan)
 app.mount("/infinite", infinite_app)
 app.mount("/ddsop", ddsop_app)
 app.mount("/jongsa", jongsa_app)
+app.mount("/vr", vr_app)
 
 
 class BudgetBody(BaseModel):
@@ -450,10 +455,11 @@ var BARPAL=['#16a34a','#2f6bff','#e5484d','#d97706','#6c5ce7'];
 var MENU=[['dash','대시보드','fa-gauge-high'],['strat','전략 관리','fa-sliders'],
 ['port','포트폴리오','fa-briefcase'],['order','주문/체결','fa-receipt'],
 ['risk','리스크 관리','fa-shield-halved'],['perf','성과 분석','fa-chart-line'],
+['vr','VR (NH계좌)','fa-scale-balanced'],
 ['blog','매매일지(블로그)','fa-book'],
 ['mon','모니터링','fa-desktop'],['sys','시스템 설정','fa-gear']];
 var TT={dash:'대시보드',strat:'전략 관리',port:'포트폴리오',order:'주문/체결',
-risk:'리스크 관리',perf:'성과 분석',blog:'매매일지(블로그)',mon:'모니터링',sys:'시스템 설정'};
+risk:'리스크 관리',perf:'성과 분석',vr:'VR (NH계좌)',blog:'매매일지(블로그)',mon:'모니터링',sys:'시스템 설정'};
 function $(i){return document.getElementById(i);}
 function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(m){
  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];});}
@@ -1246,10 +1252,131 @@ function copyJournal(i){var ta=$('bjtext'+i);if(!ta)return;ta.focus();ta.select(
   navigator.clipboard.writeText(ta.value).then(done).catch(function(){
    try{document.execCommand('copy');done();}catch(e){toast('복사 실패 — 직접 선택해 복사하세요');}});}
  else{try{document.execCommand('copy');done();}catch(e){toast('복사 실패 — 직접 선택해 복사하세요');}}}
+/* ---------- VR (NH계좌) ---------- */
+var VRCH={},VRPREV={};
+function pgVr(){
+ $('page').innerHTML='<div class="tip"><i class="fa-solid fa-circle-info"></i>'+
+  '<span>라오어 VR — NH 계좌 2개. 매주 토요일 <b>[다음 주기 미리보기]</b>로 자동 산출표를 팬딩 표와 대조한 뒤 '+
+  '<b>[예약 제출]</b>하면 NH에 2주치 기간잔량 지정가 예약이 일괄 등록됩니다. 가격=모델 기준, 수량=단위×배수.</span></div>'+
+  '<div id="vrBody"><div class="muted">불러오는 중…</div></div>';
+ loadVr();}
+function loadVr(){fetch('/vr/api/status').then(function(r){return r.json();})
+ .then(function(d){renderVr(d);})
+ .catch(function(){$('vrBody').innerHTML='<div class="muted">VR 상태 로드 실패</div>';});}
+function vrFmtD(s){s=String(s||'');return s.length===8?(s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8)):s;}
+function renderVr(d){var gs=(d&&d.gisu)||[];
+ $('vrBody').innerHTML=gs.map(function(g){var gid=g.id;
+  var info='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;padding:12px 18px;font-size:12px">'+
+   [['주차',g.week_no+'주차'],['기간',vrFmtD(g.cyc_start)+' ~ '+vrFmtD(g.cyc_end)],
+    ['V',money(g.v)],['밴드',money(g.band_lo)+' ~ '+money(g.band_hi)],
+    ['모델 잔여',g.model_qty+'주'],['Pool(모델)',money(g.pool_now)],
+    ['계좌',esc(String(g.acct_no).slice(0,3)+'-**-**'+String(g.acct_no).slice(-3))],
+    ['이번주기 예약',g.reserved_this_week+'건']].map(function(x){
+    return '<div><div style="color:var(--c2);font-size:10.5px">'+x[0]+'</div><b>'+x[1]+'</b></div>';}).join('')+'</div>';
+  var set='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 18px 12px;font-size:11.5px">'+
+   [['배수','vrM_'+gid,g.mult],['현금흐름/주기(인출−)','vrC_'+gid,g.cashflow],
+    ['G','vrG_'+gid,g.g],['매도단수','vrS_'+gid,g.sell_steps]].map(function(x){
+    return '<label style="display:flex;flex-direction:column;gap:3px;color:var(--c2)">'+x[0]+
+     '<input id="'+x[1]+'" type="number" step="any" value="'+x[2]+'" style="width:96px;padding:6px 8px;'+
+     'border:1px solid var(--line);border-radius:7px;font-family:inherit"></label>';}).join('')+
+   '<button class="btn sm" onclick="vrSaveSet(\''+gid+'\')">설정 저장</button>'+
+   '<button class="btn sm" onclick="vrSync(\''+gid+'\')"><i class="fa-solid fa-rotate"></i> 체결 동기화</button>'+
+   '<button class="btn sm p" onclick="vrPreview(\''+gid+'\')"><i class="fa-solid fa-table-list"></i> 다음 주기 미리보기</button></div>';
+  return '<div class="grid"><div class="card"><div class="ch"><span class="ct">'+
+   '<i class="fa-solid fa-scale-balanced"></i>'+esc(g.name)+' · ×'+g.mult+'배수</span>'+
+   '<span class="bdg '+(g.kill_switch?'stop':'run')+'" style="margin-left:auto">'+(g.kill_switch?'정지':'운용중')+'</span></div>'+
+   info+set+
+   '<div class="cw" style="height:240px"><canvas id="vrch_'+gid+'"></canvas></div>'+
+   '<div id="vrprev_'+gid+'"></div><div id="vrres_'+gid+'"></div></div></div>';
+ }).join('');
+ gs.forEach(function(g){fetch('/vr/api/gisu/'+g.id+'/graph').then(function(r){return r.json();})
+  .then(function(gd){drawVrChart(g.id,gd);}).catch(function(){});
+  renderVrLedger(g.id);});}
+function renderVrLedger(gid){fetch('/vr/api/gisu/'+gid).then(function(r){return r.json();})
+ .then(function(d){var rows=(d.reserved||[]).slice(-24).reverse();var box=$('vrres_'+gid);if(!box)return;
+  if(!rows.length){box.innerHTML='';return;}
+  box.innerHTML='<div style="padding:0 18px 14px"><details><summary style="cursor:pointer;font-size:11.5px;'+
+   'color:var(--blue);font-weight:600">예약 원장 ('+rows.length+'건)</summary>'+
+   '<div style="overflow-x:auto;margin-top:8px"><table class="tbl"><thead><tr><th>주차</th><th>구분</th>'+
+   '<th style="text-align:right">가격</th><th style="text-align:right">수량</th><th>기간</th><th>NH접수번호</th><th>상태</th></tr></thead><tbody>'+
+   rows.map(function(o){return '<tr><td>'+o.week_no+'</td><td><span class="tag '+(o.side==='buy'?'buy">매수':'sell">매도')+
+    '</span></td><td style="text-align:right">'+money(o.price,2)+'</td><td style="text-align:right">'+o.qty_acct+
+    '</td><td>'+vrFmtD(o.start_dt)+'~'+vrFmtD(o.end_dt)+'</td><td>'+esc(o.nh_order_no||'-')+'</td><td>'+esc(o.status)+'</td></tr>';}).join('')+
+   '</tbody></table></div></details></div>';});}
+function drawVrChart(gid,gd){var el=$('vrch_'+gid);if(!el)return;
+ var rows=(gd&&gd.weekly)||[];if(!rows.length)return;
+ var labels=rows.map(function(r){return r.week_no+'주';});
+ var ev=rows.map(function(r){return r.eval_amt;});
+ if(gd.live_eval!=null){var idx=rows.findIndex(function(r){return r.week_no===gd.current_week;});
+  if(idx>=0&&ev[idx]==null)ev[idx]=gd.live_eval;}
+ if(VRCH[gid]){VRCH[gid].destroy();}
+ VRCH[gid]=new Chart(el,{type:'line',data:{labels:labels,datasets:[
+  {label:'평가금',data:ev,borderColor:'#e5484d',borderWidth:2.4,pointRadius:3,tension:.15,spanGaps:true},
+  {label:'최소',data:rows.map(function(r){return r.band_lo;}),borderColor:'#6c5ce7',borderDash:[6,4],borderWidth:1.6,pointRadius:0,spanGaps:true},
+  {label:'최대',data:rows.map(function(r){return r.band_hi;}),borderColor:'#6c5ce7',borderDash:[6,4],borderWidth:1.6,pointRadius:0,spanGaps:true}]},
+  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11}}},
+    tooltip:{backgroundColor:'#1a2233',padding:10,cornerRadius:8}},
+   scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10}}},
+    y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
+     callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});}
+function vrSaveSet(gid){var b={mult:parseInt($('vrM_'+gid).value),cashflow:parseFloat($('vrC_'+gid).value),
+  g:parseFloat($('vrG_'+gid).value),sell_steps:parseInt($('vrS_'+gid).value)};
+ fetch('/vr/api/gisu/'+gid+'/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify(b)}).then(function(r){if(!r.ok)throw 0;return r.json();})
+  .then(function(){toast('설정 저장됨 (다음 미리보기부터 반영)');loadVr();})
+  .catch(function(){toast('설정 저장 실패');});}
+function vrSync(gid){toast('체결 동기화 중…');
+ fetch('/vr/api/gisu/'+gid+'/sync',{method:'POST'}).then(function(r){return r.json();})
+  .then(function(d){toast('동기화: 신규 체결 '+(d.new_fills||0)+'건');loadVr();})
+  .catch(function(){toast('동기화 실패');});}
+function vrPreview(gid,qs){var box=$('vrprev_'+gid);box.innerHTML='<div class="muted">산출 중…</div>';
+ fetch('/vr/api/gisu/'+gid+'/preview'+(qs||'')).then(function(r){
+  if(!r.ok)return r.json().then(function(e){throw (e&&e.detail)||'산출 실패';});return r.json();})
+ .then(function(p){VRPREV[gid]=p;
+  var mk=function(rows,label,cls){return '<div style="flex:1;min-width:260px"><b style="font-size:12px">'+label+
+   ' ('+rows.length+'단)</b><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th>'+
+   '<th style="text-align:right">가격</th><th style="text-align:right">계좌수량</th>'+
+   '<th style="text-align:right">모델잔여</th><th style="text-align:right">Pool</th></tr></thead><tbody>'+
+   rows.map(function(r){return '<tr><td>'+r.step+'</td><td style="text-align:right" class="'+cls+'"><b>'+
+    money(r.price,2)+'</b></td><td style="text-align:right">'+r.qty_acct+'</td><td style="text-align:right">'+
+    r.remain_after+'</td><td style="text-align:right">'+money(r.pool_after,2)+'</td></tr>';}).join('')+
+   '</tbody></table></div></div>';};
+  box.innerHTML='<div style="padding:12px 18px;border-top:1px solid var(--line)">'+
+   '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;margin-bottom:10px">'+
+   '<b>'+p.week_no+'주차 제안</b>'+
+   '<span>기간 <input id="vrDs_'+gid+'" value="'+p.cyc_start+'" style="width:86px"> ~ <input id="vrDe_'+gid+'" value="'+p.cyc_end+'" style="width:86px"></span>'+
+   '<span>E(마감평가금) <input id="vrE_'+gid+'" value="'+p.e_used+'" style="width:96px">'+
+   (p.close_info?' <span style="color:var(--c2)">(자동: '+vrFmtD(p.close_info.date)+' 종가 $'+p.close_info.close+' × '+p.current.model_qty+'주)</span>':'')+'</span>'+
+   '<button class="btn sm" onclick="vrPreviewWith(\''+gid+'\')">재산출</button></div>'+
+   '<div style="display:flex;gap:10px;font-size:12px;flex-wrap:wrap;margin-bottom:10px">'+
+   '<span>V <b>'+money(p.v)+'</b></span><span>밴드 <b>'+money(p.band_lo)+' ~ '+money(p.band_hi)+'</b></span>'+
+   '<span>시작 Pool <b>'+money(p.pool_start)+'</b></span><span>배수 ×'+p.mult+'</span></div>'+
+   '<div style="display:flex;gap:14px;flex-wrap:wrap">'+mk(p.buys,'매수 사다리','dn')+mk(p.sells,'매도 사다리','up')+'</div>'+
+   '<div style="margin-top:12px;display:flex;gap:8px;align-items:center">'+
+   '<button class="btn p" onclick="vrSubmit(\''+gid+'\')"><i class="fa-solid fa-paper-plane"></i> 예약 제출 ('+ (p.buys.length+p.sells.length) +'건)</button>'+
+   '<span style="font-size:11px;color:var(--c2)">제출 전 팬딩 표와 가격(±$0.01)·수량을 대조하세요</span></div></div>';})
+ .catch(function(e){box.innerHTML='<div class="muted">'+esc(String(e))+'</div>';});}
+function vrPreviewWith(gid){var e=$('vrE_'+gid).value,s=$('vrDs_'+gid).value,en=$('vrDe_'+gid).value;
+ vrPreview(gid,'?e='+encodeURIComponent(e)+'&start='+s+'&end='+en);}
+function vrSubmit(gid){var p=VRPREV[gid];if(!p){toast('먼저 미리보기를 실행하세요');return;}
+ var s=$('vrDs_'+gid).value,en=$('vrDe_'+gid).value;
+ var rows=p.buys.map(function(r){return {side:'buy',price:r.price,qty_acct:r.qty_acct};})
+  .concat(p.sells.map(function(r){return {side:'sell',price:r.price,qty_acct:r.qty_acct};}));
+ if(!confirm(p.week_no+'주차 예약 '+rows.length+'건 (매수 '+p.buys.length+'/매도 '+p.sells.length+')\n기간 '+s+'~'+en+'\nNH 계좌에 실제 예약주문이 등록됩니다. 진행할까요?'))return;
+ if(!confirm('최종 확인: 팬딩 표와 대조하셨나요? 제출 후 취소는 NH 예약취소로만 가능합니다.'))return;
+ fetch('/vr/api/gisu/'+gid+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({week_no:p.week_no,cyc_start:s,cyc_end:en,e_used:parseFloat($('vrE_'+gid).value),
+   v:p.v,band_lo:p.band_lo,band_hi:p.band_hi,pool_start:p.pool_start,rows:rows})})
+ .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+ .then(function(x){if(!x.ok){toast('제출 실패: '+((x.d&&x.d.detail)||''));return;}
+  toast('예약 '+x.d.submitted+'건 제출'+(x.d.failed?(' · 실패 '+x.d.failed+'건 — 원장 확인'):' · 주기 전환 완료'));
+  VRPREV[gid]=null;loadVr();})
+ .catch(function(){toast('제출 중 오류');});}
 /* ---------- 라우터 ---------- */
 function render(){if(!MET){$('page').innerHTML='<div class="muted">불러오는 중…</div>';return;}
  ({dash:pgDash,strat:pgStrat,port:pgPort,order:pgOrder,risk:pgRisk,perf:pgPerf,
-   blog:pgBlog,mon:pgMon,sys:pgSys}[PAGE]||pgDash)();}
+   vr:pgVr,blog:pgBlog,mon:pgMon,sys:pgSys}[PAGE]||pgDash)();}
 function loadAll(){return fetch('/api/suite/metrics').then(function(r){return r.json();})
  .then(function(d){MET=d;var au=d.automation||{};
   $('st').className='st'+(au.running?'':' off');
