@@ -24,6 +24,23 @@
 | 스케줄 레인 = 단일 계좌 내 시간 분리 | 레이트리밋은 브로커·앱키 단위 → **KIS레인과 NH레인은 독립**, NH 계좌끼리만 분리 |
 | 대시보드/집계 = 계좌 1개 암묵 가정 (holdings·equity·metrics) | **계좌 차원 추가** (통합 뷰 + 계좌별 필터) |
 
+## 3-결과. ✅ P0 실측 결과 (2026-08-20 — 게이트 통과)
+
+사용자 발급 앱키로 실측 완료 (읽기전용만, 주문 없음. 키는 `~/.nhplug/.env` 로컬 보관·레포 밖):
+
+| 항목 | 결과 |
+|---|---|
+| **③ LOC/MOC** | ✅ **지원** — 정본 스펙(gbstock/openapi.json) 호가유형: `12.LOC(장마감 지정가)`, `14.MOC(장마감 시장가)` + LOO/MOO/STOP/STOP LIMIT/TWAP/VWAP. **매수 스키마에도 12·14 명시** → KIS의 'MOC 매수 불가' 제약 없어 보임(모의 실측은 P6) |
+| ① 인증 | ✅ 실측 — POST /oauth2/token, **토큰 24h**·파일캐시(`~/.nhplug/`), 발급은 운영서버 전용(moapi 미제공). 재발급=보안알림 1건이라 캐시 필수 |
+| ② 주문/조회 세트 | ✅ 스펙 존재 — buy/sell/modify/cancel + **reservedSubmit/reservedCancel(예약주문!)** + unexecuted/balance/dailyTransaction/periodPnl/margin |
+| ④ 시세 | ✅ 실측 — /gbstock/quote/v1/current 로 TQQQ(프로셰어즈 QQQ 3배 ETF·나스닥) 조회 성공. period(기간시세)로 전일종가 가능 |
+| ⑦ 모의투자 | 서버 존재(moapi.nhplug.com:8443) — 주문 실측은 P6에서 |
+| ⑤ 레이트리밋 / ⑥ WebSocket(gbstock 실시간) | 미확인 — llms.txt·realtime 스펙 P1에서 확인 |
+| 계좌 | ✅ 계좌목록 조회 성공 — 앱키에 **여러 계좌 연결됨**(끝자리 …977/…635/…343/…374 등). **어느 2개를 쓸지 사용자 지정 필요** |
+
+→ **P0 게이트 통과. §3.1 대안 불필요 — 3전략 로직 그대로 NH에서 구동 가능.**
+보너스: 예약주문 API 존재 → VR '2주 예약' 요구와 연결 검토 여지(유효기간 스펙 확인 필요).
+
 ## 3. ⛔ P0 게이트 — PLUG 스펙 검증 (구현 착수 전 필수)
 
 공식 문서·SDK·모의서버로 아래를 확인한다. **③이 안 되면 전면 재설계**(§3.1).
