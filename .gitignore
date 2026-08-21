@@ -30,6 +30,7 @@ core/_equity.jsonl
 core/_cashflow.json
 core/_t_audit.jsonl
 core/_holdings.json
+core/_compound.json
 
 # Build / archive
 *.zip

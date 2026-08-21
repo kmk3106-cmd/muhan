@@ -631,6 +631,14 @@ def _check_and_record_cycle(session: Session, ticker_obj: Ticker, tranches: list
 
     session.commit()
 
+    # [복리 모드 2026-08] 싸이클 종료 시점에만 시드 증액 (다음 싸이클부터 적용).
+    # 손절(MOC)은 위에서 return 되어 여기 도달하지 않음 → 트리거 안 됨. 단리면 무동작.
+    try:
+        from core.compound_mode import apply_if_cycle_ended
+        apply_if_cycle_ended("ddsop")
+    except Exception as _e:
+        logger.warning(f"[복리] 시드 증액 처리 실패(무시): {_e}")
+
 
 def _extract_account_summary(balance_df1, balance_df2) -> dict:
     """

@@ -194,6 +194,38 @@ def suite_metrics(fresh: bool = False):
     return {**_METRICS["data"], "cache": {"age_sec": round(age, 1), "stale": age > _METRICS_TTL}}
 
 
+class CompoundBody(BaseModel):
+    mode: str          # 'simple' | 'compound'
+
+
+@app.get("/api/suite/compound")
+def api_compound_status():
+    """전략별 단리/복리 상태 + 목표 시드(증액분·현금상한 반영)."""
+    from core.compound_mode import all_states, target_seed
+    out = []
+    for k, st in all_states().items():
+        t = target_seed(k)
+        out.append({"strategy": k, **st,
+                    "current_seed": t["base_seed"] + st["added"],
+                    "gain": t["gain"], "target_seed": t["capped_target"],
+                    "raw_target": t["raw_target"], "cap_note": t["note"] or st.get("cap_note", "")})
+    return {"items": out}
+
+
+@app.post("/api/suite/compound/{strategy}")
+def api_compound_set(strategy: str, body: CompoundBody):
+    """단리/복리 전환. 단리 전환 시 시드를 '시드 할당 총액' 기준으로 복원."""
+    from core.compound_mode import set_mode, restore_simple
+    if strategy not in ("infinite", "ddsop", "jongsa"):
+        raise HTTPException(400, "지원하지 않는 전략")
+    if body.mode == "simple":
+        st = set_mode(strategy, "simple")
+        r = restore_simple(strategy)
+        return {"state": st, "restore": r}
+    st = set_mode(strategy, "compound")
+    return {"state": st, "note": "다음 싸이클 종료 시부터 실현손익만큼 시드가 증액됩니다."}
+
+
 @app.get("/api/suite/series")
 def suite_series():
     from core.equity_snapshot import series
@@ -817,6 +849,11 @@ function pgStrat(){var ss=MET.strategies||[];
   '<div class="form"><div class="fld"><label>전략</label><select id="sSel">'+opt+'</select></div>'+
   '<div class="fld"><label>전략 시드 할당 총액 (USD)</label><input id="sBud" type="number" placeholder="예: 10000"></div>'+
   '<div class="fnote" id="sBinfo">—</div>'+
+  '<div class="fld" style="grid-column:1/-1"><label>원금 운용 방식</label>'+
+  '<select id="sCmp" onchange="saveCompound()">'+
+  '<option value="simple">단리 — 원금 고정</option>'+
+  '<option value="compound">복리 — 실현손익만큼 원금 증액</option></select></div>'+
+  '<div class="fnote" id="sCmpInfo" style="grid-column:1/-1">—</div>'+
   '<div class="tip" style="grid-column:1/-1;margin:0" id="sLogic">'+
   '<i class="fa-solid fa-circle-info"></i><span>전략 로직</span></div>'+
   '<div class="fact"><button class="btn p" onclick="saveBudget()">시드 할당 저장</button></div></div></div>'+
@@ -837,6 +874,7 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
   $('sBinfo').innerHTML='현재 사용 <b>'+money(b.used)+'</b> / 할당 <b>'+
    (b.assigned_total==null?'미설정':money(b.assigned_total))+'</b> · 종목 '+(b.ticker_count||0)+
    (b.over_budget?' · <span class="dn">예산 초과</span>':'');});
+ loadCompound(k);
  var kind=kindOf(k);
  var jong=(kind==='jongsa');
  // 트렌치형(떨사오팔/종사종팔): x(%) 라벨·기본값·안내문만 전략별로 다름. API/필드ID는 동일(Ticker API).
@@ -881,6 +919,28 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
    '<button class="btn sm" onclick="togTrade(\''+k+'\','+r.id+')">진행 토글</button> '+
    '<button class="btn sm dg" onclick="delTicker(\''+k+'\','+r.id+')">삭제</button></td></tr>';
   }).join('')+'</tbody></table>';});}
+function loadCompound(k){var el=$('sCmp'),info=$('sCmpInfo');if(!el)return;
+ fetch('/api/suite/compound').then(function(r){return r.json();}).then(function(d){
+  var it=(d.items||[]).filter(function(x){return x.strategy===k;})[0];
+  if(!it){info.textContent='';return;}
+  el.value=it.mode;
+  if(it.mode==='compound'){
+   info.innerHTML='<span class="hl g" style="display:inline-block;padding:8px 12px">복리 운용중 · '+
+    '기준원금 <b>'+money(it.base_seed)+'</b> + 증액 <b>'+money(it.added)+'</b> = 현재 <b>'+money(it.current_seed)+'</b>'+
+    (it.gain>it.added?(' <span style="color:var(--c2)">(다음 싸이클 종료 시 '+money(it.target_seed)+' 예정)</span>'):'')+
+    (it.cap_note?('<br><span class="dn">'+esc(it.cap_note)+'</span>'):'')+'</span>';
+  }else{
+   info.innerHTML='단리 운용중 — 실현손익은 원금에 반영되지 않습니다. '+
+    '<span style="color:var(--c2)">복리 전환 시 이후 발생하는 실현손익만 가산(소급 없음), 손실 시 감액 없음.</span>';
+  }}).catch(function(){info.textContent='';});}
+function saveCompound(){var k=$('sSel').value,m=$('sCmp').value;
+ var msg=(m==='compound')
+  ?'복리 모드로 전환합니다.\n\n· 지금부터 발생하는 실현손익만큼 원금이 늘어납니다(과거분 소급 없음)\n· 증액은 싸이클 종료 시점에만, 다음 싸이클부터 적용\n· 손실이어도 원금은 줄지 않습니다\n진행할까요?'
+  :'단리 모드로 되돌립니다.\n\n원금이 [전략 시드 할당 총액] 기준으로 복원됩니다. 진행할까요?';
+ if(!confirm(msg)){loadCompound(k);return;}
+ api('POST','/api/suite/compound/'+k,{mode:m}).then(function(r){
+  toast(m==='compound'?'복리 모드 적용됨':'단리 모드로 복원됨');
+  loadStratMgr();}).catch(function(e){toast('실패: '+e);loadCompound(k);});}
 function saveBudget(){var k=$('sSel').value;var v=parseFloat($('sBud').value);
  if(isNaN(v)){toast('할당액을 입력하세요');return;}
  api('POST','/api/suite/strategies/'+k+'/budget',{total_usd:v}).then(function(){

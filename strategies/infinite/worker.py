@@ -1001,6 +1001,14 @@ def _check_cycle_end(session: Session, portfolio: Portfolio,
     portfolio.initial_buy_done = False
 
     session.commit()
+
+    # [복리 모드 2026-08] 싸이클 종료 시점에만 시드 증액 (다음 싸이클부터 적용).
+    # 단리이면 무동작. 실패해도 매매에는 영향 없음.
+    try:
+        from core.compound_mode import apply_if_cycle_ended
+        apply_if_cycle_ended("infinite")
+    except Exception as _e:
+        logger.warning(f"[복리] 시드 증액 처리 실패(무시): {_e}")
     return True
 
 
