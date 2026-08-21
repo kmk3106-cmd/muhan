@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS gisu (
   model_qty INTEGER NOT NULL,              -- 모델 잔여개수 (주기 시작 기준 → 체결 반영 갱신)
   pool_start REAL NOT NULL,                -- 주기 시작 Pool (모델)
   pool_now REAL NOT NULL,                  -- 현재 Pool (모델, 체결 반영)
+  auto_submit INTEGER NOT NULL DEFAULT 0,  -- 1=토요일 자동 산출·제출 (검증 후 ON 권장)
   updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS weekly_history (
@@ -78,6 +79,10 @@ def db():
     try:
         if not _initialized:
             con.executescript(_SCHEMA)
+            try:  # 기존 DB 마이그레이션 (컬럼 없으면 추가)
+                con.execute("ALTER TABLE gisu ADD COLUMN auto_submit INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
             _seed(con)
             con.commit()
             _initialized = True

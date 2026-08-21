@@ -29,8 +29,12 @@ async def lifespan(app: FastAPI):
         sched = BackgroundScheduler(timezone="Asia/Seoul")
         # 체결 동기화: 하루 2회 (미장 마감 후 10:00, 개장 전 22:00) — 읽기전용
         sched.add_job(sync_all, "cron", hour="10,22", minute=5, id="vr_sync", max_instances=1)
+        # 토요일 자동 제출: auto_submit=ON 기수만 (금요일 종가 확정 후)
+        from .worker import auto_submit_all
+        sched.add_job(auto_submit_all, "cron", day_of_week="sat", hour=10, minute=30,
+                      id="vr_auto_submit", max_instances=1, coalesce=True)
         sched.start()
-        logger.info("[VR] 서브앱 기동 (sync 10:05/22:05 KST)")
+        logger.info("[VR] 서브앱 기동 (sync 10:05/22:05 · 자동제출 토 10:30 KST)")
     except Exception as e:
         logger.warning(f"[VR] 스케줄러 미기동: {e}")
     yield
@@ -95,6 +99,7 @@ class SettingsBody(BaseModel):
     sell_steps: int | None = None
     g: float | None = None
     buy_limit_pct: float | None = None
+    auto_submit: int | None = None   # 1=토요일 자동 산출·제출
 
 
 @app.patch("/api/gisu/{gid}/settings")

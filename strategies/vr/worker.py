@@ -149,6 +149,71 @@ def sync_all() -> dict:
     return out
 
 
+def auto_submit_all() -> dict:
+    """[토요일 자동] auto_submit=ON 기수 중 주기가 끝난 것을 산출→예약 제출→주기 전환.
+
+    안전장치: Kill Switch / 주기 미종료 스킵 / E·사다리 무결성 확인 /
+    전량 성공 시에만 주기 전환(부분 실패면 전환 보류 — 대시보드에서 수동 처리).
+    """
+    from datetime import datetime as _dt
+    from .vr_logic import build_next_cycle
+    from . import models as _M
+    report: dict = {}
+    if kill_switch_on():
+        return {"skipped": "kill_switch"}
+    today = _dt.now().strftime("%Y%m%d")
+    for g in _M.all_gisu():
+        gid = g["id"]
+        if not int(g.get("auto_submit") or 0):
+            report[gid] = "auto_submit OFF"
+            continue
+        if today <= str(g["cyc_end"]):
+            report[gid] = f"주기 진행중(~{g['cyc_end']})"
+            continue
+        try:
+            sync_gisu(gid)                      # 최신 체결 반영 후 산출
+            g = _M.get_gisu(gid)
+            from . import nh_client as nh
+            lc = nh.last_close(g["ticker"])
+            if not lc or lc[1] <= 0:
+                report[gid] = "E 산출 실패(종가 조회) — 수동 제출 필요"
+                continue
+            e_val = r2(int(g["model_qty"]) * lc[1])
+            prop = build_next_cycle({
+                "v": g["v"], "pool_now": g["pool_now"], "g": g["g"],
+                "model_qty": g["model_qty"], "unit": g["unit"],
+                "buy_limit_pct": g["buy_limit_pct"], "sell_steps": g["sell_steps"],
+                "mult": g["mult"], "cashflow": g["cashflow"],
+                "week_no": g["week_no"], "cyc_end": g["cyc_end"],
+            }, e_value=e_val)
+            rows = ([{"side": "buy", "price": r["price"], "qty_acct": r["qty_acct"]} for r in prop["buys"]]
+                    + [{"side": "sell", "price": r["price"], "qty_acct": r["qty_acct"]} for r in prop["sells"]])
+            if not rows:
+                report[gid] = "사다리 0건 — 수동 확인 필요"
+                continue
+            results = nh.submit_batch(g["acct_no"], g["ticker"], rows,
+                                      prop["cyc_start"], prop["cyc_end"])
+            ok = [x for x in results if x.get("ok")]
+            fail = [x for x in results if not x.get("ok")]
+            for x in results:
+                _M.add_reserved(gid, prop["week_no"], x["side"], x["price"], x["qty_acct"],
+                                prop["cyc_start"], prop["cyc_end"],
+                                x.get("nh_order_dt", ""), x.get("nh_order_no", ""),
+                                "submitted" if x.get("ok") else "failed",
+                                x.get("raw") if x.get("ok") else {"error": x.get("error")})
+            if ok and not fail:
+                apply_rollover(gid, {**prop, "e_used": e_val})
+                report[gid] = f"자동 제출 완료: {prop['week_no']}주차 {len(ok)}건 (E=${e_val}, 종가 {lc[0]} ${lc[1]})"
+                logger.info(f"[VR:{gid}] {report[gid]}")
+            else:
+                report[gid] = f"부분 실패: 성공 {len(ok)} / 실패 {len(fail)} — 주기 전환 보류, 수동 확인"
+                logger.warning(f"[VR:{gid}] {report[gid]}")
+        except Exception as e:
+            report[gid] = f"자동 제출 오류: {e}"
+            logger.warning(f"[VR:{gid}] {report[gid]}")
+    return report
+
+
 def apply_rollover(gid: str, proposal: dict) -> None:
     """예약 제출 성공 후: 이전 주차 마감 기록 + 상태를 다음 주기로 전환.
 

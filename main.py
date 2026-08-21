@@ -1288,6 +1288,10 @@ function renderVr(d){var gs=(d&&d.gisu)||[];
     return '<label style="display:flex;flex-direction:column;gap:3px;color:var(--c2)">'+x[0]+
      '<input id="'+x[1]+'" type="number" step="any" value="'+x[2]+'" style="width:96px;padding:6px 8px;'+
      'border:1px solid var(--line);border-radius:7px;font-family:inherit"></label>';}).join('')+
+   '<label style="display:flex;flex-direction:column;gap:3px;color:var(--c2)">자동제출(토 10:30)'+
+   '<select id="vrA_'+gid+'" style="padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-family:inherit">'+
+   '<option value="0"'+(g.auto_submit?'':' selected')+'>OFF (수동 확인)</option>'+
+   '<option value="1"'+(g.auto_submit?' selected':'')+'>ON (완전 자동)</option></select></label>'+
    '<button class="btn sm" onclick="vrSaveSet(\''+gid+'\')">설정 저장</button>'+
    '<button class="btn sm" onclick="vrSync(\''+gid+'\')"><i class="fa-solid fa-rotate"></i> 체결 동기화</button>'+
    '<button class="btn sm p" onclick="vrPreview(\''+gid+'\')"><i class="fa-solid fa-table-list"></i> 다음 주기 미리보기</button></div>';
@@ -1330,7 +1334,8 @@ function drawVrChart(gid,gd){var el=$('vrch_'+gid);if(!el)return;
     y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
      callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});}
 function vrSaveSet(gid){var b={mult:parseInt($('vrM_'+gid).value),cashflow:parseFloat($('vrC_'+gid).value),
-  g:parseFloat($('vrG_'+gid).value),sell_steps:parseInt($('vrS_'+gid).value)};
+  g:parseFloat($('vrG_'+gid).value),sell_steps:parseInt($('vrS_'+gid).value),
+  auto_submit:parseInt($('vrA_'+gid).value)};
  fetch('/vr/api/gisu/'+gid+'/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},
   body:JSON.stringify(b)}).then(function(r){if(!r.ok)throw 0;return r.json();})
   .then(function(){toast('설정 저장됨 (다음 미리보기부터 반영)');loadVr();})
