@@ -169,7 +169,7 @@ def suite_metrics(fresh: bool = False):
     if _METRICS["data"] is None:
         if not _METRICS["building"]:
             threading.Thread(target=_metrics_refresh, daemon=True).start()
-        for _ in range(30):                      # 최대 3초 대기
+        for _ in range(8):                       # 최대 0.8초만 대기 (워커와 겹쳐도 화면 안 멈춤)
             if _METRICS["data"] is not None:
                 break
             _t.sleep(0.1)
