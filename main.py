@@ -53,6 +53,12 @@ async def lifespan(app: FastAPI):
             sched.add_job(_t_audit_run, "date",
                           run_date=datetime.now() + timedelta(seconds=45),
                           id="t_audit_bootstrap")
+            # metrics 캐시: 기동 직후 예열 + 15초 주기 갱신 (대시보드 즉시 응답)
+            sched.add_job(_metrics_refresh, "date",
+                          run_date=datetime.now() + timedelta(seconds=3),
+                          id="metrics_warm")
+            sched.add_job(_metrics_refresh, "interval", seconds=15,
+                          id="metrics_refresh", max_instances=1, coalesce=True)
             sched.start()
             logger.info("[suite] equity 스냅샷터(30분) + T값 일일감사(09:00 KST) 스케줄 시작")
         except Exception as e:
@@ -121,10 +127,47 @@ def api_strategy_intros():
     return {"items": strategy_intros()}
 
 
-@app.get("/api/suite/metrics")
-def suite_metrics():
+# ---- metrics 캐시 (대시보드 첫 로딩 지연 제거) ----
+# 워커가 KIS 잔고·체결(90일)을 조회하는 수십 초 동안 DB/GIL 경합으로 build_metrics 가
+# 최대 30초까지 밀렸다. 캐시본을 즉시 돌려주고 갱신은 백그라운드에서 수행한다.
+_METRICS: dict = {"data": None, "ts": 0.0, "building": False}
+_METRICS_TTL = 20.0        # 이 시간 지나면 백그라운드 갱신 트리거
+_METRICS_HARD = 300.0      # 이 시간 넘게 갱신 실패면 동기 계산(최초 기동 포함)
+
+
+def _metrics_refresh() -> dict | None:
+    import time as _t
     from core.suite_metrics import build_metrics
-    return build_metrics()
+    if _METRICS["building"]:
+        return None
+    _METRICS["building"] = True
+    try:
+        d = build_metrics()
+        _METRICS["data"], _METRICS["ts"] = d, _t.time()
+        return d
+    except Exception as e:
+        logger.warning(f"[suite] metrics 갱신 실패: {e}")
+        return None
+    finally:
+        _METRICS["building"] = False
+
+
+@app.get("/api/suite/metrics")
+def suite_metrics(fresh: bool = False):
+    """캐시 우선 반환(즉시) + 오래됐으면 백그라운드 갱신. fresh=1이면 동기 재계산."""
+    import time as _t
+    import threading
+    age = _t.time() - _METRICS["ts"]
+    if fresh or _METRICS["data"] is None or age > _METRICS_HARD:
+        d = _metrics_refresh()
+        if d is not None:
+            return {**d, "cache": {"age_sec": 0, "stale": False}}
+        if _METRICS["data"] is None:
+            from core.suite_metrics import build_metrics
+            return build_metrics()
+    if age > _METRICS_TTL and not _METRICS["building"]:
+        threading.Thread(target=_metrics_refresh, daemon=True).start()
+    return {**_METRICS["data"], "cache": {"age_sec": round(age, 1), "stale": age > _METRICS_TTL}}
 
 
 @app.get("/api/suite/series")
@@ -1461,16 +1504,36 @@ function vrSubmit(gid){var p=VRPREV[gid];if(!p){toast('먼저 미리보기를 �
   VRPREV[gid]=null;loadVr();})
  .catch(function(){toast('제출 중 오류');});}
 /* ---------- 라우터 ---------- */
-function render(){if(!MET){$('page').innerHTML='<div class="muted">불러오는 중…</div>';return;}
+function skeleton(){ /* 로딩 중에도 레이아웃을 먼저 그려 체감 속도 향상 */
+ var box=function(h){return '<div class="card" style="height:'+h+'px;background:'+
+  'linear-gradient(90deg,#f4f6fa 25%,#eef1f7 37%,#f4f6fa 63%);background-size:400% 100%;'+
+  'animation:sk 1.2s ease-in-out infinite"></div>';};
+ return '<style>@keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}</style>'+
+  '<div class="kpis">'+[1,2,3,4,5,6].map(function(){return box(92);}).join('')+'</div>'+
+  '<div class="grid g-3-1">'+box(300)+box(300)+'</div>'+
+  '<div class="grid">'+box(220)+'</div>';}
+function render(){if(!MET){$('page').innerHTML=skeleton();return;}
  ({dash:pgDash,strat:pgStrat,port:pgPort,order:pgOrder,risk:pgRisk,perf:pgPerf,
    vr:pgVr,blog:pgBlog,mon:pgMon,sys:pgSys}[PAGE]||pgDash)();}
-function loadAll(){return fetch('/api/suite/metrics').then(function(r){return r.json();})
- .then(function(d){MET=d;var au=d.automation||{};
+function loadAll(){
+ if(!MET)$('page').innerHTML=skeleton();
+ var ctl=('AbortController' in window)?new AbortController():null;
+ var to=setTimeout(function(){if(ctl)ctl.abort();},12000);   /* 12초 넘으면 중단 후 재시도 안내 */
+ return fetch('/api/suite/metrics',ctl?{signal:ctl.signal}:undefined)
+ .then(function(r){return r.json();})
+ .then(function(d){clearTimeout(to);MET=d;var au=d.automation||{};
   $('st').className='st'+(au.running?'':' off');
   $('stt').textContent=au.running?'정상 운영중':'정지 상태';
+  var cache=d.cache||{};
   $('sbst').innerHTML='가동 '+au.active+'/'+au.total+' 전략<br>갱신 '+
-   esc((d.generated_at||'').replace('T',' ').slice(11,19));
-  render();}).catch(function(){$('page').innerHTML='<div class="muted">데이터 로드 실패</div>';});}
+   esc((d.generated_at||'').replace('T',' ').slice(11,19))+
+   (cache.age_sec>30?(' <span style="color:var(--c2)">('+Math.round(cache.age_sec)+'초 전)</span>'):'');
+  render();})
+ .catch(function(){clearTimeout(to);
+  if(!MET)$('page').innerHTML='<div class="empty"><i class="fa-solid fa-plug-circle-exclamation"></i>'+
+   '<div class="t">데이터 로드 지연</div><div class="s">잠시 후 자동 재시도합니다</div>'+
+   '<button class="btn sm p" onclick="loadAll()">다시 시도</button></div>';
+  setTimeout(function(){if(!MET)loadAll();},4000);});}
 function tick(){$('dt').textContent=new Date().toLocaleString('ko-KR',{hour12:false});}
 $('hamb').onclick=function(){$('sb').classList.toggle('open');$('scrim').classList.toggle('show');};
 $('scrim').onclick=function(){$('sb').classList.remove('open');$('scrim').classList.remove('show');};
