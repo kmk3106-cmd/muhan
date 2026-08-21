@@ -170,12 +170,16 @@ def _recent_trades(strategy: str, n: int = 12) -> list[dict]:
 
 
 def _nh_vr() -> dict:
-    """NH(VR) 계좌 스냅샷 — vr.db 캐시만 읽음 (NH API 무호출).
+    """NH(VR) 계좌 스냅샷 + 기수 상태 — vr.db 캐시만 읽음 (NH API 무호출).
 
-    반환: {accounts:[{gisu,name,qty,avg,close,buy_usd,eval_usd,pnl,pnl_rt,updated_at}], eval_total}
+    반환: {accounts:[...], eval_total, pool_total, v_total, strategies:[...], account:{...}}
+    - accounts: 계좌 보유(평단·현재가·평가손익)
+    - strategies: VR 기수를 KIS 전략 카드와 같은 형태로 (전체/NH 탭 표시용)
+    - account: NH 계좌 관점 지표 (총자산=평가+Pool, 수익률, 현금비중 등)
     """
     try:
         from strategies.vr import models as VM
+        gisu = {g["id"]: g for g in VM.all_gisu()}
         accs = []
         total = 0.0
         for s in VM.snapshots():
@@ -193,9 +197,65 @@ def _nh_vr() -> dict:
                 "updated_at": s.get("updated_at"),
             })
             total += ev
-        return {"accounts": accs, "eval_total": round(total, 2)}
+        # 기수를 '전략 카드' 형태로 (모델 Pool ×배수 = 계좌 환산 현금)
+        strategies = []
+        pool_total = 0.0
+        v_total = 0.0
+        buy_total = 0.0
+        for gid, g in gisu.items():
+            mult = max(1, int(g.get("mult") or 1))
+            pool_acct = round(float(g.get("pool_now") or 0) * mult, 2)
+            v_acct = round(float(g.get("v") or 0) * mult, 2)
+            pool_total += pool_acct
+            v_total += v_acct
+            snap = next((a for a in accs if a["gisu"] == gid), None)
+            ev = snap["eval_amt"] if snap else 0.0
+            buy = snap["buy_amt"] if snap else 0.0
+            buy_total += buy
+            pnl = round(ev - buy, 2)
+            strategies.append({
+                "strategy": f"vr:{gid}",
+                "display_name": f"{g.get('name', gid)} (NH)",
+                "kill_switch": False,
+                "invested": buy,                      # 매입원가
+                "realized_pnl": None,                 # VR은 싸이클 실현 개념 없음 (평가 중심)
+                "return_pct": round(pnl / buy * 100, 2) if buy > 0 else 0.0,  # 평가수익률
+                "unrealized_pnl": pnl,
+                "eval_amt": ev, "pool": pool_acct, "v": v_acct,
+                "week_no": g.get("week_no"), "cyc_end": g.get("cyc_end"),
+                "band_lo": round(float(g.get("band_lo") or 0) * mult, 2),
+                "band_hi": round(float(g.get("band_hi") or 0) * mult, 2),
+                "mult": mult, "win_rate": None, "cycles": 0,
+                "holdings_count": 1 if (snap and snap["qty"]) else 0,
+                "holdings": ([{"ticker": snap["ticker"], "qty": snap["qty"],
+                               "avg_price": snap["avg_price"], "cost": snap["buy_amt"]}]
+                             if snap and snap["qty"] else []),
+                "errors": [], "mdd_pct": None,
+            })
+        tot_assets = round(total + pool_total, 2)
+        pnl_all = round(total - buy_total, 2)
+        return {
+            "accounts": accs,
+            "eval_total": round(total, 2),
+            "pool_total": round(pool_total, 2),
+            "v_total": round(v_total, 2),
+            "strategies": strategies,
+            "account": {
+                "total_assets": tot_assets,
+                "net_invested": round(buy_total, 2),
+                "total_pnl": pnl_all,
+                "total_return_pct": round(pnl_all / buy_total * 100, 2) if buy_total > 0 else None,
+                "realized_pnl": None,
+                "unrealized_pnl": pnl_all,
+                "cash": round(pool_total, 2),
+                "cash_ratio": round(pool_total / tot_assets * 100, 2) if tot_assets > 0 else None,
+                "mdd_pct": None,
+                "snapshot_at": (accs[0].get("updated_at") if accs else None),
+            },
+        }
     except Exception:
-        return {"accounts": [], "eval_total": 0.0}
+        return {"accounts": [], "eval_total": 0.0, "pool_total": 0.0, "v_total": 0.0,
+                "strategies": [], "account": {}}
 
 
 def _holdings_detail() -> dict:
@@ -310,6 +370,26 @@ def build_metrics() -> dict:
 
     holdings = _holdings_detail()
     nh = _nh_vr()
+    nha = nh.get("account") or {}
+    # 통합(전체 탭): KIS + NH 합산 — 평가·현금은 합, 수익률은 각 순투입 합 기준
+    _inv_all = round(canon.get("buy_amt", 0) + float(nha.get("net_invested") or 0), 2)
+    _pnl_all = round(pnl + float(nha.get("total_pnl") or 0), 2)
+    _tot_all = round(tot + float(nha.get("total_assets") or 0), 2)
+    _cash_all = round(cash + float(nha.get("cash") or 0), 2)
+    _stock_all = round(canon.get("stock_evlu", 0) + nh.get("eval_total", 0), 2)
+    combined = {
+        "total_assets": _tot_all,
+        "net_invested": _inv_all,
+        "total_pnl": _pnl_all,
+        "total_return_pct": round(_pnl_all / _inv_all * 100, 2) if _inv_all > 0 else None,
+        "realized_pnl": round(realized_all, 2),      # 실현은 KIS 싸이클만(VR은 개념 없음)
+        "unrealized_pnl": _pnl_all,
+        "cash": _cash_all,
+        "cash_ratio": (round(_cash_all / (_cash_all + _stock_all) * 100, 2)
+                       if (_cash_all + _stock_all) > 0 else None),
+        "mdd_pct": acc_mdd,                          # 통합 MDD는 KIS 시계열 기준(참고값)
+        "snapshot_at": canon.get("updated_at"),
+    }
 
     return {
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
@@ -338,5 +418,6 @@ def build_metrics() -> dict:
         "strategies": per,                              # 9~13,15
         "recent_trades": trades,                        # 14 매매로그
         "holdings": holdings,                            # 16 계좌 보유종목 상세(매입단가·현재가·수익률)
-        "nh": nh,                                        # 17 NH(VR) 계좌 스냅샷 (총자산 합산·보유표시용)
+        "nh": nh,                                        # 17 NH(VR): accounts·strategies·account
+        "combined": combined,                            # 18 통합(KIS+NH) 계좌 지표 — 전체 탭
     }
