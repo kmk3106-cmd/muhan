@@ -529,7 +529,7 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
  h+='<div class="kpis">'+
   kpi('총 자산'+(isAll?'':' · '+V.tag),'fa-coins','b',money(a.total_assets),'',
    (isAll&&MET.nh&&MET.nh.eval_total?('KIS '+money((MET.account||{}).total_assets)+' + NH '+money(MET.nh.account?MET.nh.account.total_assets:MET.nh.eval_total))
-    :('순투입 '+money(a.net_invested)),true)+
+    :('순투입 '+money(a.net_invested))),true)+
   (isNH
    ? kpi('VR 기수','fa-layer-group','n',(ss.length)+' 개','',
       ss.map(function(s){return (s.week_no||'-')+'주차';}).join(' · '))
@@ -1332,8 +1332,25 @@ function copyJournal(i){var ta=$('bjtext'+i);if(!ta)return;ta.focus();ta.select(
 var VRCH={},VRPREV={};
 function pgVr(){
  $('page').innerHTML='<div class="tip"><i class="fa-solid fa-circle-info"></i>'+
-  '<span>토요일 <b>[미리보기]</b> → 표 확인 → <b>[예약 제출]</b> 하면 2주치 기간잔량 지정가 예약이 등록됩니다.</span>']]:[]).map(function(x){
-    return '<div><div style="color:var(--c2);font-size:10.5px">'+x[0]+'</div><b>'+x[1]+'</b></div>';}).join('')+'</div>';
+  '<span>토요일 <b>[미리보기]</b> → 표 확인 → <b>[예약 제출]</b> 하면 2주치 기간잔량 지정가 예약이 등록됩니다.</span></div>'+
+  '<div id="vrBody"><div class="muted">불러오는 중…</div></div>';
+ loadVr();}
+function loadVr(){fetch('/vr/api/status').then(function(r){return r.json();})
+ .then(function(d){renderVr(d);})
+ .catch(function(){$('vrBody').innerHTML='<div class="muted">VR 상태 로드 실패</div>';});}
+function vrFmtD(s){s=String(s||'');return s.length===8?(s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8)):s;}
+function renderVr(d){var gs=(d&&d.gisu)||[];
+ $('vrBody').innerHTML=gs.map(function(g){var gid=g.id;
+  var info='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding:14px 18px;font-size:13.5px">'+
+   [['주차',g.week_no+'주차'],['기간',vrFmtD(g.cyc_start)+' ~ '+vrFmtD(g.cyc_end)],
+    ['V',money(g.v)],['밴드',money(g.band_lo)+' ~ '+money(g.band_hi)],
+    ['모델 잔여',g.model_qty+'주'],['Pool',money(g.pool_now)],
+    ['계좌',esc(String(g.acct_no).slice(0,3)+'-**-**'+String(g.acct_no).slice(-3))],
+    ['예약',g.reserved_this_week+'건']]
+   .concat(g.snapshot?[['보유',g.snapshot.qty+'주'],
+    ['평가',money(g.snapshot.eval_usd)+' <span style="color:var(--c2);font-size:11px">@'+
+     money(g.snapshot.close,2)+'</span>']]:[]).map(function(x){
+    return '<div><div style="color:var(--c2);font-size:12px">'+x[0]+'</div><b>'+x[1]+'</b></div>';}).join('')+'</div>';
   var set='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 18px 12px;font-size:11.5px">'+
    [['배수','vrM_'+gid,g.mult],['현금흐름/주기(인출−)','vrC_'+gid,g.cashflow],
     ['G','vrG_'+gid,g.g],['매도단수','vrS_'+gid,g.sell_steps]].map(function(x){
