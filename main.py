@@ -202,9 +202,9 @@ _SHELL_HTML = r"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#ffffff">
 <title>trading_suite · 자동매매 대시보드</title>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="stylesheet" as="style" crossorigin
- href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
@@ -213,8 +213,8 @@ _SHELL_HTML = r"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 --line:#e9edf3;--c0:#1a2233;--c1:#5b6577;--c2:#9aa3b2;--c3:#cdd4df;--sb:236px;--hd:66px;
 --sh:0 1px 2px rgba(20,28,46,.04),0 2px 8px rgba(20,28,46,.05);--rd:13px}
 *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
-body{font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,
-'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo',system-ui,sans-serif;
+body{font-family:'Noto Sans KR','본고딕','Malgun Gothic','맑은 고딕',
+'Apple SD Gothic Neo',system-ui,sans-serif;
 background:var(--bg);color:var(--c0);-webkit-font-smoothing:antialiased;
 font-size:15px;letter-spacing:-.2px}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--c3);
@@ -226,7 +226,7 @@ inset:0 auto 0 0;display:flex;flex-direction:column;z-index:30}
 .brand{display:flex;align-items:center;gap:10px;padding:17px 18px;border-bottom:1px solid var(--line)}
 .brand .m{width:34px;height:34px;border-radius:9px;color:#fff;display:flex;align-items:center;
 justify-content:center;font-size:15px;background:linear-gradient(135deg,var(--blue),var(--indigo))}
-.brand b{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.brand b{font-size:16px;font-weight:800;letter-spacing:-.2px}
 .brand small{display:block;font-size:10px;color:var(--c2);letter-spacing:.2em;margin-top:1px}
 .nav{flex:1;overflow-y:auto;padding:10px}
 .ni{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:none;
@@ -242,7 +242,7 @@ font-family:inherit;font-size:14.5px;font-weight:600;margin-bottom:3px;transitio
 .hd{height:var(--hd);background:var(--card);border-bottom:1px solid var(--line);display:flex;
 align-items:center;gap:16px;padding:0 24px;position:sticky;top:0;z-index:20}
 .hamb{display:none;border:none;background:none;font-size:18px;color:var(--c1);cursor:pointer}
-.hd .ttl{font-size:19px;font-weight:700;letter-spacing:-.3px}
+.hd .ttl{font-size:19px;font-weight:800;letter-spacing:-.3px}
 .hd .sp{flex:1}
 .hd .st{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--c1)}
 .hd .st .d{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-s)}
@@ -265,7 +265,7 @@ justify-content:center;font-size:14px;background:var(--blue-s);color:var(--blue)
 .kpi .ic.g{background:var(--green-s);color:var(--green)}.kpi .ic.r{background:var(--red-s);color:var(--red)}
 .kpi .ic.n{background:var(--bg);color:var(--c2)}.kpi .ic.a{background:var(--amber-s);color:var(--amber)}
 .kpi .lab{font-size:13px;color:var(--c1);font-weight:500}
-.kpi .v{font-size:25px;font-weight:700;color:var(--c0);margin-top:7px;letter-spacing:-.5px;
+.kpi .v{font-size:25px;font-weight:800;color:var(--c0);margin-top:7px;letter-spacing:-.5px;
 font-variant-numeric:tabular-nums;line-height:1.1}
 .kpi .v.up{color:var(--green)}.kpi .v.down{color:var(--red)}
 .kpi .v small{font-size:13px;font-weight:600;color:var(--c2)}
@@ -276,7 +276,7 @@ font-variant-numeric:tabular-nums;line-height:1.1}
 @media(max-width:1080px){.g-3-1,.g-2{grid-template-columns:1fr}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--rd);box-shadow:var(--sh)}
 .ch{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
-.ch .ct{font-size:15.5px;font-weight:700;flex:1}.ch .ct i{color:var(--c3);margin-right:7px}
+.ch .ct{font-size:15.5px;font-weight:800;flex:1}.ch .ct i{color:var(--c3);margin-right:7px}
 .ch .lk{font-size:12.5px;color:var(--blue);font-weight:600;cursor:pointer}
 .seg{display:flex;gap:2px;background:var(--bg);padding:3px;border-radius:8px}
 .sgb{border:none;background:none;color:var(--c2);font-family:inherit;font-weight:600;font-size:12.5px;
@@ -331,7 +331,7 @@ margin:0 18px 16px;display:flex;gap:8px;align-items:flex-start}.tip i{color:var(
 .hl.r{background:var(--red-s);border-color:#f6ccce}
 .hl.a{background:var(--amber-s);border-color:#f3ddb6}
 .hl.n{background:var(--bg);border-color:var(--line)}
-.hl b{font-weight:700}
+.hl b{font-weight:800}
 .kpi.hi{background:linear-gradient(180deg,#f7faff,#fff);border-color:#d6e2ff;
 box-shadow:0 2px 10px rgba(47,107,255,.10)}
 .numbox{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:8px;
@@ -511,23 +511,25 @@ function acctView(){
  /* 선택된 계좌 관점의 (account, strategies, 라벨) 반환 */
  var nh=MET.nh||{};
  if(ACCT==='kis') return {a:MET.account||{},ss:MET.strategies||[],tag:'KIS',
-   note:'무한매수법·떨사오팔·종사종팔 (공용계좌 69567573)'};
+   note:'무한매수법 · 떨사오팔 · 종사종팔'};
  if(ACCT==='nh')  return {a:nh.account||{},ss:nh.strategies||[],tag:'NH·VR',
-   note:'라오어 VR 0기·5기 (NH 계좌 2개) · 평가금+Pool 기준'};
+   note:'VR 0기 · 5기 (평가금+Pool)'};
  return {a:MET.combined||MET.account||{},
    ss:(MET.strategies||[]).concat(nh.strategies||[]),tag:'전체',
-   note:'KIS 3전략 + NH VR 2기수 합산'};
+   note:'KIS + NH 합산'};
 }
 function setAcct(v){ACCT=v;render();}
 function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
  var isNH=(ACCT==='nh'),isAll=(ACCT==='all');
  var h='<div class="ch" style="background:var(--card);border:1px solid var(--line);border-radius:var(--rd);'+
-  'margin-bottom:14px;box-shadow:var(--sh)"><span class="ct"><i class="fa-solid fa-wallet"></i>계좌 보기</span>'+
-  '<div class="seg" id="acctSeg" style="margin-left:auto">'+
+  'margin-bottom:14px;box-shadow:var(--sh);flex-wrap:nowrap">'+
+  '<span class="ct" style="flex:0 0 auto"><i class="fa-solid fa-wallet"></i>계좌</span>'+
+  '<span style="font-size:12.5px;color:var(--c2);flex:1 1 auto;min-width:0;white-space:nowrap;'+
+  'overflow:hidden;text-overflow:ellipsis">'+esc(V.note)+'</span>'+
+  '<div class="seg" id="acctSeg" style="flex:0 0 auto">'+
   [['all','전체'],['kis','KIS'],['nh','NH·VR']].map(function(x){
    return '<button class="sgb'+(ACCT===x[0]?' on':'')+'" onclick="setAcct(\''+x[0]+'\')">'+x[1]+'</button>';
-  }).join('')+'</div>'+
-  '<span style="font-size:11px;color:var(--c2);width:100%;margin-top:6px">'+esc(V.note)+'</span></div>';
+  }).join('')+'</div></div>';
  h+='<div class="kpis">'+
   kpi('총 자산'+(isAll?'':' · '+V.tag),'fa-coins','b',money(a.total_assets),'',
    (isAll&&MET.nh&&MET.nh.eval_total?('KIS '+money((MET.account||{}).total_assets)+' + NH '+money(MET.nh.account?MET.nh.account.total_assets:MET.nh.eval_total))
