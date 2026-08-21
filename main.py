@@ -145,6 +145,12 @@ def _metrics_refresh() -> dict | None:
     _METRICS["building"] = True
     try:
         d = build_metrics()
+        # DB 락 등으로 일부 전략 조회가 실패하면(ok=False) 정상 캐시본을 덮지 않는다
+        # — 화면에 원금·손익이 0/None 으로 튀는 것을 방지.
+        bad = [s for s in d.get("strategies", []) if s.get("cycles_ok") is False]
+        if bad and _METRICS["data"] is not None:
+            logger.warning(f"[suite] metrics 일부 실패({[s['strategy'] for s in bad]}) — 이전 캐시 유지")
+            return _METRICS["data"]
         _METRICS["data"], _METRICS["ts"] = d, _t.time()
         return d
     except Exception as e:

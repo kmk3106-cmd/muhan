@@ -11,9 +11,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 
 from .strategy_adapters import ADAPTERS, DISPLAY_NAMES
+
+logger = logging.getLogger("trading_suite.metrics")
 
 # 전략별 모듈 경로 (settings_store/config/models 재사용)
 _PKG = {k: f"strategies.{k}" for k in ADAPTERS}
@@ -47,9 +50,26 @@ def _account(strategy: str) -> dict:
 
 
 def _engine(strategy: str):
-    from sqlalchemy import create_engine
+    """조회 전용 엔진. 워커가 동기화로 DB를 점유해도 락 대기(15초)로 버틴다.
+
+    [2026-08 수정] 기본 timeout(5초)에서 'database is locked' 예외가 나면 상위
+    except 가 이를 삼켜 원금·손익이 0/None 으로 표시되는 문제가 있었다.
+    """
+    from sqlalchemy import create_engine, event
     cfg = _imp(strategy, "config")
-    return create_engine(cfg.DATABASE_URL)
+    eng = create_engine(cfg.DATABASE_URL, connect_args={"timeout": 15})
+
+    @event.listens_for(eng, "connect")
+    def _pragma(dbapi_con, _rec):          # 읽기 지연 최소화 (쓰기는 워커가 담당)
+        try:
+            cur = dbapi_con.cursor()
+            cur.execute("PRAGMA busy_timeout=15000")
+            cur.execute("PRAGMA journal_mode=WAL")   # 읽기-쓰기 동시성 확보
+            cur.close()
+        except Exception:
+            pass
+
+    return eng
 
 
 def _invested(strategy: str) -> float:
@@ -79,10 +99,12 @@ def _cycles(strategy: str) -> dict:
         wins = sum(1 for p, _ in rows if float(p or 0) > 0)
         win_rate = round(wins / len(rows) * 100, 1) if rows else None
         return {"realized": profit, "realized_pct": pct, "cycles": len(rows),
-                "win_rate": win_rate, "invested": inv}
-    except Exception:
+                "win_rate": win_rate, "invested": inv, "ok": True}
+    except Exception as e:
+        # 조용히 0/None 으로 표시되면 원인 파악이 어렵다 — 로그로 남기고 ok=False 표시
+        logger.warning(f"[metrics] _cycles({strategy}) 실패: {type(e).__name__}: {e}")
         return {"realized": None, "realized_pct": None, "cycles": 0,
-                "win_rate": None, "invested": _invested(strategy)}
+                "win_rate": None, "invested": _invested(strategy), "ok": False}
 
 
 def _holdings(strategy: str) -> dict:
@@ -348,6 +370,7 @@ def build_metrics() -> dict:
             "cycles": cy["cycles"],
             "holdings_count": hd["count"],             # 보유종목수
             "holdings": hd["items"],                   # 보유종목별(평단·원가)
+            "cycles_ok": cy.get("ok", True),           # False = DB 락 등으로 조회 실패
             "errors": er["logs"],                      # 오류
         })
 
