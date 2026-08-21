@@ -154,18 +154,34 @@ def _metrics_refresh() -> dict | None:
 
 @app.get("/api/suite/metrics")
 def suite_metrics(fresh: bool = False):
-    """캐시 우선 반환(즉시) + 오래됐으면 백그라운드 갱신. fresh=1이면 동기 재계산."""
+    """캐시 우선 반환(즉시) + 오래됐으면 백그라운드 갱신. fresh=1이면 동기 재계산.
+
+    캐시가 아직 없으면(기동 직후) 최대 3초만 기다리고, 그래도 없으면
+    'warming' 응답을 즉시 돌려준다 — 워커 sync와 겹쳐도 화면이 멈추지 않도록.
+    """
     import time as _t
     import threading
     age = _t.time() - _METRICS["ts"]
-    if fresh or _METRICS["data"] is None or age > _METRICS_HARD:
+    if fresh:
         d = _metrics_refresh()
         if d is not None:
             return {**d, "cache": {"age_sec": 0, "stale": False}}
-        if _METRICS["data"] is None:
-            from core.suite_metrics import build_metrics
-            return build_metrics()
-    if age > _METRICS_TTL and not _METRICS["building"]:
+    if _METRICS["data"] is None:
+        if not _METRICS["building"]:
+            threading.Thread(target=_metrics_refresh, daemon=True).start()
+        for _ in range(30):                      # 최대 3초 대기
+            if _METRICS["data"] is not None:
+                break
+            _t.sleep(0.1)
+        if _METRICS["data"] is None:             # 아직 준비 전 — 빈 골격 즉시 반환
+            return {
+                "generated_at": "", "warming": True,
+                "account": {}, "combined": {}, "automation": {"active": 0, "total": 0, "running": False},
+                "strategies": [], "recent_trades": [], "holdings": {"ts": "", "items": []},
+                "nh": {"accounts": [], "strategies": [], "account": {}, "eval_total": 0},
+                "cache": {"age_sec": None, "stale": True},
+            }
+    if (age > _METRICS_TTL or age > _METRICS_HARD) and not _METRICS["building"]:
         threading.Thread(target=_metrics_refresh, daemon=True).start()
     return {**_METRICS["data"], "cache": {"age_sec": round(age, 1), "stale": age > _METRICS_TTL}}
 
@@ -1521,7 +1537,11 @@ function loadAll(){
  var to=setTimeout(function(){if(ctl)ctl.abort();},12000);   /* 12초 넘으면 중단 후 재시도 안내 */
  return fetch('/api/suite/metrics',ctl?{signal:ctl.signal}:undefined)
  .then(function(r){return r.json();})
- .then(function(d){clearTimeout(to);MET=d;var au=d.automation||{};
+ .then(function(d){clearTimeout(to);
+  if(d&&d.warming){                      /* 서버 예열 중 — 스켈레톤 유지하고 재조회 */
+   if(!MET)$('page').innerHTML=skeleton();
+   setTimeout(loadAll,1500);return;}
+  MET=d;var au=d.automation||{};
   $('st').className='st'+(au.running?'':' off');
   $('stt').textContent=au.running?'정상 운영중':'정지 상태';
   var cache=d.cache||{};
