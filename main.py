@@ -53,10 +53,12 @@ async def lifespan(app: FastAPI):
             sched.add_job(_t_audit_run, "date",
                           run_date=datetime.now() + timedelta(seconds=45),
                           id="t_audit_bootstrap")
-            # metrics 캐시: 기동 직후 예열 + 15초 주기 갱신 (대시보드 즉시 응답)
-            sched.add_job(_metrics_refresh, "date",
-                          run_date=datetime.now() + timedelta(seconds=3),
-                          id="metrics_warm")
+            # metrics 캐시: 기동 즉시 예열(동기 1회) + 15초 주기 갱신 → 첫 화면부터 즉시 응답
+            try:
+                _metrics_refresh()
+                logger.info("[suite] metrics 캐시 예열 완료")
+            except Exception as _e:
+                logger.warning(f"[suite] metrics 예열 실패(계속 진행): {_e}")
             sched.add_job(_metrics_refresh, "interval", seconds=15,
                           id="metrics_refresh", max_instances=1, coalesce=True)
             sched.start()
