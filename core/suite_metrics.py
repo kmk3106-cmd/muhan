@@ -169,6 +169,35 @@ def _recent_trades(strategy: str, n: int = 12) -> list[dict]:
         return []
 
 
+def _nh_vr() -> dict:
+    """NH(VR) 계좌 스냅샷 — vr.db 캐시만 읽음 (NH API 무호출).
+
+    반환: {accounts:[{gisu,name,qty,avg,close,buy_usd,eval_usd,pnl,pnl_rt,updated_at}], eval_total}
+    """
+    try:
+        from strategies.vr import models as VM
+        accs = []
+        total = 0.0
+        for s in VM.snapshots():
+            qty = int(s.get("qty") or 0)
+            buy = float(s.get("buy_usd") or 0)
+            ev = float(s.get("eval_usd") or 0)
+            pnl = round(ev - buy, 2)
+            accs.append({
+                "gisu": s.get("gisu_id"), "name": s.get("name"),
+                "ticker": s.get("ticker", "TQQQ"), "qty": qty,
+                "avg_price": round(buy / qty, 4) if qty else 0,
+                "now_price": float(s.get("close") or 0),
+                "buy_amt": round(buy, 2), "eval_amt": round(ev, 2),
+                "pnl": pnl, "pnl_rt": round(pnl / buy * 100, 2) if buy > 0 else 0,
+                "updated_at": s.get("updated_at"),
+            })
+            total += ev
+        return {"accounts": accs, "eval_total": round(total, 2)}
+    except Exception:
+        return {"accounts": [], "eval_total": 0.0}
+
+
 def _holdings_detail() -> dict:
     """계좌 보유종목 상세(매입단가·현재가·평가손익·수익률) — 워커가 캐시한 KIS 잔고 기반.
 
@@ -280,11 +309,14 @@ def build_metrics() -> dict:
     trades = trades[:20]
 
     holdings = _holdings_detail()
+    nh = _nh_vr()
 
     return {
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
         "account": {                                   # 공용계좌(중복합산X)
-            "total_assets": tot,                       # 1 총평가자산
+            "total_assets": tot,                       # 1 총평가자산 (KIS)
+            "nh_eval": nh["eval_total"],               # NH(VR) 평가합 (캐시)
+            "combined_assets": round(tot + nh["eval_total"], 2),  # KIS+NH 통합
             "net_invested": canon.get("buy_amt", 0),   # 2 순투입(매입원금)
             "total_pnl": pnl,                          # 3 총손익(평가)
             "total_return_pct": canon.get("pnl_rt", 0),# 4 총수익률
@@ -306,4 +338,5 @@ def build_metrics() -> dict:
         "strategies": per,                              # 9~13,15
         "recent_trades": trades,                        # 14 매매로그
         "holdings": holdings,                            # 16 계좌 보유종목 상세(매입단가·현재가·수익률)
+        "nh": nh,                                        # 17 NH(VR) 계좌 스냅샷 (총자산 합산·보유표시용)
     }

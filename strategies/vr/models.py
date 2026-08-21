@@ -52,6 +52,11 @@ CREATE TABLE IF NOT EXISTS reserved_orders (
   status TEXT NOT NULL DEFAULT 'submitted', -- submitted | cancelled | done | failed
   raw TEXT, created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS acct_snapshot (
+  gisu_id TEXT PRIMARY KEY,
+  qty INTEGER, buy_usd REAL, close REAL, eval_usd REAL,
+  updated_at TEXT
+);
 CREATE TABLE IF NOT EXISTS fills (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   gisu_id TEXT NOT NULL, week_no INTEGER,
@@ -178,6 +183,23 @@ def reserved_rows(gid: str, week_no: int | None = None) -> list[dict]:
             q += " AND week_no=?"
             args.append(week_no)
         return [dict(r) for r in con.execute(q + " ORDER BY id", args)]
+
+
+def upsert_snapshot(gid: str, qty: int, buy_usd: float, close: float, eval_usd: float):
+    with db() as con:
+        con.execute(
+            "INSERT INTO acct_snapshot (gisu_id,qty,buy_usd,close,eval_usd,updated_at) "
+            "VALUES (?,?,?,?,?,datetime('now','localtime')) "
+            "ON CONFLICT(gisu_id) DO UPDATE SET qty=excluded.qty, buy_usd=excluded.buy_usd, "
+            "close=excluded.close, eval_usd=excluded.eval_usd, updated_at=excluded.updated_at",
+            (gid, qty, buy_usd, close, eval_usd))
+
+
+def snapshots() -> list[dict]:
+    with db() as con:
+        return [dict(r) for r in con.execute(
+            "SELECT s.*, g.name, g.acct_no, g.ticker, g.mult FROM acct_snapshot s "
+            "JOIN gisu g ON g.id = s.gisu_id ORDER BY s.gisu_id")]
 
 
 def add_fill(gid: str, week_no: int, side: str, price: float, qty_acct: int,

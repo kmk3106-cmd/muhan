@@ -48,11 +48,31 @@ def root():
 
 @app.get("/api/status")
 def status():
+    # 스냅샷이 30분 이상 오래됐으면 지연 갱신 (실패해도 무시 — 캐시 유지)
+    try:
+        import datetime as _dt
+        snaps = {s["gisu_id"]: s for s in M.snapshots()}
+        for g in M.all_gisu():
+            s = snaps.get(g["id"])
+            stale = True
+            if s and s.get("updated_at"):
+                try:
+                    ts = _dt.datetime.strptime(s["updated_at"], "%Y-%m-%d %H:%M:%S")
+                    stale = (_dt.datetime.now() - ts).total_seconds() > 1800
+                except Exception:
+                    pass
+            if stale:
+                from .worker import refresh_snapshot
+                refresh_snapshot(g["id"])
+    except Exception:
+        pass
+    snaps = {s["gisu_id"]: s for s in M.snapshots()}
     out = []
     for g in M.all_gisu():
         pend = [r for r in M.reserved_rows(g["id"], g["week_no"]) if r["status"] == "submitted"]
         out.append({**g, "kill_switch": kill_switch_on(),
-                    "reserved_this_week": len(pend)})
+                    "reserved_this_week": len(pend),
+                    "snapshot": snaps.get(g["id"])})
     return {"gisu": out, "kill_switch": kill_switch_on()}
 
 

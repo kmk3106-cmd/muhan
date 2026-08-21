@@ -60,6 +60,46 @@ def _parse_fill(row: dict) -> dict | None:
     return None
 
 
+def refresh_snapshot(gid: str) -> dict | None:
+    """NH 잔고+최근종가 → 계좌 스냅샷 캐시 (대시보드 총자산 합산용, 읽기전용 API)."""
+    g = M.get_gisu(gid)
+    if not g:
+        return None
+    from . import nh_client as nh
+    try:
+        bal = nh.balance(g["acct_no"])
+        rows = bal.get("Output_1") or []
+        if isinstance(rows, dict):
+            rows = [rows]
+        qty = 0
+        buy_usd = 0.0
+        for row in rows:
+            if str(row.get("iem_cd", "")).strip().upper() != g["ticker"].upper():
+                continue
+            for k, v in row.items():
+                lk = k.lower()
+                sv = str(v).replace(",", "").strip()
+                if "bnc_qty" in lk:
+                    try:
+                        qty = int(float(sv))
+                    except Exception:
+                        pass
+                if lk == "fc_abk_amt":
+                    try:
+                        buy_usd = float(sv)
+                    except Exception:
+                        pass
+            break
+        lc = nh.last_close(g["ticker"])
+        close = lc[1] if lc else 0.0
+        eval_usd = r2(qty * close) if close > 0 else 0.0
+        M.upsert_snapshot(gid, qty, r2(buy_usd), close, eval_usd)
+        return {"qty": qty, "buy_usd": buy_usd, "close": close, "eval_usd": eval_usd}
+    except Exception as e:
+        logger.warning(f"[VR:{gid}] 스냅샷 갱신 실패: {e}")
+        return None
+
+
 def sync_gisu(gid: str) -> dict:
     """현 주기 체결을 모델에 반영. 반환: {new_fills, model_qty, pool_now}."""
     g = M.get_gisu(gid)
@@ -102,6 +142,10 @@ def sync_all() -> dict:
         except Exception as e:
             logger.warning(f"[VR:{g['id']}] sync 실패: {e}")
             out[g["id"]] = {"error": str(e)}
+        try:
+            refresh_snapshot(g["id"])
+        except Exception:
+            pass
     return out
 
 

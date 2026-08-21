@@ -493,7 +493,8 @@ function kpi(lab,ic,icc,v,vc,s){return '<div class="kpi"><div class="ic '+(icc||
 function pgDash(){var a=MET.account||{},au=MET.automation||{},ss=MET.strategies||[];
  var stockE=(a.total_assets-a.cash>0)?(a.total_assets-a.cash):0;
  var h='<div class="kpis">'+
-  kpi('총 자산','fa-coins','b',money(a.total_assets),'','순투입 '+money(a.net_invested))+
+  kpi('총 자산 (통합)','fa-coins','b',money(a.combined_assets!=null?a.combined_assets:a.total_assets),'',
+   (a.nh_eval?('KIS '+money(a.total_assets)+' + NH '+money(a.nh_eval)):('순투입 '+money(a.net_invested))))+
   kpi('전략 수','fa-layer-group','n',au.total+' 개','','운용중 '+au.active+' · 정지 '+(au.total-au.active))+
   kpi('계좌 수익률','fa-chart-pie',(a.total_return_pct>=0?'g':'r'),
    (a.total_return_pct==null?'—':(a.total_return_pct>=0?'+':'')+Number(a.total_return_pct).toFixed(2)+'%'),
@@ -562,8 +563,13 @@ function renderTr(ts){$('ptr').innerHTML=ts.length?('<table class="tbl"><thead><
  '</span></td><td style="text-align:right">'+t.qty+'</td><td style="text-align:right">'+money(t.price,2)+
  '</td><td style="text-align:right">'+money(t.amount,2)+'</td></tr>';}).join('')+'</tbody></table>'):
  '<div class="muted">매매 내역 없음</div>';}
-function renderHold(h){var its=(h&&h.items)||[];var box=$('phold');var tsEl=$('holdts');
+function renderHold(h){var its=((h&&h.items)||[]).slice();var box=$('phold');var tsEl=$('holdts');
  if(tsEl)tsEl.textContent=h&&h.ts?('갱신 '+String(h.ts).replace('T',' ').slice(0,16)):'';
+ // NH(VR) 계좌 보유를 표에 합류 (캐시 스냅샷)
+ var nh=(MET&&MET.nh&&MET.nh.accounts)||[];
+ nh.forEach(function(s){if(!s.qty)return;its.push({ticker:s.ticker,name:'NH·'+(s.name||s.gisu),
+  qty:s.qty,avg_price:s.avg_price,now_price:s.now_price,buy_amt:s.buy_amt,eval_amt:s.eval_amt,
+  pnl:s.pnl,pnl_rt:s.pnl_rt,display_name:(s.name||'VR')+' (NH)'});});
  if(!its.length){box.innerHTML='<div class="muted">보유 종목 없음 (또는 잔고 동기화 대기중)</div>';return;}
  var tEval=0,tPnl=0,tBuy=0;
  its.forEach(function(x){tEval+=x.eval_amt||0;tPnl+=x.pnl||0;tBuy+=x.buy_amt||0;});
@@ -1271,7 +1277,10 @@ function renderVr(d){var gs=(d&&d.gisu)||[];
     ['V',money(g.v)],['밴드',money(g.band_lo)+' ~ '+money(g.band_hi)],
     ['모델 잔여',g.model_qty+'주'],['Pool(모델)',money(g.pool_now)],
     ['계좌',esc(String(g.acct_no).slice(0,3)+'-**-**'+String(g.acct_no).slice(-3))],
-    ['이번주기 예약',g.reserved_this_week+'건']].map(function(x){
+    ['이번주기 예약',g.reserved_this_week+'건']]
+   .concat(g.snapshot?[['계좌 실보유',g.snapshot.qty+'주'],
+    ['계좌 평가',money(g.snapshot.eval_usd)+' <span style="color:var(--c2);font-size:10px">@'+
+     money(g.snapshot.close,2)+'</span>']]:[]).map(function(x){
     return '<div><div style="color:var(--c2);font-size:10.5px">'+x[0]+'</div><b>'+x[1]+'</b></div>';}).join('')+'</div>';
   var set='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 18px 12px;font-size:11.5px">'+
    [['배수','vrM_'+gid,g.mult],['현금흐름/주기(인출−)','vrC_'+gid,g.cashflow],
