@@ -76,10 +76,15 @@ pip install -q -r "$APP/requirements.txt"
 echo "[6/7] 단일 프로세스 기동 (port 8000)"
 cd "$APP"
 nohup "$VENV/bin/python" main.py > app.log 2>&1 &
-sleep 3
 
-echo "[7/7] 헬스체크"
-code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || echo 000)
+# 기동 시 4개 서브앱 lifespan(스케줄러 등록·초기 동기화)이 먼저 돌아
+# 포트 바인딩까지 1분 안팎 걸린다. 바인딩될 때까지 대기(최대 180초).
+echo "[7/7] 헬스체크 (기동 대기)"
+for i in $(seq 1 30); do
+    code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || echo 000)
+    [ "$code" = "200" ] && { echo "  기동 확인 (약 $((i*6))초)"; break; }
+    sleep 6
+done
 ic=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/infinite/dashboard || echo 000)
 dc=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ddsop/dashboard || echo 000)
 jc=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/jongsa/dashboard || echo 000)
