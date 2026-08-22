@@ -23,8 +23,16 @@ _ENV_CANDIDATES = [
 ]
 
 
+#: NH 업무 성공으로 취급할 rsp_cd (SDK 기본 4개 + 운영중 확인분).
+#:   00218 = "계속 조회시 다음(연속조회) 버튼…" — 데이터는 정상 반환되고 뒷장이 더
+#:           있다는 **안내**지 오류가 아니다. SDK 기본 목록에 없어 예약조회가 통째로
+#:           실패했다. (2026-08-22 예약 22건 정상 접수 후 조회에서 확인)
+NH_SUCCESS_CODES = "00000,00166,00221,13578,00218"
+
+
 def load_nh_env() -> str | None:
     """NH 자격 env 파일을 os.environ 에 로드(기존 환경변수 우선). 로드된 파일 경로 반환."""
+    os.environ.setdefault("NHPLUG_SUCCESS_CODES", NH_SUCCESS_CODES)
     for cand in _ENV_CANDIDATES:
         if not cand:
             continue
