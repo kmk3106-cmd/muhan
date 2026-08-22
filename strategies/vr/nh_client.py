@@ -98,22 +98,44 @@ def daily_closes(ticker: str, count: int = 10) -> list[tuple[str, float]]:
     rows = r.get("Output_1") or r.get("Output_0") or []
     if isinstance(rows, dict):
         rows = [rows]
+
+    # 종가 필드는 '우선순위 지정' 방식으로만 찾는다.
+    # (NH 응답 키 순서가 open_prc, high, low, close_prc 라서 'prc' 같은 부분일치로
+    #  훑으면 시가를 종가로 잘못 집는다. 2026-08-22 실제 오류.)
+    CLOSE_KEYS = ("close_prc", "clos_prc", "close", "clpr", "stck_clpr",
+                  "end_pr", "clsprc", "cls_prc")
+    DATE_KEYS = ("bsop_date", "trade_date", "trad_date", "stck_bsop_date", "bass_dt", "date")
+    BAD = ("open", "high", "low", "ostr", "hgst", "lwst")
+
+    def _pick(row: dict, keys) -> str | None:
+        low = {k.lower(): k for k in row}
+        for want in keys:
+            if want in low:
+                return low[want]
+        return None
+
     out: list[tuple[str, float]] = []
     for row in rows:
-        d = c = None
-        for k, v in row.items():
-            lk = k.lower()
-            sv = str(v).strip()
-            if d is None and ("dt" in lk or "date" in lk or "ymd" in lk) and len(sv) >= 8 and sv[:8].isdigit():
-                d = sv[:8]
-            if c is None and any(t in lk for t in ("cls", "clpr", "close", "end_pr", "now_pr", "prc")):
-                try:
-                    fv = float(sv.replace(",", ""))
-                    if fv > 0:
-                        c = fv
-                except Exception:
-                    pass
-        if d and c:
+        dk = _pick(row, DATE_KEYS)
+        ck = _pick(row, CLOSE_KEYS)
+        if ck is None:                              # 알려진 키가 없을 때만 완화 탐색
+            for k in row:
+                lk = k.lower()
+                if any(b in lk for b in BAD):
+                    continue
+                if any(t in lk for t in ("cls", "clpr", "close", "end_pr", "now_pr")):
+                    ck = k
+                    break
+        if not dk or not ck:
+            continue
+        d = str(row[dk]).strip()[:8]
+        if len(d) < 8 or not d.isdigit():
+            continue
+        try:
+            c = float(str(row[ck]).replace(",", "").strip())
+        except Exception:
+            continue
+        if c > 0:
             out.append((d, c))
     out.sort(key=lambda x: x[0], reverse=True)
     return out
