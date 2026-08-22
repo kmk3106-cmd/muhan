@@ -85,6 +85,10 @@ def db():
                 "ALTER TABLE acct_snapshot ADD COLUMN cash_usd REAL DEFAULT 0",
                 "ALTER TABLE acct_snapshot ADD COLUMN cash_krw REAL DEFAULT 0",
                 "ALTER TABLE acct_snapshot ADD COLUMN fx REAL DEFAULT 0",
+                "ALTER TABLE acct_snapshot ADD COLUMN cash_order REAL DEFAULT 0",
+                # Pool 은 현금만이 아니라 RP·원화자산·타종목까지 포함한다.
+                # NH PLUG 는 해외주식만 조회돼 이들이 안 보이므로 수동 입력분을 둔다.
+                "ALTER TABLE gisu ADD COLUMN ext_assets REAL NOT NULL DEFAULT 0",
             ):
                 try:
                     con.execute(_mig)
@@ -198,16 +202,18 @@ def reserved_rows(gid: str, week_no: int | None = None) -> list[dict]:
 
 
 def upsert_snapshot(gid: str, qty: int, buy_usd: float, close: float, eval_usd: float,
-                    cash_usd: float = 0.0, cash_krw: float = 0.0, fx: float = 0.0):
+                    cash_usd: float = 0.0, cash_krw: float = 0.0, fx: float = 0.0,
+                    cash_order: float = 0.0):
     with db() as con:
         con.execute(
             "INSERT INTO acct_snapshot (gisu_id,qty,buy_usd,close,eval_usd,"
-            "cash_usd,cash_krw,fx,updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,datetime('now','localtime')) "
+            "cash_usd,cash_krw,fx,cash_order,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime')) "
             "ON CONFLICT(gisu_id) DO UPDATE SET qty=excluded.qty, buy_usd=excluded.buy_usd, "
             "close=excluded.close, eval_usd=excluded.eval_usd, cash_usd=excluded.cash_usd, "
-            "cash_krw=excluded.cash_krw, fx=excluded.fx, updated_at=excluded.updated_at",
-            (gid, qty, buy_usd, close, eval_usd, cash_usd, cash_krw, fx))
+            "cash_krw=excluded.cash_krw, fx=excluded.fx, cash_order=excluded.cash_order, "
+            "updated_at=excluded.updated_at",
+            (gid, qty, buy_usd, close, eval_usd, cash_usd, cash_krw, fx, cash_order))
 
 
 def snapshots() -> list[dict]:

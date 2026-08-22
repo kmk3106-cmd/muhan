@@ -1470,11 +1470,12 @@ function loadVr(){fetch('/vr/api/status').then(function(r){return r.json();})
  .then(function(d){renderVr(d);})
  .catch(function(){$('vrBody').innerHTML='<div class="muted">VR 상태 로드 실패</div>';});}
 function vrFmtD(s){s=String(s||'');return s.length===8?(s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8)):s;}
-/* 계좌 가용현금(외화+원화 달러환산) vs 이번 매수사다리 소요액.
-   Pool 은 라오어 모델값이라 계좌 잔액과 별개 — 실제 체결 가능 여부는 이 박스로 본다. */
+/* 모델 Pool(×배수) vs 실제 보유 Pool 과부족.
+   Pool 은 현금만이 아니라 RP·원화자산·타종목까지 포함한 '주식 외 자산' 전부다.
+   NH API 는 해외주식만 조회돼 RP·원화분이 안 보이므로 기타자산은 수동입력분을 더한다. */
 function vrCashBox(g){var c=g&&g.cash;if(!c)return '';
  var short=c.short,tone=short?'red':'blue';
- var box=function(lbl,val,sub,tone){return '<div style="flex:1;min-width:150px;background:var(--'+tone+
+ var box=function(lbl,val,sub,tone){return '<div style="flex:1;min-width:160px;background:var(--'+tone+
   '-s);border:1px solid var(--'+tone+');border-radius:10px;padding:10px 13px">'+
   '<div style="font-size:11.5px;color:var(--c1)">'+lbl+'</div>'+
   '<b style="font-size:17px;color:var(--'+tone+')">'+val+'</b>'+
@@ -1482,14 +1483,21 @@ function vrCashBox(g){var c=g&&g.cash;if(!c)return '';
  var fxs=c.fx?('@'+money(c.fx,2)+'원'):'환율 미확인';
  /* NH 는 예수금을 원화/외화 두 벌로 주는데 같은 지갑이라 더하면 두 번 센다.
     same_pot 이면 원화는 '상당액' 으로만 병기. */
- var mix=c.cash_krw?('원화 '+Math.round(c.cash_krw).toLocaleString()+'원 '+
-   (c.same_pot?'상당':'별도')+' '+fxs):('예수금 전액 외화 '+fxs);
- return '<div style="display:flex;gap:10px;flex-wrap:wrap;padding:0 18px 14px">'+
-  box('계좌 가용현금 <span style="font-size:10px">(달러환산)</span>',money(c.available_usd),mix,'blue')+
-  box('이번 매수 소요',money(c.need_usd),'매수 '+c.need_steps+'단 전량 체결 시 · 배수 ×'+g.mult,'amber')+
+ var mix='예수금 '+money(c.cash_usd)+' + 기타자산 '+money(c.ext_assets)+
+   (c.cash_krw?(' · 원화 '+Math.round(c.cash_krw).toLocaleString()+'원 '+
+    (c.same_pot?'상당':'별도')+' '+fxs):'');
+ return '<div style="display:flex;gap:10px;flex-wrap:wrap;padding:0 18px 6px">'+
+  box('필요 Pool <span style="font-size:10px">(모델×배수)</span>',money(c.pool_required),
+      '모델 '+money(c.pool_model)+' × '+g.mult+'배수','amber')+
+  box('실제 보유 Pool <span style="font-size:10px">(달러환산)</span>',money(c.pool_actual),mix,'blue')+
   box(short?'부족분':'여유분',(short?'−':'+')+money(Math.abs(c.diff)),
-      short?'이대로면 매수 예약이 거부됩니다':'매수 사다리 전량 커버',tone)+
-  '</div>';}
+      short?'Pool 이 모델보다 모자랍니다':'모델 Pool 충족',tone)+
+  '</div>'+
+  '<div style="padding:0 18px 12px;font-size:10.5px;color:var(--c2)">'+
+  'Pool = 주식 외 자산 전부(현금·RP·원화·타종목). NH API 는 해외주식만 조회돼 '+
+  'RP·원화·국내자산이 안 잡히니 <b>기타자산</b> 칸에 직접 넣어주세요. '+
+  '이번 매수 사다리 소요 '+money(c.need_usd)+' ('+c.need_steps+'단) · NH 주문가능금액 '+
+  money(c.order_amt)+'</div>';}
 function renderVr(d){var gs=(d&&d.gisu)||[];
  $('vrBody').innerHTML=gs.map(function(g){var gid=g.id;
   var info='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding:14px 18px;font-size:13.5px">'+
@@ -1508,7 +1516,8 @@ function renderVr(d){var gs=(d&&d.gisu)||[];
    +vrCashBox(g);
   var set='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 18px 12px;font-size:11.5px">'+
    [['배수','vrM_'+gid,g.mult],['현금흐름/주기(인출−)','vrC_'+gid,g.cashflow],
-    ['G','vrG_'+gid,g.g],['매도단수','vrS_'+gid,g.sell_steps]].map(function(x){
+    ['G','vrG_'+gid,g.g],['매도단수','vrS_'+gid,g.sell_steps],
+    ['기타자산 $ (RP·원화 등)','vrX_'+gid,(g.ext_assets||0)]].map(function(x){
     return '<label style="display:flex;flex-direction:column;gap:3px;color:var(--c2)">'+x[0]+
      '<input id="'+x[1]+'" type="number" step="any" value="'+x[2]+'" style="width:96px;padding:6px 8px;'+
      'border:1px solid var(--line);border-radius:7px;font-family:inherit"></label>';}).join('')+
@@ -1559,6 +1568,7 @@ function drawVrChart(gid,gd){var el=$('vrch_'+gid);if(!el)return;
      callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});}
 function vrSaveSet(gid){var b={mult:parseInt($('vrM_'+gid).value),cashflow:parseFloat($('vrC_'+gid).value),
   g:parseFloat($('vrG_'+gid).value),sell_steps:parseInt($('vrS_'+gid).value),
+  ext_assets:parseFloat($('vrX_'+gid).value),
   auto_submit:parseInt($('vrA_'+gid).value)};
  fetch('/vr/api/gisu/'+gid+'/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},
   body:JSON.stringify(b)}).then(function(r){if(!r.ok)throw 0;return r.json();})

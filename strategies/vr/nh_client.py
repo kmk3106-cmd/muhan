@@ -103,6 +103,28 @@ def reserved_inquiry(act_no: str, ticker: str = "", bkg_orr_dt: str = "") -> lis
     return uniq
 
 
+def buyable(act_no: str, ticker: str, price: float) -> dict:
+    """매수가능금액 조회 — NH 가 주문 수납 시 실제로 보는 숫자.
+
+    잔고의 예수금(fc_dca)과 달리 미결제·담보·재사용까지 반영된 `orr_pbl_amt`(주문가능금액)이
+    나온다. 주문 거부 여부는 이 값이 결정하므로 화면 '가용현금'은 이 값을 우선 쓴다.
+    ⚠️ `fc_orr_uit_pr` 는 문자열이 아니라 **number(double)** — 문자열로 보내면 IGW40011.
+    """
+    r = call("/gbstock/inquiry/v1/buyableAmount", {
+        "act_no": act_no, "pcs_dit": "1",            # 1.매수가능금액조회
+        "fc_sec_trd_nat_cd": NAT_US, "iem_cd": ticker,
+        "fc_orr_uit_pr": float(price),
+        "wtm_cur_knd_cd": "1",                       # 거래국가통화
+        "oss_orr_knd_cd": "1",                       # GTS(미국시장주문)
+        "ahi_nmn_pr_tp_cd": "00",                    # 지정가
+        "cfd_lon_cd": "00",                          # 현금
+    })
+    o = r.get("Output_0") or {}
+    if isinstance(o, list):
+        o = o[0] if o else {}
+    return o
+
+
 def reserved_cancel(act_no: str, ticker: str, bkg_orr_dt: str, bkg_rtn_orr_no: int) -> dict:
     return call("/gbstock/order/v1/reservedCancel", {
         "act_no": act_no, "fc_mkt_dit_cd": NAT_US, "bkg_orr_dt": bkg_orr_dt,

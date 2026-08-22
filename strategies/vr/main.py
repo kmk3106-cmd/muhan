@@ -83,15 +83,23 @@ def status():
 
 
 def _cash_check(g: dict, snap: dict | None) -> dict:
-    """매수 사다리 소요액 대비 계좌 가용현금 과부족.
+    """**모델 Pool(×배수) vs 실제 보유 Pool** 과부족.
 
-    Pool 은 **라오어 모델상의 값**이지 계좌 잔액이 아니다. 실제 체결 가능 여부는
-    계좌 가용현금이 이번 주기 매수 사다리 소요액을 덮는지로 따로 판단한다.
+    Pool 은 '주식이 아닌 나머지 자산' 전부다 — 현금만이 아니라 RP·원화자산·타종목까지
+    포함한다. 그래서 비교 대상은 예수금이 아니라 **비(非)TQQQ 자산 총합**이다.
+
+        실제 Pool = 예수금(달러환산) + 기타자산(수동입력: RP·원화·타종목 등)
+        모델 Pool = pool_now × 배수
+        과부족    = 실제 Pool − 모델 Pool
+
+    ⚠️ NH PLUG 는 gbstock(해외주식) 전용 API 18개뿐이라 **RP·원화자산·국내자산이
+    조회되지 않는다**(검증: 잔고 보유종목 TQQQ 1건, 예수금 0, 통화별 증거금 VND만).
+    따라서 시스템이 자동으로 볼 수 있는 건 TQQQ 평가금과 외화예수금까지이고,
+    나머지는 기수 설정의 `ext_assets` 에 수동 입력해 합산한다.
 
     ⚠️ NH 잔고는 같은 금액을 **원화/외화 두 벌로** 준다(krw_dca ↔ fc_dca,
     eal_amt_sum ↔ fc_eal_amt …). krw_dca 는 별도 원화 예수금이 아니라 예수금의
     원화 표시라 **더하면 두 번 센다** (검증: 68,416,749 ÷ 1393 = 49,114.68 = fc_dca).
-    → 가용현금은 fc_dca 하나로 충분하며, 이 값에 원화분이 이미 환산 포함돼 있다.
     (단 매입금 abk_amt ↔ fc_abk_amt 는 매수 당시 환율이라 현재 환율과 다르다.
      그래서 환율 역산은 매입금이 아닌 **평가금** 쌍을 우선 쓴다 — worker 참조)
     """
@@ -99,27 +107,37 @@ def _cash_check(g: dict, snap: dict | None) -> dict:
     fx = float(s.get("fx") or 0)
     usd = float(s.get("cash_usd") or 0)
     krw = float(s.get("cash_krw") or 0)
+    order_amt = float(s.get("cash_order") or 0)
     krw_in_usd = round(krw / fx, 2) if (fx > 0 and krw) else 0.0
-    avail = round(usd, 2)                 # 원화분 포함 총예수금의 달러 표시
     same_pot = abs(krw_in_usd - usd) < 1.0   # 두 벌 표기가 일치 = 같은 지갑
+    ext = float(g.get("ext_assets") or 0)    # RP·원화·타종목 등 (수동, API 조회 불가분)
+
+    pool_actual = round(usd + ext, 2)
+    pool_req = round(float(g["pool_now"]) * int(g["mult"]), 2)
+    diff = round(pool_actual - pool_req, 2)
+
+    # 보조 지표: 이번 주기 매수 사다리가 실제로 끌어쓸 금액 (한도% 적용분)
     try:
         buys = L.buy_ladder(float(g["band_lo"]), int(g["model_qty"]), int(g["unit"]),
                             float(g["pool_now"]), float(g["buy_limit_pct"]))
-        need_model = round(sum(r["price"] * r["qty_model"] for r in buys), 2)
+        need = round(sum(r["price"] * r["qty_model"] for r in buys) * int(g["mult"]), 2)
     except Exception:
-        buys, need_model = [], 0.0
-    need = round(need_model * int(g["mult"]), 2)
+        buys, need = [], 0.0
+
     eval_usd = float(s.get("eval_usd") or 0)
     return {
         "cash_usd": round(usd, 2), "cash_krw": round(krw, 2),
         "krw_in_usd": krw_in_usd, "same_pot": same_pot, "fx": fx,
-        "available_usd": avail,
-        "assets_usd": round(eval_usd + avail, 2),   # 총자산 = 주식평가 + 예수금 (전부 달러환산)
-        "eval_usd": round(eval_usd, 2),
-        "need_usd": need, "need_steps": len(buys),
-        "diff": round(avail - need, 2), "short": avail < need,
+        "ext_assets": round(ext, 2),
+        "order_amt": round(order_amt, 2),        # NH 주문가능금액 (참고)
+        "pool_actual": pool_actual,              # 실제 보유 Pool (비TQQQ 자산)
         "pool_model": float(g["pool_now"]),
-        "pool_scaled": round(float(g["pool_now"]) * int(g["mult"]), 2),
+        "pool_required": pool_req,               # 모델 Pool × 배수
+        "diff": diff, "short": diff < 0,
+        "eval_usd": round(eval_usd, 2),
+        "assets_usd": round(eval_usd + pool_actual, 2),   # 총자산 (전부 달러환산)
+        "need_usd": need, "need_steps": len(buys),
+        "api_blind": True,   # RP·원화·타종목은 API 로 안 보임 → 화면에 명시
         "updated_at": s.get("updated_at"),
     }
 
@@ -141,6 +159,7 @@ class SettingsBody(BaseModel):
     mult: int | None = None
     cashflow: float | None = None
     sell_steps: int | None = None
+    ext_assets: float | None = None   # RP·원화자산·타종목 등 (Pool 구성분, 수동)
     g: float | None = None
     buy_limit_pct: float | None = None
     auto_submit: int | None = None   # 1=토요일 자동 산출·제출

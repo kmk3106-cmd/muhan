@@ -112,13 +112,24 @@ def refresh_snapshot(gid: str) -> dict | None:
                 break
         cash_usd, cash_krw = _f("fc_dca"), _f("krw_dca")
 
+        # 주문가능금액 — NH 가 주문 수납 시 실제로 보는 값(미결제·담보·재사용 반영).
+        # 1단 매수가를 기준가로 넘긴다. 실패해도 예수금 폴백으로 계속 진행.
+        cash_order = 0.0
+        try:
+            px = round(float(g["band_lo"]) / max(1, int(g["model_qty"])), 2)
+            ob = nh.buyable(g["acct_no"], g["ticker"], px)
+            cash_order = float(str(ob.get("orr_pbl_amt", 0) or 0).replace(",", ""))
+        except Exception as e:
+            logger.warning(f"[VR:{gid}] 주문가능금액 조회 실패(예수금으로 대체): {e}")
+
         lc = nh.last_close(g["ticker"])
         close = lc[1] if lc else 0.0
         eval_usd = r2(qty * close) if close > 0 else 0.0
         M.upsert_snapshot(gid, qty, r2(buy_usd), close, eval_usd,
-                          r2(cash_usd), round(cash_krw, 2), fx)
+                          r2(cash_usd), round(cash_krw, 2), fx, r2(cash_order))
         return {"qty": qty, "buy_usd": buy_usd, "close": close, "eval_usd": eval_usd,
-                "cash_usd": cash_usd, "cash_krw": cash_krw, "fx": fx}
+                "cash_usd": cash_usd, "cash_krw": cash_krw, "fx": fx,
+                "cash_order": cash_order}
     except Exception as e:
         logger.warning(f"[VR:{gid}] 스냅샷 갱신 실패: {e}")
         return None
