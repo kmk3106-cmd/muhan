@@ -110,7 +110,11 @@ def _cash_check(g: dict, snap: dict | None) -> dict:
     order_amt = float(s.get("cash_order") or 0)
     krw_in_usd = round(krw / fx, 2) if (fx > 0 and krw) else 0.0
     same_pot = abs(krw_in_usd - usd) < 1.0   # 두 벌 표기가 일치 = 같은 지갑
-    ext = float(g.get("ext_assets") or 0)    # RP·원화·타종목 등 (수동, API 조회 불가분)
+    # 기타자산 = API 로 안 보이는 Pool 구성분 (수동). 달러분·원화분을 따로 받아 합산.
+    ext_usd = float(g.get("ext_assets") or 0)
+    ext_krw = float(g.get("ext_assets_krw") or 0)
+    ext_krw_usd = round(ext_krw / fx, 2) if (fx > 0 and ext_krw) else 0.0
+    ext = round(ext_usd + ext_krw_usd, 2)
 
     pool_actual = round(usd + ext, 2)
     pool_req = round(float(g["pool_now"]) * int(g["mult"]), 2)
@@ -129,6 +133,8 @@ def _cash_check(g: dict, snap: dict | None) -> dict:
         "cash_usd": round(usd, 2), "cash_krw": round(krw, 2),
         "krw_in_usd": krw_in_usd, "same_pot": same_pot, "fx": fx,
         "ext_assets": round(ext, 2),
+        "ext_usd": round(ext_usd, 2), "ext_krw": round(ext_krw, 2),
+        "ext_krw_usd": ext_krw_usd,
         "order_amt": round(order_amt, 2),        # NH 주문가능금액 (참고)
         "pool_actual": pool_actual,              # 실제 보유 Pool (비TQQQ 자산)
         "pool_model": float(g["pool_now"]),
@@ -159,7 +165,8 @@ class SettingsBody(BaseModel):
     mult: int | None = None
     cashflow: float | None = None
     sell_steps: int | None = None
-    ext_assets: float | None = None   # RP·원화자산·타종목 등 (Pool 구성분, 수동)
+    ext_assets: float | None = None       # 기타자산 USD (RP·타종목 등, 수동)
+    ext_assets_krw: float | None = None   # 기타자산 원화 (원화RP·예수금 등, 환율 자동환산)
     g: float | None = None
     buy_limit_pct: float | None = None
     auto_submit: int | None = None   # 1=토요일 자동 산출·제출

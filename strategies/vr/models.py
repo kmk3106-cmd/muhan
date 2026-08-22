@@ -89,6 +89,7 @@ def db():
                 # Pool 은 현금만이 아니라 RP·원화자산·타종목까지 포함한다.
                 # NH PLUG 는 해외주식만 조회돼 이들이 안 보이므로 수동 입력분을 둔다.
                 "ALTER TABLE gisu ADD COLUMN ext_assets REAL NOT NULL DEFAULT 0",
+                "ALTER TABLE gisu ADD COLUMN ext_assets_krw REAL NOT NULL DEFAULT 0",
             ):
                 try:
                     con.execute(_mig)

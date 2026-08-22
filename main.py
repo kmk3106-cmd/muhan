@@ -1484,8 +1484,7 @@ function vrCashBox(g){var c=g&&g.cash;if(!c)return '';
  /* NH 는 예수금을 원화/외화 두 벌로 주는데 같은 지갑이라 더하면 두 번 센다.
     same_pot 이면 원화는 '상당액' 으로만 병기. */
  var mix='예수금 '+money(c.cash_usd)+' + 기타자산 '+money(c.ext_assets)+
-   (c.cash_krw?(' · 원화 '+Math.round(c.cash_krw).toLocaleString()+'원 '+
-    (c.same_pot?'상당':'별도')+' '+fxs):'');
+   (c.ext_krw?(' (원화 '+Math.round(c.ext_krw).toLocaleString()+'원 → '+money(c.ext_krw_usd)+' '+fxs+')'):'');
  return '<div style="display:flex;gap:10px;flex-wrap:wrap;padding:0 18px 6px">'+
   box('필요 Pool <span style="font-size:10px">(모델×배수)</span>',money(c.pool_required),
       '모델 '+money(c.pool_model)+' × '+g.mult+'배수','amber')+
@@ -1517,7 +1516,8 @@ function renderVr(d){var gs=(d&&d.gisu)||[];
   var set='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 18px 12px;font-size:11.5px">'+
    [['배수','vrM_'+gid,g.mult],['현금흐름/주기(인출−)','vrC_'+gid,g.cashflow],
     ['G','vrG_'+gid,g.g],['매도단수','vrS_'+gid,g.sell_steps],
-    ['기타자산 $ (RP·원화 등)','vrX_'+gid,(g.ext_assets||0)]].map(function(x){
+    ['기타자산 $ (RP·타종목)','vrX_'+gid,((g.cash&&g.cash.ext_usd)||0)],
+    ['기타자산 원화 (자동환산)','vrXK_'+gid,((g.cash&&g.cash.ext_krw)||0)]].map(function(x){
     return '<label style="display:flex;flex-direction:column;gap:3px;color:var(--c2)">'+x[0]+
      '<input id="'+x[1]+'" type="number" step="any" value="'+x[2]+'" style="width:96px;padding:6px 8px;'+
      'border:1px solid var(--line);border-radius:7px;font-family:inherit"></label>';}).join('')+
@@ -1569,6 +1569,7 @@ function drawVrChart(gid,gd){var el=$('vrch_'+gid);if(!el)return;
 function vrSaveSet(gid){var b={mult:parseInt($('vrM_'+gid).value),cashflow:parseFloat($('vrC_'+gid).value),
   g:parseFloat($('vrG_'+gid).value),sell_steps:parseInt($('vrS_'+gid).value),
   ext_assets:parseFloat($('vrX_'+gid).value),
+  ext_assets_krw:parseFloat($('vrXK_'+gid).value),
   auto_submit:parseInt($('vrA_'+gid).value)};
  fetch('/vr/api/gisu/'+gid+'/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},
   body:JSON.stringify(b)}).then(function(r){if(!r.ok)throw 0;return r.json();})
