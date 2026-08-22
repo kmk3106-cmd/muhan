@@ -86,15 +86,22 @@ def _cash_check(g: dict, snap: dict | None) -> dict:
     """매수 사다리 소요액 대비 계좌 가용현금 과부족.
 
     Pool 은 **라오어 모델상의 값**이지 계좌 잔액이 아니다. 실제 체결 가능 여부는
-    계좌의 가용현금(외화 + 원화 달러환산)이 이번 주기 매수 사다리 소요액을
-    덮는지로 판단한다. 원화·외화를 합산하는 건 부족분이면 환전해 쓰면 되기 때문.
+    계좌 가용현금이 이번 주기 매수 사다리 소요액을 덮는지로 따로 판단한다.
+
+    ⚠️ NH 잔고는 같은 금액을 **원화/외화 두 벌로** 준다(krw_dca ↔ fc_dca,
+    eal_amt_sum ↔ fc_eal_amt …). krw_dca 는 별도 원화 예수금이 아니라 예수금의
+    원화 표시라 **더하면 두 번 센다** (검증: 68,416,749 ÷ 1393 = 49,114.68 = fc_dca).
+    → 가용현금은 fc_dca 하나로 충분하며, 이 값에 원화분이 이미 환산 포함돼 있다.
+    (단 매입금 abk_amt ↔ fc_abk_amt 는 매수 당시 환율이라 현재 환율과 다르다.
+     그래서 환율 역산은 매입금이 아닌 **평가금** 쌍을 우선 쓴다 — worker 참조)
     """
     s = snap or {}
     fx = float(s.get("fx") or 0)
     usd = float(s.get("cash_usd") or 0)
     krw = float(s.get("cash_krw") or 0)
     krw_in_usd = round(krw / fx, 2) if (fx > 0 and krw) else 0.0
-    avail = round(usd + krw_in_usd, 2)
+    avail = round(usd, 2)                 # 원화분 포함 총예수금의 달러 표시
+    same_pot = abs(krw_in_usd - usd) < 1.0   # 두 벌 표기가 일치 = 같은 지갑
     try:
         buys = L.buy_ladder(float(g["band_lo"]), int(g["model_qty"]), int(g["unit"]),
                             float(g["pool_now"]), float(g["buy_limit_pct"]))
@@ -102,9 +109,13 @@ def _cash_check(g: dict, snap: dict | None) -> dict:
     except Exception:
         buys, need_model = [], 0.0
     need = round(need_model * int(g["mult"]), 2)
+    eval_usd = float(s.get("eval_usd") or 0)
     return {
         "cash_usd": round(usd, 2), "cash_krw": round(krw, 2),
-        "krw_in_usd": krw_in_usd, "fx": fx, "available_usd": avail,
+        "krw_in_usd": krw_in_usd, "same_pot": same_pot, "fx": fx,
+        "available_usd": avail,
+        "assets_usd": round(eval_usd + avail, 2),   # 총자산 = 주식평가 + 예수금 (전부 달러환산)
+        "eval_usd": round(eval_usd, 2),
         "need_usd": need, "need_steps": len(buys),
         "diff": round(avail - need, 2), "short": avail < need,
         "pool_model": float(g["pool_now"]),
