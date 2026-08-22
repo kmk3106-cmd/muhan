@@ -90,11 +90,35 @@ def refresh_snapshot(gid: str) -> dict | None:
                     except Exception:
                         pass
             break
+        # 계좌 현금 — 외화(fc_dca)·원화(krw_dca) 를 따로 담는다.
+        # 환율은 별도 조회 없이 같은 응답에서 역산: 동일 자산의 원화평가 ÷ 외화평가.
+        # (평가금 → 매입금 → 총자산 순으로 대체. 전부 0이면 fx=0 으로 두고 환산 생략)
+        o0 = bal.get("Output_0") or {}
+        if isinstance(o0, list):
+            o0 = o0[0] if o0 else {}
+
+        def _f(key: str) -> float:
+            try:
+                return float(str(o0.get(key, 0)).replace(",", "").strip() or 0)
+            except Exception:
+                return 0.0
+
+        fx = 0.0
+        for kw, usd in (("eal_amt_sum", "fc_eal_amt"), ("abk_amt", "fc_abk_amt"),
+                        ("tot_aet_amt", "fc_aet_amt")):
+            a, b = _f(kw), _f(usd)
+            if a > 0 and b > 0:
+                fx = round(a / b, 2)
+                break
+        cash_usd, cash_krw = _f("fc_dca"), _f("krw_dca")
+
         lc = nh.last_close(g["ticker"])
         close = lc[1] if lc else 0.0
         eval_usd = r2(qty * close) if close > 0 else 0.0
-        M.upsert_snapshot(gid, qty, r2(buy_usd), close, eval_usd)
-        return {"qty": qty, "buy_usd": buy_usd, "close": close, "eval_usd": eval_usd}
+        M.upsert_snapshot(gid, qty, r2(buy_usd), close, eval_usd,
+                          r2(cash_usd), round(cash_krw, 2), fx)
+        return {"qty": qty, "buy_usd": buy_usd, "close": close, "eval_usd": eval_usd,
+                "cash_usd": cash_usd, "cash_krw": cash_krw, "fx": fx}
     except Exception as e:
         logger.warning(f"[VR:{gid}] 스냅샷 갱신 실패: {e}")
         return None

@@ -1470,18 +1470,36 @@ function loadVr(){fetch('/vr/api/status').then(function(r){return r.json();})
  .then(function(d){renderVr(d);})
  .catch(function(){$('vrBody').innerHTML='<div class="muted">VR 상태 로드 실패</div>';});}
 function vrFmtD(s){s=String(s||'');return s.length===8?(s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8)):s;}
+/* 계좌 가용현금(외화+원화 달러환산) vs 이번 매수사다리 소요액.
+   Pool 은 라오어 모델값이라 계좌 잔액과 별개 — 실제 체결 가능 여부는 이 박스로 본다. */
+function vrCashBox(g){var c=g&&g.cash;if(!c)return '';
+ var short=c.short,tone=short?'red':'blue';
+ var box=function(lbl,val,sub,tone){return '<div style="flex:1;min-width:150px;background:var(--'+tone+
+  '-s);border:1px solid var(--'+tone+');border-radius:10px;padding:10px 13px">'+
+  '<div style="font-size:11.5px;color:var(--c1)">'+lbl+'</div>'+
+  '<b style="font-size:17px;color:var(--'+tone+')">'+val+'</b>'+
+  (sub?'<div style="font-size:10.5px;color:var(--c2);margin-top:2px">'+sub+'</div>':'')+'</div>';};
+ var fxs=c.fx?('환율 '+money(c.fx,2)+'원'):'환율 미확인';
+ var mix='외화 '+money(c.cash_usd)+(c.cash_krw?' + 원화 '+money(c.krw_in_usd)+' 환산':'');
+ return '<div style="display:flex;gap:10px;flex-wrap:wrap;padding:0 18px 14px">'+
+  box('계좌 가용현금 <span style="font-size:10px">(달러환산)</span>',money(c.available_usd),mix+' · '+fxs,'blue')+
+  box('이번 매수 소요',money(c.need_usd),'매수 '+c.need_steps+'단 전량 체결 시 · 배수 ×'+g.mult,'amber')+
+  box(short?'부족분':'여유분',(short?'−':'+')+money(Math.abs(c.diff)),
+      short?'이대로면 매수 예약이 거부됩니다':'매수 사다리 전량 커버',tone)+
+  '</div>';}
 function renderVr(d){var gs=(d&&d.gisu)||[];
  $('vrBody').innerHTML=gs.map(function(g){var gid=g.id;
   var info='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding:14px 18px;font-size:13.5px">'+
    [['주차',g.week_no+'주차'],['기간',vrFmtD(g.cyc_start)+' ~ '+vrFmtD(g.cyc_end)],
     ['V',money(g.v)],['밴드',money(g.band_lo)+' ~ '+money(g.band_hi)],
-    ['모델 잔여',g.model_qty+'주'],['Pool',money(g.pool_now)],
+    ['모델 잔여',g.model_qty+'주'],['Pool <span style="font-size:10.5px">(모델)</span>',money(g.pool_now)],
     ['계좌',esc(String(g.acct_no).slice(0,3)+'-**-**'+String(g.acct_no).slice(-3))],
     ['예약',g.reserved_this_week+'건']]
    .concat(g.snapshot?[['보유',g.snapshot.qty+'주'],
     ['평가',money(g.snapshot.eval_usd)+' <span style="color:var(--c2);font-size:11px">@'+
      money(g.snapshot.close,2)+'</span>']]:[]).map(function(x){
-    return '<div><div style="color:var(--c2);font-size:12px">'+x[0]+'</div><b>'+x[1]+'</b></div>';}).join('')+'</div>';
+    return '<div><div style="color:var(--c2);font-size:12px">'+x[0]+'</div><b>'+x[1]+'</b></div>';}).join('')+'</div>'
+   +vrCashBox(g);
   var set='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 18px 12px;font-size:11.5px">'+
    [['배수','vrM_'+gid,g.mult],['현금흐름/주기(인출−)','vrC_'+gid,g.cashflow],
     ['G','vrG_'+gid,g.g],['매도단수','vrS_'+gid,g.sell_steps]].map(function(x){

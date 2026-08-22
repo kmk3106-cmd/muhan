@@ -79,10 +79,17 @@ def db():
     try:
         if not _initialized:
             con.executescript(_SCHEMA)
-            try:  # 기존 DB 마이그레이션 (컬럼 없으면 추가)
-                con.execute("ALTER TABLE gisu ADD COLUMN auto_submit INTEGER NOT NULL DEFAULT 0")
-            except sqlite3.OperationalError:
-                pass
+            for _mig in (  # 기존 DB 마이그레이션 (컬럼 없으면 추가)
+                "ALTER TABLE gisu ADD COLUMN auto_submit INTEGER NOT NULL DEFAULT 0",
+                # 계좌 현금 — 통화별로 따로 담고 환산은 조회 시점 환율로 (fx 도 함께 보관)
+                "ALTER TABLE acct_snapshot ADD COLUMN cash_usd REAL DEFAULT 0",
+                "ALTER TABLE acct_snapshot ADD COLUMN cash_krw REAL DEFAULT 0",
+                "ALTER TABLE acct_snapshot ADD COLUMN fx REAL DEFAULT 0",
+            ):
+                try:
+                    con.execute(_mig)
+                except sqlite3.OperationalError:
+                    pass
             _seed(con)
             con.commit()
             _initialized = True
@@ -190,14 +197,17 @@ def reserved_rows(gid: str, week_no: int | None = None) -> list[dict]:
         return [dict(r) for r in con.execute(q + " ORDER BY id", args)]
 
 
-def upsert_snapshot(gid: str, qty: int, buy_usd: float, close: float, eval_usd: float):
+def upsert_snapshot(gid: str, qty: int, buy_usd: float, close: float, eval_usd: float,
+                    cash_usd: float = 0.0, cash_krw: float = 0.0, fx: float = 0.0):
     with db() as con:
         con.execute(
-            "INSERT INTO acct_snapshot (gisu_id,qty,buy_usd,close,eval_usd,updated_at) "
-            "VALUES (?,?,?,?,?,datetime('now','localtime')) "
+            "INSERT INTO acct_snapshot (gisu_id,qty,buy_usd,close,eval_usd,"
+            "cash_usd,cash_krw,fx,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,datetime('now','localtime')) "
             "ON CONFLICT(gisu_id) DO UPDATE SET qty=excluded.qty, buy_usd=excluded.buy_usd, "
-            "close=excluded.close, eval_usd=excluded.eval_usd, updated_at=excluded.updated_at",
-            (gid, qty, buy_usd, close, eval_usd))
+            "close=excluded.close, eval_usd=excluded.eval_usd, cash_usd=excluded.cash_usd, "
+            "cash_krw=excluded.cash_krw, fx=excluded.fx, updated_at=excluded.updated_at",
+            (gid, qty, buy_usd, close, eval_usd, cash_usd, cash_krw, fx))
 
 
 def snapshots() -> list[dict]:

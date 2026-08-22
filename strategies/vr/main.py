@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from .config import KILL_SWITCH_FILE
 from . import models as M
+from . import vr_logic as L
 from .vr_logic import build_next_cycle, next_cycle_dates, r2
 from .worker import sync_all, sync_gisu, apply_rollover, kill_switch_on
 
@@ -76,8 +77,40 @@ def status():
         pend = [r for r in M.reserved_rows(g["id"], g["week_no"]) if r["status"] == "submitted"]
         out.append({**g, "kill_switch": kill_switch_on(),
                     "reserved_this_week": len(pend),
-                    "snapshot": snaps.get(g["id"])})
+                    "snapshot": snaps.get(g["id"]),
+                    "cash": _cash_check(g, snaps.get(g["id"]))})
     return {"gisu": out, "kill_switch": kill_switch_on()}
+
+
+def _cash_check(g: dict, snap: dict | None) -> dict:
+    """매수 사다리 소요액 대비 계좌 가용현금 과부족.
+
+    Pool 은 **라오어 모델상의 값**이지 계좌 잔액이 아니다. 실제 체결 가능 여부는
+    계좌의 가용현금(외화 + 원화 달러환산)이 이번 주기 매수 사다리 소요액을
+    덮는지로 판단한다. 원화·외화를 합산하는 건 부족분이면 환전해 쓰면 되기 때문.
+    """
+    s = snap or {}
+    fx = float(s.get("fx") or 0)
+    usd = float(s.get("cash_usd") or 0)
+    krw = float(s.get("cash_krw") or 0)
+    krw_in_usd = round(krw / fx, 2) if (fx > 0 and krw) else 0.0
+    avail = round(usd + krw_in_usd, 2)
+    try:
+        buys = L.buy_ladder(float(g["band_lo"]), int(g["model_qty"]), int(g["unit"]),
+                            float(g["pool_now"]), float(g["buy_limit_pct"]))
+        need_model = round(sum(r["price"] * r["qty_model"] for r in buys), 2)
+    except Exception:
+        buys, need_model = [], 0.0
+    need = round(need_model * int(g["mult"]), 2)
+    return {
+        "cash_usd": round(usd, 2), "cash_krw": round(krw, 2),
+        "krw_in_usd": krw_in_usd, "fx": fx, "available_usd": avail,
+        "need_usd": need, "need_steps": len(buys),
+        "diff": round(avail - need, 2), "short": avail < need,
+        "pool_model": float(g["pool_now"]),
+        "pool_scaled": round(float(g["pool_now"]) * int(g["mult"]), 2),
+        "updated_at": s.get("updated_at"),
+    }
 
 
 @app.get("/api/gisu/{gid}")
