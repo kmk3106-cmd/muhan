@@ -7,9 +7,12 @@
 """
 from __future__ import annotations
 
+import logging
 import time
 
 from .config import load_nh_env
+
+logger = logging.getLogger("trading_suite.vr.nh")
 
 load_nh_env()  # NHPLUG_APP_KEY 등 환경 주입 (SDK import 전에)
 
@@ -68,16 +71,36 @@ def reserved_submit(act_no: str, ticker: str, side: str, price: float, qty: int,
 
 
 def reserved_inquiry(act_no: str, ticker: str = "", bkg_orr_dt: str = "") -> list[dict]:
-    """예약주문 조회 (상태: 접수/취소/전송/확인/거부/완료)."""
-    r = call("/gbstock/inquiry/v1/reservedInquiry", {
-        "act_no": act_no, "fc_mkt_dit_cd": NAT_US, "bkg_orr_dt": bkg_orr_dt,
-        "iem_cd": ticker, "sby_dit_cd": "0", "bkg_orr_can_yn": "0",
-        "oss_orr_knd_cd": "0", "bkg_orr_tp_cd": "0", "wtm_cur_knd_cd": "0",
-    })
-    rows = r.get("Output_1") or r.get("Output_0") or []
-    if isinstance(rows, dict):
-        rows = [rows]
-    return rows
+    """예약주문 조회 (상태: 접수/취소/전송/확인/거부/완료).
+
+    한 응답이 15건에서 잘리고 rsp_cd=00218(연속조회 안내)이 뜬다. NH 봉투에 커서
+    필드가 없어 연속조회 키를 알 수 없으므로, **매도(1)·매수(2)를 나눠 조회**해
+    합친다. VR 사다리는 한쪽이 15건을 넘지 않아 잘림 없이 전량 조회된다.
+    (2026-08-22 확인: 전체조회 15건 잘림 → 분리조회 매도 14 + 매수 8 = 22건 전량)
+    """
+    def _q(sby: str) -> list[dict]:
+        r = call("/gbstock/inquiry/v1/reservedInquiry", {
+            "act_no": act_no, "fc_mkt_dit_cd": NAT_US, "bkg_orr_dt": bkg_orr_dt,
+            "iem_cd": ticker, "sby_dit_cd": sby, "bkg_orr_can_yn": "0",
+            "oss_orr_knd_cd": "0", "bkg_orr_tp_cd": "0", "wtm_cur_knd_cd": "0",
+        })
+        rows = r.get("Output_1") or r.get("Output_0") or []
+        if isinstance(rows, dict):
+            rows = [rows]
+        if str(r.get("rsp_cd")) == "00218":
+            logger.warning("[VR] 예약조회 %s쪽이 15건에서 잘렸을 수 있음(00218)",
+                           "매도" if sby == "1" else "매수")
+        return rows
+
+    out = _q("1") + _q("2")          # 매도 + 매수
+    seen, uniq = set(), []
+    for r in out:                    # 접수번호 기준 중복 제거
+        k = (r.get("bkg_orr_dt"), r.get("bkg_rtn_orr_no"))
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(r)
+    return uniq
 
 
 def reserved_cancel(act_no: str, ticker: str, bkg_orr_dt: str, bkg_rtn_orr_no: int) -> dict:
