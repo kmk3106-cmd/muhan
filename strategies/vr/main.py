@@ -86,9 +86,10 @@ def status():
 def _submit_alert(gid: str, g: dict) -> dict | None:
     """미해결 예약 실패 경고 — 자동제출이 조용히 실패해도 화면에서 바로 보이게.
 
-    판정: 현재 주차 이상에서 **방향(매수/매도)별로 실패 건수가 성공 건수를 초과**한 만큼을
-    미해결로 본다. 실패 후 재제출로 채워졌으면 상쇄돼 경고가 사라진다.
-    (가격으로 매칭하지 않는 이유: 재시도 때 종가가 바뀌어 사다리 가격이 달라지기 때문)
+    판정: 실패 기록이 있는 주차(현재 주차 이상)에 대해 **기대 사다리 건수 − 실제 접수 건수**.
+    누적 실패 횟수를 세지 않으므로 같은 건을 여러 번 재시도해도 부풀지 않고,
+    나중에 채워지면 자동으로 0이 되어 경고가 사라진다.
+    (가격 매칭을 쓰지 않는 이유: 재시도 때 종가가 바뀌어 사다리 가격이 달라진다)
 
     2026-09 사고 대응: 9/5 5기 22건 전량 거부·8/29 0기 매수 8건 거부가 로그에만 남아
     일주일 넘게 아무도 몰랐다. 화면 경고가 없으면 같은 일이 반복된다.
@@ -96,16 +97,26 @@ def _submit_alert(gid: str, g: dict) -> dict | None:
     try:
         rows = M.reserved_rows(gid)
         cur = int(g["week_no"])
-        weeks = sorted({int(r["week_no"]) for r in rows if int(r["week_no"]) >= cur})
+        # 기대 사다리 건수 — 현 상태 기준(매수는 한도%로 정해지고, 매도는 설정 단수)
+        try:
+            exp_buy = len(L.buy_ladder(float(g["band_lo"]), int(g["model_qty"]),
+                                       int(g["unit"]), float(g["pool_now"]),
+                                       float(g["buy_limit_pct"])))
+        except Exception:
+            exp_buy = 0
+        exp = {"buy": exp_buy, "sell": int(g["sell_steps"] or 0)}
+
+        weeks = sorted({int(r["week_no"]) for r in rows
+                        if int(r["week_no"]) >= cur and r["status"] == "failed"})
         unresolved, detail = 0, []
         for wk in weeks:
             wr = [r for r in rows if int(r["week_no"]) == wk]
             for side, label in (("buy", "매수"), ("sell", "매도")):
-                f = sum(1 for r in wr if r["side"] == side and r["status"] == "failed")
                 s = sum(1 for r in wr if r["side"] == side and r["status"] == "submitted")
-                if f > s:
-                    unresolved += f - s
-                    detail.append(f"{wk}주차 {label} {f - s}건")
+                miss = max(0, exp[side] - s)
+                if miss:
+                    unresolved += miss
+                    detail.append(f"{wk}주차 {label} {miss}건")
         if unresolved <= 0:
             return None
         import json as _json
