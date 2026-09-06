@@ -78,8 +78,52 @@ def status():
         out.append({**g, "kill_switch": kill_switch_on(),
                     "reserved_this_week": len(pend),
                     "snapshot": snaps.get(g["id"]),
+                    "alert": _submit_alert(g["id"], g),
                     "cash": _cash_check(g, snaps.get(g["id"]))})
     return {"gisu": out, "kill_switch": kill_switch_on()}
+
+
+def _submit_alert(gid: str, g: dict) -> dict | None:
+    """미해결 예약 실패 경고 — 자동제출이 조용히 실패해도 화면에서 바로 보이게.
+
+    판정: 현재 주차 이상에서 **방향(매수/매도)별로 실패 건수가 성공 건수를 초과**한 만큼을
+    미해결로 본다. 실패 후 재제출로 채워졌으면 상쇄돼 경고가 사라진다.
+    (가격으로 매칭하지 않는 이유: 재시도 때 종가가 바뀌어 사다리 가격이 달라지기 때문)
+
+    2026-09 사고 대응: 9/5 5기 22건 전량 거부·8/29 0기 매수 8건 거부가 로그에만 남아
+    일주일 넘게 아무도 몰랐다. 화면 경고가 없으면 같은 일이 반복된다.
+    """
+    try:
+        rows = M.reserved_rows(gid)
+        cur = int(g["week_no"])
+        weeks = sorted({int(r["week_no"]) for r in rows if int(r["week_no"]) >= cur})
+        unresolved, detail = 0, []
+        for wk in weeks:
+            wr = [r for r in rows if int(r["week_no"]) == wk]
+            for side, label in (("buy", "매수"), ("sell", "매도")):
+                f = sum(1 for r in wr if r["side"] == side and r["status"] == "failed")
+                s = sum(1 for r in wr if r["side"] == side and r["status"] == "submitted")
+                if f > s:
+                    unresolved += f - s
+                    detail.append(f"{wk}주차 {label} {f - s}건")
+        if unresolved <= 0:
+            return None
+        import json as _json
+        last = [r for r in rows if r["status"] == "failed"]
+        reason = ""
+        if last:
+            try:
+                reason = str(_json.loads(last[-1].get("raw") or "{}").get("error", ""))
+            except Exception:
+                reason = ""
+        # NH 원문에서 사람이 읽을 부분만 (앞의 category/code 접두어 제거)
+        if "] " in reason:
+            reason = reason.split("] ", 1)[1]
+        return {"unresolved": unresolved, "detail": " · ".join(detail),
+                "reason": reason[:160], "at": last[-1].get("created_at") if last else ""}
+    except Exception as e:
+        logger.warning(f"[VR:{gid}] 경고 판정 실패: {e}")
+        return None
 
 
 def _cash_check(g: dict, snap: dict | None) -> dict:

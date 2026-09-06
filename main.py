@@ -1470,6 +1470,19 @@ function loadVr(){fetch('/vr/api/status').then(function(r){return r.json();})
  .then(function(d){renderVr(d);})
  .catch(function(){$('vrBody').innerHTML='<div class="muted">VR 상태 로드 실패</div>';});}
 function vrFmtD(s){s=String(s||'');return s.length===8?(s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8)):s;}
+/* 예약 실패 경고 배너 — 자동제출이 조용히 실패하면 여기 빨갛게 뜬다.
+   (2026-09 사고: 5기 22건 전량 거부가 로그에만 남아 일주일 넘게 몰랐다) */
+function vrAlertBanner(g){var a=g&&g.alert;if(!a)return '';
+ return '<div style="margin:12px 18px 0;background:var(--red-s);border:1px solid var(--red);'+
+  'border-left:5px solid var(--red);border-radius:10px;padding:12px 15px">'+
+  '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+  '<i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i>'+
+  '<b style="color:var(--red);font-size:15px">예약 미접수 '+a.unresolved+'건</b>'+
+  '<span style="font-size:12px;color:var(--c1)">'+esc(a.detail||'')+'</span></div>'+
+  (a.reason?'<div style="font-size:11.5px;color:var(--c1);margin-top:6px">사유: '+esc(a.reason)+'</div>':'')+
+  (a.at?'<div style="font-size:10.5px;color:var(--c2);margin-top:3px">마지막 시도 '+esc(a.at)+
+   ' · 미리보기 후 예약 제출로 채우거나, 다음 토요일 자동제출을 기다리세요</div>':'')+
+  '</div>';}
 /* 모델 Pool(×배수) vs 실제 보유 Pool 과부족.
    Pool 은 현금만이 아니라 RP·원화자산·타종목까지 포함한 '주식 외 자산' 전부다.
    NH API 는 해외주식만 조회돼 RP·원화분이 안 보이므로 기타자산은 수동입력분을 더한다. */
@@ -1531,7 +1544,7 @@ function renderVr(d){var gs=(d&&d.gisu)||[];
   return '<div class="grid"><div class="card"><div class="ch"><span class="ct">'+
    '<i class="fa-solid fa-scale-balanced"></i>'+esc(g.name)+' · ×'+g.mult+'배수</span>'+
    '<span class="bdg '+(g.kill_switch?'stop':'run')+'" style="margin-left:auto">'+(g.kill_switch?'정지':'운용중')+'</span></div>'+
-   info+set+
+   vrAlertBanner(g)+info+set+
    '<div class="cw" style="height:240px"><canvas id="vrch_'+gid+'"></canvas></div>'+
    '<div id="vrprev_'+gid+'"></div><div id="vrres_'+gid+'"></div></div></div>';
  }).join('');
