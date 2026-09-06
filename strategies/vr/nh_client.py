@@ -193,29 +193,62 @@ def last_close(ticker: str) -> tuple[str, float] | None:
 
 def submit_batch(act_no: str, ticker: str, rows: list[dict], start_dt: str, end_dt: str,
                  pause_sec: float = 0.35) -> list[dict]:
-    """사다리 일괄 예약. rows: [{side, price, qty_acct}] → 결과에 성공/실패·접수번호 부착."""
+    """사다리 일괄 예약. rows: [{side, price, qty_acct}] → 결과에 성공/실패·접수번호 부착.
+
+    시작일 자동 보정: 첫 건이 `23073`(시작일자 ≠ 예약주문일자)로 거부되면 시작일을
+    다음 개장일로 밀어 한 번 더 시도한다. 달력에 없는 임시 휴장·조기폐장까지
+    US_MARKET_HOLIDAYS 로 다 잡을 수는 없어서 두는 2차 방어선이다.
+    (2026-09-05 노동절 사고 재발 방지 — 그때는 22건 전량 거부되고 조용히 끝났다)
+    """
+    from datetime import datetime, timedelta
+    from .vr_logic import next_trading_day
+
+    def _bump(cur: str) -> str:
+        return next_trading_day(datetime.strptime(cur, "%Y%m%d") + timedelta(days=1)).strftime("%Y%m%d")
+
     results = []
     for r in rows:
         item = {"side": r["side"], "price": r["price"], "qty_acct": r["qty_acct"]}
-        try:
-            resp = reserved_submit(act_no, ticker, r["side"], r["price"], r["qty_acct"],
-                                   start_dt, end_dt)
-            o0 = resp.get("Output_0") or {}
-            if isinstance(o0, list):
-                o0 = o0[0] if o0 else {}
-            no = ""
-            dt = ""
-            for k, v in (o0.items() if isinstance(o0, dict) else []):
-                lk = k.lower()
-                if not no and ("orr_no" in lk or "ord_no" in lk):
-                    no = str(v)
-                if not dt and ("dt" in lk and str(v).strip()[:8].isdigit()):
-                    dt = str(v).strip()[:8]
-            item.update({"ok": True, "nh_order_no": no, "nh_order_dt": dt, "raw": o0})
-        except NhplugError as e:
-            item.update({"ok": False, "error": f"{e.category}/{getattr(e, 'code', '')}: {e}"})
-        except Exception as e:  # pragma: no cover
-            item.update({"ok": False, "error": str(e)})
+        # 23073 이면 시작일만 밀어 같은 건을 재시도한다. 보정된 start_dt 는 이후 건에도 이어져
+        # 한 배치가 서로 다른 시작일로 쪼개지지 않는다. (중복 제출 방지: 성공 즉시 루프 탈출)
+        for attempt in range(6):
+            try:
+                resp = reserved_submit(act_no, ticker, r["side"], r["price"], r["qty_acct"],
+                                       start_dt, end_dt)
+                o0 = resp.get("Output_0") or {}
+                if isinstance(o0, list):
+                    o0 = o0[0] if o0 else {}
+                no = ""
+                dt = ""
+                for k, v in (o0.items() if isinstance(o0, dict) else []):
+                    lk = k.lower()
+                    if not no and ("orr_no" in lk or "ord_no" in lk):
+                        no = str(v)
+                    if not dt and ("dt" in lk and str(v).strip()[:8].isdigit()):
+                        dt = str(v).strip()[:8]
+                item.update({"ok": True, "nh_order_no": no, "nh_order_dt": dt, "raw": o0,
+                             "start_dt": start_dt})
+                break
+            except NhplugError as e:
+                if getattr(e, "code", "") == "23073" and attempt < 5:
+                    nxt = _bump(start_dt)
+                    logger.warning("[VR] 예약 시작일 %s 거부(23073) → %s 로 보정 재시도",
+                                   start_dt, nxt)
+                    start_dt = nxt
+                    time.sleep(pause_sec)
+                    continue
+                item.update({"ok": False, "error": f"{e.category}/{getattr(e, 'code', '')}: {e}",
+                             "start_dt": start_dt})
+                break
+            except Exception as e:  # pragma: no cover
+                item.update({"ok": False, "error": str(e), "start_dt": start_dt})
+                break
         results.append(item)
         time.sleep(pause_sec)  # 유량(429) 예방
+
+    nfail = sum(1 for x in results if not x.get("ok"))
+    if nfail:
+        logger.warning("[VR] 예약 제출 %d/%d 실패 (계좌 %s, 기간 %s~%s) — 첫 사유: %s",
+                       nfail, len(results), act_no[-4:], start_dt, end_dt,
+                       next((x.get("error") for x in results if not x.get("ok")), ""))
     return results

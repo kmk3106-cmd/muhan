@@ -88,12 +88,53 @@ def sell_ladder(band_hi: float, model_qty: int, unit: int, steps: int,
     return rows
 
 
-def next_cycle_dates(prev_end_yyyymmdd: str) -> tuple[str, str]:
-    """다음 주기 (시작, 종료) — 금요일 종료 기준: 시작 = 종료+3일(월), 종료 = 시작+11일(다다음 금)."""
+#: 미국 증시 휴장일 (NYSE/NASDAQ). 예약주문 시작일이 여기 걸리면 NH 가
+#: `23073 기간예약주문 시작일자는 예약주문일자와 같아야 합니다` 로 **전량 거부**한다.
+#: (2026-09-05 실제 사고: 9/7 노동절을 시작일로 잡아 5기 51주차 22건 전량 실패)
+#: 신규 연도는 매년 초 갱신할 것 — 없으면 주말만 회피한다.
+US_MARKET_HOLIDAYS = {
+    # 2026
+    "20260101", "20260119", "20260216", "20260403", "20260525",
+    "20260619", "20260703", "20260907", "20261126", "20261225",
+    # 2027
+    "20270101", "20270118", "20270215", "20270326", "20270531",
+    "20270618", "20270705", "20271125", "20271224",
+}
+
+
+def is_trading_day(d) -> bool:
+    """미국 증시 개장일 여부 (주말·고정 휴장일 제외)."""
+    return d.weekday() < 5 and d.strftime("%Y%m%d") not in US_MARKET_HOLIDAYS
+
+
+def next_trading_day(d):
+    """d 포함, 그날부터 가장 이른 개장일."""
+    from datetime import timedelta
+    for _ in range(14):          # 연휴가 아무리 길어도 2주 안엔 열린다
+        if is_trading_day(d):
+            return d
+        d = d + timedelta(days=1)
+    return d
+
+
+def next_cycle_dates(prev_end_yyyymmdd: str, today_yyyymmdd: str = "") -> tuple[str, str]:
+    """다음 주기 (시작, 종료).
+
+    기준: 직전 주기가 금요일에 끝나면 다음 주기는 그 다음 월요일 시작 ~ 2주 뒤 금요일 종료.
+    단 **시작일은 반드시 개장일**이어야 한다(휴장일이면 NH 23073 으로 전량 거부).
+    종료일은 라오어 2주 주기를 유지해야 하므로 시작일이 밀려도 `직전종료+14일`로 고정한다.
+    시작일이 이미 지났으면(제출 지연·재시도) 오늘 이후 첫 개장일로 당겨 맞춘다.
+    """
     from datetime import datetime, timedelta
     d = datetime.strptime(prev_end_yyyymmdd, "%Y%m%d")
-    start = d + timedelta(days=3)
-    end = start + timedelta(days=11)
+    start = next_trading_day(d + timedelta(days=3))
+    end = d + timedelta(days=14)                    # 다다음 금요일 (시작일 이동과 무관)
+    if today_yyyymmdd:
+        today = datetime.strptime(today_yyyymmdd, "%Y%m%d")
+        if start < today:                           # 지연 제출 — 오늘 이후 첫 개장일
+            start = next_trading_day(today)
+    if start > end:                                 # 주기가 통째로 지나간 비정상 상태
+        end = start + timedelta(days=11)
     return start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
 
 
@@ -110,7 +151,8 @@ def build_next_cycle(state: dict, e_value: float) -> dict:
                       float(state["buy_limit_pct"]))
     sells = sell_ladder(hi, int(state["model_qty"]), int(state["unit"]),
                         int(state["sell_steps"]), pool_next)
-    sta, end = next_cycle_dates(state["cyc_end"])
+    from datetime import datetime as _dt
+    sta, end = next_cycle_dates(state["cyc_end"], _dt.now().strftime("%Y%m%d"))
     mult = int(state.get("mult", 1))
     for r in buys + sells:
         r["qty_acct"] = r["qty_model"] * mult

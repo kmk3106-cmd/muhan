@@ -248,16 +248,19 @@ def submit(gid: str, body: SubmitBody):
                               body.cyc_start, body.cyc_end)
     ok = [x for x in results if x.get("ok")]
     fail = [x for x in results if not x.get("ok")]
+    # 휴장일이면 submit_batch 가 시작일을 다음 개장일로 밀 수 있다 → 실제 사용된 값으로 기록
+    eff_start = next((x.get("start_dt") for x in results if x.get("ok") and x.get("start_dt")),
+                     body.cyc_start)
     for x in results:
         M.add_reserved(gid, body.week_no, x["side"], x["price"], x["qty_acct"],
-                       body.cyc_start, body.cyc_end,
+                       eff_start, body.cyc_end,
                        x.get("nh_order_dt", ""), x.get("nh_order_no", ""),
                        "submitted" if x.get("ok") else "failed",
                        x.get("raw") if x.get("ok") else {"error": x.get("error")})
     rolled = False
     if ok and not fail:
         apply_rollover(gid, {
-            "week_no": body.week_no, "cyc_start": body.cyc_start, "cyc_end": body.cyc_end,
+            "week_no": body.week_no, "cyc_start": eff_start, "cyc_end": body.cyc_end,
             "v": body.v, "band_lo": body.band_lo, "band_hi": body.band_hi,
             "pool_start": body.pool_start, "e_used": body.e_used,
         })

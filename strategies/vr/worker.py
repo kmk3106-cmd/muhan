@@ -230,6 +230,10 @@ def auto_submit_all() -> dict:
                                       prop["cyc_start"], prop["cyc_end"])
             ok = [x for x in results if x.get("ok")]
             fail = [x for x in results if not x.get("ok")]
+            # 휴장일 보정으로 시작일이 밀렸을 수 있다 → 실제 사용된 값으로 기록·전환
+            eff_start = next((x.get("start_dt") for x in results if x.get("ok") and x.get("start_dt")),
+                             prop["cyc_start"])
+            prop = {**prop, "cyc_start": eff_start}
             for x in results:
                 _M.add_reserved(gid, prop["week_no"], x["side"], x["price"], x["qty_acct"],
                                 prop["cyc_start"], prop["cyc_end"],
