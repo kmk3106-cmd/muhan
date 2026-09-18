@@ -574,6 +574,7 @@ def _process_portfolio(
         elif not recent_df.empty and ccnl_df.empty:
             ccnl_df = recent_df
         trade_cutoff = _get_current_cycle_trade_cutoff_min_inclusive(session, portfolio)
+        _prev_mode = state.mode
         sync_state_from_api(
             portfolio, state, df1, df2, ccnl_df, trade_cutoff_date=trade_cutoff
         )
@@ -631,6 +632,9 @@ def _process_portfolio(
 
         # 체결 내역 → trades 기록 (WebSocket 1차, REST는 누락 보정용)
         _record_executions(session, portfolio, today, ccnl_df)
+        # 쿼터 진입 기준점은 체결 적재 '뒤'에 찍는다 — 진입을 일으킨 세션의 체결이나 늦게 들어온
+        # REST 보정분이 기준점 뒤로 들어가 '진입 후 LOC 매도'로 잘못 세어지는 것을 막기 위함
+        _mark_quarter_entry(session, portfolio, state, _prev_mode)
         # order_price 비어 있는 Trade → Order 테이블에서 주문가 보정
         _backfill_order_prices(session, portfolio.id)
         # buy_seq 비어 있는 매수 Trade → 회차 번호 소급 적용
@@ -836,29 +840,60 @@ def _process_portfolio(
     return result
 
 
+def _last_trade_id(session: Session, portfolio: Portfolio) -> int:
+    from sqlalchemy import func
+    return int(session.scalar(
+        select(func.max(Trade.id)).where(Trade.portfolio_id == portfolio.id)
+    ) or 0)
+
+
+def _mark_quarter_entry(session: Session, portfolio: Portfolio,
+                        state: PortfolioState, prev_mode: str) -> None:
+    """NORMAL → QUARTER 로 막 바뀌었으면 그 순간의 마지막 체결 id 를 기준점으로 기록.
+
+    sync_state_from_api 직후 호출. 복귀 판정(_check_quarter_loc_sell)은 이 id 이후의
+    LOC 매도만 센다.
+    """
+    if prev_mode != "QUARTER" and state.mode == "QUARTER":
+        state.quarter_entry_trade_id = _last_trade_id(session, portfolio)
+        logger.info(f"[{portfolio.ticker}] QUARTER 진입 기준점: trade id {state.quarter_entry_trade_id}")
+
+
 def _check_quarter_loc_sell(session: Session, portfolio: Portfolio,
                             state: PortfolioState, today: str):
     """
     QUARTER 모드 step 1~10 중 LOC 매도가 체결되었는지 확인.
     체결 확인 시 → NORMAL(후반전)으로 복귀.
+
+    [2026-09 수정] 세는 범위를 **쿼터 진입 이후 체결**로 한정한다.
+    예전엔 싸이클 시작일 이후 전체 LOC 매도를 세서, 쿼터 들어가기 전 NORMAL 때의
+    1/4 LOC 매도 때문에 step 1 이 되자마자 복귀했다. MOC 가 아직 안 체결돼 T 가
+    그대로라 2분 뒤 재진입 → step 0 리셋 → 다음 날 MOC 1/4 손절이 또 나갔다
+    (SOXL 2026-09-09·10 이틀 연속 손절, 8주 + 6주).
     """
     from sqlalchemy import and_, func
-    cycle_start = getattr(portfolio, "cycle_start_date", None) or "19000101"
+    since = getattr(state, "quarter_entry_trade_id", None)
+    if since is None:
+        # 기준점 없이 쿼터 중인 경우(이 수정 배포 전 진입분 등) — 지금부터의 체결만 센다.
+        since = _last_trade_id(session, portfolio)
+        state.quarter_entry_trade_id = since
+        logger.warning(f"[{portfolio.ticker}] QUARTER 기준점 없음 → 현재 trade id {since} 로 설정")
     loc_sell_count = session.scalar(
         select(func.count(Trade.id))
         .where(and_(
             Trade.portfolio_id == portfolio.id,
             Trade.side == "sell",
             Trade.order_type == "LOC",
-            Trade.trade_date >= cycle_start,
+            Trade.id > since,
         ))
     ) or 0
     if loc_sell_count > 0:
         logger.info(f"[{portfolio.ticker}] QUARTER 모드에서 LOC 매도 체결 감지 "
-                    f"({loc_sell_count}건) → NORMAL(후반전) 복귀")
+                    f"({loc_sell_count}건, trade id > {since}) → NORMAL(후반전) 복귀")
         state.mode = "NORMAL"
         state.quarter_step = 0
         state.quarter_base_cash = 0.0
+        state.quarter_entry_trade_id = None
 
 
 def _check_cycle_end(session: Session, portfolio: Portfolio,

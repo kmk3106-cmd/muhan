@@ -90,8 +90,8 @@ def _generate_orders_v22(
 ) -> List[OrderItem]:
     """
     무한매수법 V2.2 규칙
-    NORMAL 전반(T<20): 매수 2개(B/2 @ AVG, B/2 @ ☆%) + 매도 2개(1/4 LOC, 3/4 +10%)
-    NORMAL 후반(T>=20): 매수 1개(B @ ☆%) + 매도 2개
+    NORMAL 전반(T<A/2): 매수 2개(B/2 @ AVG, B/2 @ ☆%) + 매도 2개(1/4 LOC, 3/4 +10%)
+    NORMAL 후반(T>=A/2): 매수 1개(B @ ☆%) + 매도 2개
     QUARTER(1~10): 매수 1개(-10% LOC) + 매도 2개(-10% LOC, +10% 지정가)
     QUARTER(10회 직후): MOC 1/4 매도
 
@@ -164,7 +164,7 @@ def _generate_orders_v22(
                     price=sell_price(limit_plus_r), qty=sell2_qty,
                 ))
     else:
-        if state.T < 20:
+        if state.T < A / 2:          # 전반전 (A=40 → 20). 분할수 변경 시 경계도 따라감
             half_B = B / 2
             buy1_qty = max(1, int(half_B / buy_price(avg)))
             buy2_qty = max(1, int(half_B / buy_price(avg * (1 + star_pct))))
@@ -394,8 +394,12 @@ def sync_state_from_api(
     # V2.2 모드 전환
     version = getattr(portfolio, "strategy_version", "2.2") or "2.2"
     if version == "2.2":
-        if state.mode != ModeEnum.QUARTER.value and 39.1 <= state.T <= 40:
-            # NORMAL → QUARTER 진입: 원금 소진 시점
+        # NORMAL → QUARTER 진입: 원금 소진 시점 (T ≥ A − 0.9, A=40 → 39.1).
+        # 상한을 두지 않는다 — 예전엔 `39.1 <= T <= 40` 이라(T는 0.1 올림 → 원가 기준 폭 1.0)
+        # 하루 증가폭이 1.0을 넘는 날(1주 가격 > B) 구간을 건너뛰어 영영 NORMAL로 남아
+        # 손절 없이 매수가 계속될 수 있었다.
+        A = int(getattr(portfolio, "A", 40) or 40)
+        if state.mode != ModeEnum.QUARTER.value and state.T >= A - 0.9:
             state.mode = ModeEnum.QUARTER.value
             state.quarter_step = 0  # step 0 = MOC 1/4 매도로 시작
             state.quarter_base_cash = 0.0

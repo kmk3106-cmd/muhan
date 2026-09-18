@@ -177,7 +177,8 @@ def get_state_for_portfolio(session: Session, portfolio: Portfolio) -> dict:
         }
     mode_display = state.mode
     if state.mode == "NORMAL":
-        mode_display = "NORMAL_전반전" if state.T < 20 else "NORMAL_후반전"
+        _half = (getattr(portfolio, "A", 40) or 40) / 2
+        mode_display = "NORMAL_전반전" if state.T < _half else "NORMAL_후반전"
     elif state.mode == "QUARTER":
         if state.quarter_step == 0:
             mode_display = "QUARTER_MOC매도"

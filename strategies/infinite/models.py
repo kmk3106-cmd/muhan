@@ -25,8 +25,8 @@ class Base(DeclarativeBase):
 class ModeEnum(str, Enum):
     """
     무한매수법 운영 모드
-    - NORMAL: 일반 모드 (전반전 T<20 / 후반전 T>=20)
-    - QUARTER: 쿼터손절 모드 (39 < T <= 40 진입 후)
+    - NORMAL: 일반 모드 (전반전 T<A/2 / 후반전 T>=A/2)
+    - QUARTER: 쿼터손절 모드 (T >= A-0.9 진입 후)
     """
     NORMAL = "NORMAL"
     QUARTER = "QUARTER"
@@ -97,6 +97,9 @@ class PortfolioState(Base):
     mode: Mapped[str] = mapped_column(String(20), default=ModeEnum.NORMAL.value)
     quarter_step: Mapped[int] = mapped_column(Integer, default=0)     # 쿼터 1~10 회차
     quarter_base_cash: Mapped[float] = mapped_column(Float, default=0.0)  # 쿼터용 1회 매수금
+    # 쿼터 진입 순간의 마지막 체결 id. 복귀 판정은 이 id 이후의 LOC 매도만 센다.
+    # (진입 전 NORMAL 때 LOC 매도를 세면 진입 직후 복귀→재진입하며 MOC 손절이 반복됨 — 2026-09-09~10 실사고)
+    quarter_entry_trade_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     last_moc_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # MOC 체결가
 
     # 중복 주문 방지
@@ -296,6 +299,15 @@ def init_db(database_url: str):
         with engine.connect() as conn:
             conn.execute(text(
                 "ALTER TABLE portfolios ADD COLUMN initial_holdings_cost FLOAT DEFAULT 0.0"
+            ))
+            conn.commit()
+    except Exception:
+        pass
+    # portfolio_states.quarter_entry_trade_id (쿼터 복귀 판정 기준점)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE portfolio_states ADD COLUMN quarter_entry_trade_id INTEGER"
             ))
             conn.commit()
     except Exception:
