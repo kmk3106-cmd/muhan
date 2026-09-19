@@ -79,8 +79,35 @@ def status():
                     "reserved_this_week": len(pend),
                     "snapshot": snaps.get(g["id"]),
                     "alert": _submit_alert(g["id"], g),
+                    "qty_audit": _qty_audit(g, snaps.get(g["id"])),
                     "cash": _cash_check(g, snaps.get(g["id"]))})
     return {"gisu": out, "kill_switch": kill_switch_on()}
+
+
+def _qty_audit(g: dict, snap: dict | None) -> dict:
+    """체결 누락 감시 — NH 실보유와 모델의 '차이'가 기준에서 변했는지.
+
+    모델잔여는 시스템이 반영한 체결로만 움직이고, NH 실보유는 실제 체결로 움직인다.
+    체결을 빠짐없이 반영하고 있다면 둘의 차이(qty_offset — 넘겨받을 때부터 있던 차이·수동매매분)는
+    변하지 않는다. 변했다 = 반영 못 한 체결이 있거나(동기화 고장) 앱에서 직접 매매했다는 뜻.
+    (2026-09: 체결 조회가 한 번도 작동하지 않았는데 '체결 0건'이 정상처럼 보여 몰랐다)
+    """
+    s = snap or {}
+    acct = int(s.get("qty") or 0)
+    model = int(g["model_qty"]) * int(g["mult"])
+    now = acct - model
+    base = g.get("qty_offset")
+    out = {"acct_qty": acct, "model_qty_acct": model, "offset_now": now,
+           "offset_base": base, "snap_at": s.get("updated_at")}
+    if not s.get("updated_at"):
+        out["state"] = "no_snapshot"
+    elif base is None:
+        out["state"] = "unset"
+    elif now == int(base):
+        out["state"] = "ok"
+    else:
+        out.update({"state": "mismatch", "diff": now - int(base)})
+    return out
 
 
 def _submit_alert(gid: str, g: dict) -> dict | None:
@@ -222,6 +249,7 @@ class SettingsBody(BaseModel):
     sell_steps: int | None = None
     ext_assets: float | None = None       # 기타자산 USD (RP·타종목 등, 수동)
     ext_assets_krw: float | None = None   # 기타자산 원화 (원화RP·예수금 등, 환율 자동환산)
+    qty_offset: int | None = None         # 체결 누락 감시 기준 (NH 실보유 − 모델×배수) 재설정
     g: float | None = None
     buy_limit_pct: float | None = None
     auto_submit: int | None = None   # 1=토요일 자동 산출·제출
@@ -248,6 +276,13 @@ def preview(gid: str, e: float | None = None, start: str = "", end: str = ""):
     g = M.get_gisu(gid)
     if not g:
         raise HTTPException(404, "기수 없음")
+    # 산출 직전에 이번 주기 체결을 모델에 반영 — 마지막 날(금) 체결이 정기 동기화(10:05) 전이면
+    # 모델잔여·Pool 이 한 칸 늦은 채로 사다리가 나간다. 자동제출은 이미 먼저 동기화한다.
+    try:
+        sync_gisu(gid)
+        g = M.get_gisu(gid)
+    except Exception as ex:
+        logger.warning(f"[VR:{gid}] 미리보기 전 체결 동기화 실패(기존 모델로 산출): {ex}")
     close_info = None
     if e is None:
         try:

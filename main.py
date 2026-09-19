@@ -1483,6 +1483,32 @@ function vrAlertBanner(g){var a=g&&g.alert;if(!a)return '';
   (a.at?'<div style="font-size:10.5px;color:var(--c2);margin-top:3px">마지막 시도 '+esc(a.at)+
    ' · 미리보기 후 예약 제출로 채우거나, 다음 토요일 자동제출을 기다리세요</div>':'')+
   '</div>';}
+/* 체결 누락 감시 — NH 실보유와 모델(잔여×배수)의 차이가 기준에서 변하면 빨간 배너.
+   체결을 빠짐없이 반영하면 차이는 그대로다. 변했다 = 반영 못 한 체결 또는 앱 직접 매매.
+   (2026-09: 체결 조회가 고장나 있었는데 '체결 0건'이 정상처럼 보여 몰랐다) */
+function vrQtyBanner(g){var q=g&&g.qty_audit;if(!q||q.state==='ok'||q.state==='no_snapshot')return '';
+ var gid=esc(g.id),n=function(v){return (v>0?'+':'')+v;};
+ var btn=function(lbl){return '<button class="btn sm" style="margin-left:auto" onclick="vrQtyReset(\''+gid+'\','+
+  q.offset_now+')">'+lbl+'</button>';};
+ if(q.state==='unset')
+  return '<div style="margin:12px 18px 0;background:var(--amber-s);border:1px solid var(--amber);border-radius:10px;'+
+   'padding:10px 15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">'+
+   '<i class="fa-solid fa-circle-info" style="color:var(--amber)"></i>체결 감시 기준 미설정 — 지금 NH '+q.acct_qty+
+   '주 / 모델 '+q.model_qty_acct+'주 (차이 '+n(q.offset_now)+'주)'+btn('이 차이를 기준으로 설정')+'</div>';
+ return '<div style="margin:12px 18px 0;background:var(--red-s);border:1px solid var(--red);'+
+  'border-left:5px solid var(--red);border-radius:10px;padding:12px 15px">'+
+  '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+  '<i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i>'+
+  '<b style="color:var(--red);font-size:15px">보유수량 불일치 '+n(q.diff)+'주</b>'+
+  '<span style="font-size:12px;color:var(--c1)">NH 실보유 '+q.acct_qty+'주 · 모델 '+q.model_qty_acct+
+  '주 · 차이 기준 '+n(q.offset_base)+' → 지금 '+n(q.offset_now)+'</span>'+btn('의도한 매매면 기준 재설정')+'</div>'+
+  '<div style="font-size:11.5px;color:var(--c1);margin-top:6px">반영 못 한 체결이 있거나 앱에서 직접 매매했습니다. '+
+  '이대로 다음 주기를 산출하면 사다리가 라오어 표와 어긋납니다. 부분체결이면 남은 수량 체결 뒤 자동으로 풀립니다.</div></div>';}
+function vrQtyReset(gid,v){
+ if(!confirm('체결 감시 기준을 지금 차이('+(v>0?'+':'')+v+'주)로 재설정합니다.\n\n직접 매매했거나 원인을 확인한 경우에만 누르세요. 체결 누락이면 재설정해도 모델은 여전히 틀립니다.'))return;
+ fetch('/vr/api/gisu/'+gid+'/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({qty_offset:v})}).then(function(r){if(!r.ok)throw 0;toast('기준 재설정됨');loadVr();})
+  .catch(function(){toast('재설정 실패');});}
 /* 모델 Pool(×배수) vs 실제 보유 Pool 과부족.
    Pool 은 현금만이 아니라 RP·원화자산·타종목까지 포함한 '주식 외 자산' 전부다.
    NH API 는 해외주식만 조회돼 RP·원화분이 안 보이므로 기타자산은 수동입력분을 더한다. */
@@ -1544,7 +1570,7 @@ function renderVr(d){var gs=(d&&d.gisu)||[];
   return '<div class="grid"><div class="card"><div class="ch"><span class="ct">'+
    '<i class="fa-solid fa-scale-balanced"></i>'+esc(g.name)+' · ×'+g.mult+'배수</span>'+
    '<span class="bdg '+(g.kill_switch?'stop':'run')+'" style="margin-left:auto">'+(g.kill_switch?'정지':'운용중')+'</span></div>'+
-   vrAlertBanner(g)+info+set+
+   vrAlertBanner(g)+vrQtyBanner(g)+info+set+
    '<div class="cw" style="height:240px"><canvas id="vrch_'+gid+'"></canvas></div>'+
    '<div id="vrprev_'+gid+'"></div><div id="vrres_'+gid+'"></div></div></div>';
  }).join('');

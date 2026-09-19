@@ -22,42 +22,33 @@ def kill_switch_on() -> bool:
     return KILL_SWITCH_FILE.exists()
 
 
-def _parse_fill(row: dict) -> dict | None:
-    """dailyTransaction 행 → {side, qty, price, dt, key}. 매수/매도 외 행(입출금 등)은 None."""
-    side = None
-    qty = price = None
-    dt = ""
-    key_parts = []
-    for k, v in row.items():
-        lk = k.lower()
-        sv = str(v).strip()
-        key_parts.append(f"{k}={sv}")
-        if side is None and ("cfc" in lk or "sby" in lk or "trd" in lk):
-            if sv == "05" or "매수" in sv:
-                side = "buy"
-            elif sv == "06" or "매도" in sv:
-                side = "sell"
-        if qty is None and "qty" in lk:
-            try:
-                q = int(float(sv.replace(",", "")))
-                if q > 0:
-                    qty = q
-            except Exception:
-                pass
-        if price is None and ("uit_pr" in lk or "prc" in lk or ("pr" in lk and "prd" not in lk)):
-            try:
-                p = float(sv.replace(",", ""))
-                if p > 0:
-                    price = p
-            except Exception:
-                pass
-        if not dt and "dt" in lk and sv[:8].isdigit():
-            dt = sv[:8]
-    if side and qty and price:
-        import hashlib
-        key = hashlib.sha256("|".join(sorted(key_parts)).encode()).hexdigest()[:24]
-        return {"side": side, "qty": qty, "price": price, "dt": dt, "key": key}
-    return None
+def _parse_fill(row: dict, ticker: str = "") -> dict | None:
+    """NH 일별거래내역 1행 → {side, qty, price, dt, sno}. 대상 종목의 매수·매도 외(입금·배당·타종목)는 None.
+
+    칸은 NH 명세 이름 그대로 쓴다 (2026-09 수정 — 예전엔 칸 이름을 추측해 찾았다):
+      act_trd_tp_nm 계좌거래유형명(매수/매도/입금…) · iem_cd 종목코드('TQQQ US')
+      trd_qty 거래수량 · trd_uit_pr 거래단가 · trd_dt 거래일자 · trd_sno 거래일련번호
+    중복판정은 호출부에서 **거래일자-일련번호**(NH 가 거래마다 부여, 불변)로 한다.
+    예전엔 행 전체 해시라 NH 가 한 칸(거래후잔고·환율 등)만 바꿔 다시 줘도 같은 체결을 두 번 반영했다.
+    """
+    from .nh_client import norm_ticker
+    kind = str(row.get("act_trd_tp_nm") or "").strip()
+    side = "buy" if kind == "매수" else ("sell" if kind == "매도" else None)
+    if side is None:
+        return None
+    if ticker and norm_ticker(row.get("iem_cd")) != norm_ticker(ticker):
+        return None
+    try:
+        qty = int(round(float(str(row.get("trd_qty") or 0).replace(",", ""))))
+        price = float(str(row.get("trd_uit_pr") or 0).replace(",", ""))
+    except Exception:
+        return None
+    dt = str(row.get("trd_dt") or "").strip()[:8]
+    sno = str(row.get("trd_sno") or "").strip()
+    if qty <= 0 or price <= 0 or len(dt) != 8 or not sno:
+        logger.warning(f"[VR] 체결행 형식 이상 — 건너뜀: {row}")
+        return None
+    return {"side": side, "qty": qty, "price": price, "dt": dt, "sno": sno}
 
 
 def refresh_snapshot(gid: str) -> dict | None:
@@ -68,27 +59,17 @@ def refresh_snapshot(gid: str) -> dict | None:
     from . import nh_client as nh
     try:
         bal = nh.balance(g["acct_no"])
-        rows = bal.get("Output_1") or []
-        if isinstance(rows, dict):
-            rows = [rows]
         qty = 0
         buy_usd = 0.0
-        for row in rows:
-            if str(row.get("iem_cd", "")).strip().upper() != g["ticker"].upper():
+        # 잔고 보유종목은 Output_1. 수량 = cns_bse_bnc_qty(체결기준잔고수량), 매입금 = fc_abk_amt (명세 이름)
+        for row in nh._rows(bal, "Output_1"):
+            if nh.norm_ticker(row.get("iem_cd")) != nh.norm_ticker(g["ticker"]):
                 continue
-            for k, v in row.items():
-                lk = k.lower()
-                sv = str(v).replace(",", "").strip()
-                if "bnc_qty" in lk:
-                    try:
-                        qty = int(float(sv))
-                    except Exception:
-                        pass
-                if lk == "fc_abk_amt":
-                    try:
-                        buy_usd = float(sv)
-                    except Exception:
-                        pass
+            try:
+                qty = int(float(str(row.get("cns_bse_bnc_qty") or 0).replace(",", "")))
+                buy_usd = float(str(row.get("fc_abk_amt") or 0).replace(",", ""))
+            except Exception as e:
+                logger.warning(f"[VR:{gid}] 잔고 행 해석 실패: {e} — {row}")
             break
         # 계좌 현금 — 외화(fc_dca)·원화(krw_dca) 를 따로 담는다.
         # 환율은 별도 조회 없이 같은 응답에서 역산: 동일 자산의 원화평가 ÷ 외화평가.
@@ -147,10 +128,13 @@ def sync_gisu(gid: str) -> dict:
     mq, pool = int(g["model_qty"]), float(g["pool_now"])
     mult = max(1, int(g["mult"]))
     for row in rows:
-        f = _parse_fill(row)
+        f = _parse_fill(row, g["ticker"])
         if not f:
             continue
-        if not M.add_fill(gid, g["week_no"], f["side"], f["price"], f["qty"], f["dt"], f["key"]):
+        # 중복판정 키 = 기수:거래일자-일련번호. dedup_key 는 전 기수 공통 UNIQUE 라 기수를 붙인다
+        # (두 계좌에 같은 날 같은 일련번호가 나올 수 있음)
+        key = f"{gid}:{f['dt']}-{f['sno']}"
+        if not M.add_fill(gid, g["week_no"], f["side"], f["price"], f["qty"], f["dt"], key):
             continue  # 이미 반영
         model_q = max(1, round(f["qty"] / mult))
         amt = r2(f["price"] * model_q)

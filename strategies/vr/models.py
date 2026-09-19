@@ -90,6 +90,9 @@ def db():
                 # NH PLUG 는 해외주식만 조회돼 이들이 안 보이므로 수동 입력분을 둔다.
                 "ALTER TABLE gisu ADD COLUMN ext_assets REAL NOT NULL DEFAULT 0",
                 "ALTER TABLE gisu ADD COLUMN ext_assets_krw REAL NOT NULL DEFAULT 0",
+                # 체결 누락 감시 기준: NH 실보유 − 모델잔여×배수 (수동매매 등으로 생긴 기존 차이).
+                # 체결을 전부 반영하면 이 차이는 변하지 않는다 → 변하면 누락·수동매매 경보
+                "ALTER TABLE gisu ADD COLUMN qty_offset INTEGER",
             ):
                 try:
                     con.execute(_mig)

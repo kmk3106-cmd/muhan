@@ -20,6 +20,26 @@ from .nhplug import call, NhplugError, get_token  # noqa: E402
 
 NAT_US = "200"
 
+# ── 응답 파싱 원칙 (2026-09 전면 수정) ─────────────────────────────────────────
+# 블록·칸 이름은 **NH 명세(openapi.json)에 적힌 이름을 정확히** 쓴다. 칸 이름을 부분일치로
+# 추측하던 코드가 시가를 종가로 읽고(8/22), 체결 목록 대신 요약 블록을 읽어 체결을 한 번도
+# 반영하지 못하는(9/19 발견) 사고를 냈다. 블록은 API마다 다르다:
+#   거래내역 Output_0=목록/Output_1=요약 · 잔고 Output_1=보유종목 · 일봉 Output_1=일봉
+#   예약조회 Output_0=목록 · 예약제출 Output_0=접수번호
+
+
+def _rows(r: dict, block: str) -> list[dict]:
+    """응답에서 지정한 블록을 목록으로. 블록은 데이터가 있을 때만 내려온다(NH 명세)."""
+    rows = r.get(block) or []
+    if isinstance(rows, dict):
+        rows = [rows]
+    return rows
+
+
+def norm_ticker(code) -> str:
+    """NH 종목코드 정규화 — 거래내역은 'TQQQ US'(시장 접미사), 잔고는 'TQQQ' 로 온다."""
+    return str(code or "").strip().split(" ")[0].upper()
+
 
 def auth_ok() -> bool:
     try:
@@ -37,15 +57,55 @@ def balance(act_no: str) -> dict:
 
 
 def daily_transactions(act_no: str, start_dt: str, end_dt: str, ticker: str = "") -> list[dict]:
-    """일별 거래내역 (05.매수/06.매도 포함 전체) — 체결 동기화용."""
-    r = call("/gbstock/inquiry/v1/dailyTransaction", {
-        "act_no": act_no, "iqr_sta_dt": start_dt, "iqr_end_dt": end_dt,
-        "act_trd_cfc_cd": "00", "iem_mlf_cd": "00001", "iem_cd": ticker,
-    })
-    rows = r.get("Output_1") or r.get("Output_0") or []
-    if isinstance(rows, dict):
-        rows = [rows]
-    return rows
+    """일별 거래내역 — 체결 동기화용. 원본 행을 (거래일자, 일련번호) 오래된 순으로.
+
+    [2026-09 수정] 예전 구현은 체결을 한 건도 읽지 못했다 (7월 실체결로 확인):
+    - 목록은 **Output_0** 인데 Output_1(입금총액·세금합계 요약)을 먼저 읽었다
+    - 종목 필터를 API 에 'TQQQ' 로 넘기면 **항상 0건** — NH 는 'TQQQ US' 형식.
+      → 필터 없이 받아 여기서 거른다 (같은 계좌에 AMDY·DHA 등 타 종목이 있어 반드시 걸러야 함)
+    - 한 응답이 20건에서 잘리고 rsp_cd 00218 — 봉투에 커서가 없어 기간을 반씩 쪼개 재조회
+    """
+    from datetime import datetime, timedelta
+    want = norm_ticker(ticker) if ticker else ""
+    out: list[dict] = []
+    seen: set = set()
+
+    def fetch(s: str, e: str, depth: int = 0) -> None:
+        # 기간을 쪼개 재조회하면 호출이 몰려 NH 호출 한도(IGW42902, rate_limit)에 걸릴 수 있다.
+        # 한도 초과면 잠시 쉬고 재시도 — 한 번 실패로 동기화 전체가 날아가지 않게.
+        for attempt in range(4):
+            try:
+                r = call("/gbstock/inquiry/v1/dailyTransaction", {
+                    "act_no": act_no, "iqr_sta_dt": s, "iqr_end_dt": e,
+                    "act_trd_cfc_cd": "00", "iem_mlf_cd": "00001", "iem_cd": "",
+                })
+                break
+            except NhplugError as ex:
+                if getattr(ex, "category", "") != "rate_limit" or attempt == 3:
+                    raise
+                time.sleep(2.0 * (attempt + 1))
+        truncated = str(r.get("rsp_cd")) == "00218"
+        if truncated and s < e and depth < 12:
+            ds, de = datetime.strptime(s, "%Y%m%d"), datetime.strptime(e, "%Y%m%d")
+            mid = (ds + (de - ds) / 2).strftime("%Y%m%d")
+            nxt = (datetime.strptime(mid, "%Y%m%d") + timedelta(days=1)).strftime("%Y%m%d")
+            fetch(s, mid, depth + 1)
+            time.sleep(1.0)
+            fetch(nxt, e, depth + 1)
+            return
+        if truncated:
+            logger.warning("[VR] 거래내역 %s 하루치가 20건을 넘어 일부 누락 가능 (계좌 %s)", s, act_no[-4:])
+        for x in _rows(r, "Output_0"):
+            k = (str(x.get("trd_dt")), str(x.get("trd_sno")))
+            if k not in seen:
+                seen.add(k)
+                out.append(x)
+
+    fetch(start_dt, end_dt)
+    if want:
+        out = [x for x in out if norm_ticker(x.get("iem_cd")) == want]
+    out.sort(key=lambda x: (str(x.get("trd_dt")), int(x.get("trd_sno") or 0)))
+    return out
 
 
 def reserved_submit(act_no: str, ticker: str, side: str, price: float, qty: int,
@@ -84,9 +144,7 @@ def reserved_inquiry(act_no: str, ticker: str = "", bkg_orr_dt: str = "") -> lis
             "iem_cd": ticker, "sby_dit_cd": sby, "bkg_orr_can_yn": "0",
             "oss_orr_knd_cd": "0", "bkg_orr_tp_cd": "0", "wtm_cur_knd_cd": "0",
         })
-        rows = r.get("Output_1") or r.get("Output_0") or []
-        if isinstance(rows, dict):
-            rows = [rows]
+        rows = _rows(r, "Output_0")
         if str(r.get("rsp_cd")) == "00218":
             logger.warning("[VR] 예약조회 %s쪽이 15건에서 잘렸을 수 있음(00218)",
                            "매도" if sby == "1" else "매수")
@@ -133,55 +191,28 @@ def reserved_cancel(act_no: str, ticker: str, bkg_orr_dt: str, bkg_rtn_orr_no: i
 
 
 def daily_closes(ticker: str, count: int = 10) -> list[tuple[str, float]]:
-    """최근 일봉 (날짜, 종가) 리스트 — 최신순. 필드명 이형에 견고하게 파싱."""
+    """최근 일봉 (날짜, 종가) 리스트 — 최신순.
+
+    일봉은 **Output_1** (Output_0 은 현재가 요약). 칸: bsop_date 영업일 · close_prc 종가.
+    (칸 이름 부분일치로 찾다가 open_prc(시가)를 종가로 읽은 적 있음 — 2026-08-22)
+    """
     import datetime as _dt
     r = call("/gbstock/quote/v1/period", {
         "iem_cd": ticker, "end_dt": _dt.datetime.now().strftime("%Y%m%d"),
         "count": str(count), "maxavg": "0", "gubun": "3", "xtick": "0001",
         "today_cls": "1", "market_cls": "1",
     })
-    rows = r.get("Output_1") or r.get("Output_0") or []
-    if isinstance(rows, dict):
-        rows = [rows]
-
-    # 종가 필드는 '우선순위 지정' 방식으로만 찾는다.
-    # (NH 응답 키 순서가 open_prc, high, low, close_prc 라서 'prc' 같은 부분일치로
-    #  훑으면 시가를 종가로 잘못 집는다. 2026-08-22 실제 오류.)
-    CLOSE_KEYS = ("close_prc", "clos_prc", "close", "clpr", "stck_clpr",
-                  "end_pr", "clsprc", "cls_prc")
-    DATE_KEYS = ("bsop_date", "trade_date", "trad_date", "stck_bsop_date", "bass_dt", "date")
-    BAD = ("open", "high", "low", "ostr", "hgst", "lwst")
-
-    def _pick(row: dict, keys) -> str | None:
-        low = {k.lower(): k for k in row}
-        for want in keys:
-            if want in low:
-                return low[want]
-        return None
-
     out: list[tuple[str, float]] = []
-    for row in rows:
-        dk = _pick(row, DATE_KEYS)
-        ck = _pick(row, CLOSE_KEYS)
-        if ck is None:                              # 알려진 키가 없을 때만 완화 탐색
-            for k in row:
-                lk = k.lower()
-                if any(b in lk for b in BAD):
-                    continue
-                if any(t in lk for t in ("cls", "clpr", "close", "end_pr", "now_pr")):
-                    ck = k
-                    break
-        if not dk or not ck:
-            continue
-        d = str(row[dk]).strip()[:8]
-        if len(d) < 8 or not d.isdigit():
-            continue
+    for row in _rows(r, "Output_1"):
+        d = str(row.get("bsop_date") or row.get("trade_date") or "").strip()[:8]
         try:
-            c = float(str(row[ck]).replace(",", "").strip())
+            c = float(str(row.get("close_prc") or 0).replace(",", "").strip())
         except Exception:
             continue
-        if c > 0:
+        if len(d) == 8 and d.isdigit() and c > 0:
             out.append((d, c))
+    if not out:
+        logger.warning("[VR] %s 일봉 없음 (rsp %s) — 종가 산출 불가", ticker, r.get("rsp_cd"))
     out.sort(key=lambda x: x[0], reverse=True)
     return out
 
@@ -215,18 +246,13 @@ def submit_batch(act_no: str, ticker: str, rows: list[dict], start_dt: str, end_
             try:
                 resp = reserved_submit(act_no, ticker, r["side"], r["price"], r["qty_acct"],
                                        start_dt, end_dt)
-                o0 = resp.get("Output_0") or {}
-                if isinstance(o0, list):
-                    o0 = o0[0] if o0 else {}
-                no = ""
-                dt = ""
-                for k, v in (o0.items() if isinstance(o0, dict) else []):
-                    lk = k.lower()
-                    if not no and ("orr_no" in lk or "ord_no" in lk):
-                        no = str(v)
-                    if not dt and ("dt" in lk and str(v).strip()[:8].isdigit()):
-                        dt = str(v).strip()[:8]
-                item.update({"ok": True, "nh_order_no": no, "nh_order_dt": dt, "raw": o0,
+                o0 = (_rows(resp, "Output_0") or [{}])[0]
+                # 응답엔 예약접수번호(bkg_rtn_orr_no) 한 칸만 온다(명세). 예약주문일자(bkg_orr_dt)는
+                # NH 규칙상 기간 시작일과 같다(23073) — 예약 취소에 필요해 시작일로 기록한다.
+                no = str(o0.get("bkg_rtn_orr_no") or "")
+                if not no:
+                    logger.warning("[VR] 예약 접수번호 없음 — 응답: %s", o0)
+                item.update({"ok": True, "nh_order_no": no, "nh_order_dt": start_dt, "raw": o0,
                              "start_dt": start_dt})
                 break
             except NhplugError as e:
