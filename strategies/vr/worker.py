@@ -116,6 +116,77 @@ def refresh_snapshot(gid: str) -> dict | None:
         return None
 
 
+# ─────────────────────────── 배수 증액 매집 ───────────────────────────
+# 배수를 올리려면 계좌가 (새 배수 − 현 배수) × 모델잔여 만큼 주식을 더 가져야 한다.
+# 사용자가 NH 앱에서 직접 사는 이 주식은 사다리 체결이 아니므로 VR 모델에 넣으면 안 된다.
+# NH 체결내역에는 예약체결/수동매매를 가르는 칸이 없어서(실데이터 39칸 확인),
+# 매집 중에는 **이번 주차 매수 예약의 가격·수량**으로 판정한다:
+#   지정가 매수는 한도가 이하로만 체결되므로, 체결가 이상 한도가를 가진 예약의 남은 수량까지만
+#   사다리 체결로 보고 나머지는 매집분으로 모델에서 뺀다. (매도는 판정 대상 아님 — 기존 그대로)
+# 새 배수는 매집이 목표에 닿은 뒤 **다음 주기 예약부터** 적용한다(이번 주기 예약은 기존 수량).
+
+def pending_target(g: dict) -> int:
+    """매집 목표 수량 = (목표 배수 − 현 배수) × 모델잔여. 매집 중 아니면 0."""
+    pm, m = int(g.get("pending_mult") or 0), int(g.get("mult") or 1)
+    if pm <= m:
+        return 0
+    return (pm - m) * int(g.get("model_qty") or 0)
+
+
+def pending_ready(g: dict) -> bool:
+    t = pending_target(g)
+    return t > 0 and int(g.get("pending_accum") or 0) >= t
+
+
+def effective_mult(g: dict) -> int:
+    """다음 주기 예약에 쓸 배수 — 매집이 목표에 닿았으면 목표 배수, 아니면 현 배수."""
+    return int(g["pending_mult"]) if pending_ready(g) else max(1, int(g["mult"]))
+
+
+def _buy_capacity(gid: str, g: dict) -> list[list[float]]:
+    """이번 주차 매수 예약의 남은 수량 [[한도가, 남은수량], …] — 이미 반영한 사다리 매수분은 차감."""
+    cap = [[float(r["price"]), int(r["qty_acct"])] for r in M.reserved_rows(gid, int(g["week_no"]))
+           if r["side"] == "buy" and r["status"] == "submitted"]
+    for f in M.fills_rows(gid, int(g["week_no"])):
+        if f["side"] == "buy":
+            _consume(cap, float(f["price"]), int(f["qty_acct"]) - int(f.get("ext_qty") or 0))
+    return cap
+
+
+def _consume(cap: list[list[float]], price: float, qty: int) -> int:
+    """체결가 price 로 받을 수 있는 예약(한도가 ≥ 체결가) 수량을 차감하고 사다리분 수량을 반환.
+
+    한도가가 가장 낮은 예약부터 쓴다 — 높은 한도 예약은 더 높은 가격 체결에도 쓸 수 있으니 남겨 둔다.
+    """
+    left = int(qty)
+    for c in sorted((c for c in cap if c[0] + 0.005 >= price and c[1] > 0), key=lambda c: c[0]):
+        take = min(left, int(c[1]))
+        c[1] -= take
+        left -= take
+        if left <= 0:
+            break
+    return int(qty) - left
+
+
+def finalize_mult_if_ready(gid: str, used_mult: int) -> bool:
+    """예약 제출(주기 전환) 성공 후 호출 — 새 배수로 예약을 냈으면 배수 전환을 확정한다.
+
+    매집분이 목표보다 많으면 그 차이는 모델 밖 주식이므로 체결 감시 기준(qty_offset)에 더한다.
+    """
+    g = M.get_gisu(gid)
+    if not g or not g.get("pending_mult") or int(used_mult) != int(g["pending_mult"]):
+        return False
+    target, accum = pending_target(g), int(g.get("pending_accum") or 0)
+    fields = {"mult": int(g["pending_mult"]), "pending_mult": None,
+              "pending_accum": 0, "pending_since": None}
+    if g.get("qty_offset") is not None:
+        fields["qty_offset"] = int(g["qty_offset"]) + (accum - target)
+    M.update_gisu(gid, **fields)
+    logger.info(f"[VR:{gid}] 배수 전환 확정 ×{g['mult']} → ×{g['pending_mult']} "
+                f"(매집 {accum}주 / 목표 {target}주)")
+    return True
+
+
 def sync_gisu(gid: str) -> dict:
     """현 주기 체결을 모델에 반영. 반환: {new_fills, model_qty, pool_now}."""
     g = M.get_gisu(gid)
@@ -127,6 +198,9 @@ def sync_gisu(gid: str) -> dict:
     new = 0
     mq, pool = int(g["model_qty"]), float(g["pool_now"])
     mult = max(1, int(g["mult"]))
+    pending = pending_target(g) > 0
+    cap = _buy_capacity(gid, g) if pending else None
+    accum = int(g.get("pending_accum") or 0)
     for row in rows:
         f = _parse_fill(row, g["ticker"])
         if not f:
@@ -134,20 +208,34 @@ def sync_gisu(gid: str) -> dict:
         # 중복판정 키 = 기수:거래일자-일련번호. dedup_key 는 전 기수 공통 UNIQUE 라 기수를 붙인다
         # (두 계좌에 같은 날 같은 일련번호가 나올 수 있음)
         key = f"{gid}:{f['dt']}-{f['sno']}"
-        if not M.add_fill(gid, g["week_no"], f["side"], f["price"], f["qty"], f["dt"], key):
+        if M.fill_exists(key):
             continue  # 이미 반영
-        model_q = max(1, round(f["qty"] / mult))
-        amt = r2(f["price"] * model_q)
-        if f["side"] == "buy":
-            mq += model_q
-            pool = r2(pool - amt)
-        else:
-            mq -= model_q
-            pool = r2(pool + amt)
+        ext = 0
+        if pending and f["side"] == "buy":
+            ext = f["qty"] - _consume(cap, f["price"], f["qty"])   # 예약으로 설명 안 되는 매수 = 매집분
+        if not M.add_fill(gid, g["week_no"], f["side"], f["price"], f["qty"], f["dt"], key, ext):
+            continue  # 이미 반영
+        ladder_q = f["qty"] - ext
+        if ladder_q > 0:
+            model_q = max(1, round(ladder_q / mult))
+            amt = r2(f["price"] * model_q)
+            if f["side"] == "buy":
+                mq += model_q
+                pool = r2(pool - amt)
+            else:
+                mq -= model_q
+                pool = r2(pool + amt)
+        if ext:
+            accum += ext
+            logger.info(f"[VR:{gid}] 배수 증액 매집분 {ext}주 @{f['price']} ({f['dt']}) — 모델 제외, 누적 {accum}주")
         new += 1
     if new:
-        M.update_gisu(gid, model_qty=mq, pool_now=pool)
-        logger.info(f"[VR:{gid}] 체결 {new}건 반영 → 모델잔여 {mq}, Pool {pool}")
+        upd = {"model_qty": mq, "pool_now": pool}
+        if pending:
+            upd["pending_accum"] = accum
+        M.update_gisu(gid, **upd)
+        logger.info(f"[VR:{gid}] 체결 {new}건 반영 → 모델잔여 {mq}, Pool {pool}"
+                    + (f", 매집 {accum}/{pending_target({**g, 'model_qty': mq})}주" if pending else ""))
     return {"new_fills": new, "model_qty": mq, "pool_now": pool}
 
 
@@ -198,11 +286,12 @@ def auto_submit_all() -> dict:
                 report[gid] = "E 산출 실패(종가 조회) — 수동 제출 필요"
                 continue
             e_val = r2(int(g["model_qty"]) * lc[1])
+            use_mult = effective_mult(g)        # 배수 증액 매집이 끝났으면 새 배수
             prop = build_next_cycle({
                 "v": g["v"], "pool_now": g["pool_now"], "g": g["g"],
                 "model_qty": g["model_qty"], "unit": g["unit"],
                 "buy_limit_pct": g["buy_limit_pct"], "sell_steps": g["sell_steps"],
-                "mult": g["mult"], "cashflow": g["cashflow"],
+                "mult": use_mult, "cashflow": g["cashflow"],
                 "week_no": g["week_no"], "cyc_end": g["cyc_end"],
             }, e_value=e_val)
             rows = ([{"side": "buy", "price": r["price"], "qty_acct": r["qty_acct"]} for r in prop["buys"]]
@@ -226,7 +315,9 @@ def auto_submit_all() -> dict:
                                 x.get("raw") if x.get("ok") else {"error": x.get("error")})
             if ok and not fail:
                 apply_rollover(gid, {**prop, "e_used": e_val})
-                report[gid] = f"자동 제출 완료: {prop['week_no']}주차 {len(ok)}건 (E=${e_val}, 종가 {lc[0]} ${lc[1]})"
+                switched = finalize_mult_if_ready(gid, use_mult)
+                report[gid] = (f"자동 제출 완료: {prop['week_no']}주차 {len(ok)}건 (E=${e_val}, 종가 {lc[0]} ${lc[1]})"
+                               + (f" · 배수 ×{use_mult} 전환" if switched else ""))
                 logger.info(f"[VR:{gid}] {report[gid]}")
             else:
                 report[gid] = f"부분 실패: 성공 {len(ok)} / 실패 {len(fail)} — 주기 전환 보류, 수동 확인"

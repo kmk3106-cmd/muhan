@@ -16,7 +16,8 @@ from .config import KILL_SWITCH_FILE
 from . import models as M
 from . import vr_logic as L
 from .vr_logic import build_next_cycle, next_cycle_dates, r2
-from .worker import sync_all, sync_gisu, apply_rollover, kill_switch_on
+from .worker import (sync_all, sync_gisu, apply_rollover, kill_switch_on,
+                     pending_target, pending_ready, effective_mult, finalize_mult_if_ready)
 
 logger = logging.getLogger("vr")
 
@@ -80,8 +81,38 @@ def status():
                     "snapshot": snaps.get(g["id"]),
                     "alert": _submit_alert(g["id"], g),
                     "qty_audit": _qty_audit(g, snaps.get(g["id"])),
-                    "cash": _cash_check(g, snaps.get(g["id"]))})
+                    "cash": _cash_check(g, snaps.get(g["id"])),
+                    "pending": _pending_info(g, snaps.get(g["id"]))})
     return {"gisu": out, "kill_switch": kill_switch_on()}
+
+
+def _pending_info(g: dict, snap: dict | None) -> dict | None:
+    """배수 증액 매집 진행 상황 (매집 중 아니면 None)."""
+    target = pending_target(g)
+    if target <= 0:
+        return None
+    accum = int(g.get("pending_accum") or 0)
+    close = float((snap or {}).get("close") or 0)
+    left = max(0, target - accum)
+    left_cost = r2(left * close) if close else None
+    # 새 배수 기준 Pool 과 남은 입금 추정 (남은 매수대금은 지금 Pool 현금에서 나가므로 함께 더한다)
+    pool_after = r2(float(g["pool_now"]) * int(g["pending_mult"]))
+    pool_actual = float(_cash_check(g, snap)["pool_actual"])
+    return {"from": int(g["mult"]), "to": int(g["pending_mult"]), "target": target,
+            "accum": accum, "left": left, "left_cost": left_cost,
+            "ready": pending_ready(g), "since": g.get("pending_since"),
+            "next_submit": _next_submit_day(g),
+            "pool_required_after": pool_after, "pool_actual": r2(pool_actual),
+            "deposit_left": r2(max(0.0, pool_after - pool_actual + (left_cost or 0)))}
+
+
+def _next_submit_day(g: dict) -> str:
+    """다음 예약 제출일 = 이번 주기 종료일(금) 다음 날(토)."""
+    import datetime as _dt
+    try:
+        return (_dt.datetime.strptime(str(g["cyc_end"]), "%Y%m%d") + _dt.timedelta(days=1)).strftime("%Y%m%d")
+    except Exception:
+        return ""
 
 
 def _qty_audit(g: dict, snap: dict | None) -> dict:
@@ -95,10 +126,12 @@ def _qty_audit(g: dict, snap: dict | None) -> dict:
     s = snap or {}
     acct = int(s.get("qty") or 0)
     model = int(g["model_qty"]) * int(g["mult"])
-    now = acct - model
+    # 배수 증액 매집분은 모델 밖에서 일부러 모으는 주식이라 차이 계산에서 뺀다
+    accum = int(g.get("pending_accum") or 0) if pending_target(g) > 0 else 0
+    now = acct - model - accum
     base = g.get("qty_offset")
     out = {"acct_qty": acct, "model_qty_acct": model, "offset_now": now,
-           "offset_base": base, "snap_at": s.get("updated_at")}
+           "offset_base": base, "snap_at": s.get("updated_at"), "pending_accum": accum}
     if not s.get("updated_at"):
         out["state"] = "no_snapshot"
     elif base is None:
@@ -265,9 +298,92 @@ def gisu_settings(gid: str, body: SettingsBody):
         return {"updated": 0}
     if "mult" in fields and fields["mult"] < 1:
         raise HTTPException(400, "배수는 1 이상")
+    if "mult" in fields and int(fields["mult"]) != int(g["mult"]) and pending_target(g) > 0:
+        raise HTTPException(409, "배수 증액 매집 중입니다 — [증액 취소] 후 변경하세요")
     M.update_gisu(gid, **fields)
     return {"updated": len(fields), "fields": fields,
             "note": "가격 산출은 모델 수치 기준이라 배수 변경은 다음 미리보기/제출 수량부터 반영됩니다."}
+
+
+class MultPlanBody(BaseModel):
+    to: int
+
+
+def _mult_plan(g: dict, to: int) -> dict:
+    """배수 증액 안내 수치 — 더 사야 할 주식, 입금 필요액, 적용 시점 (조회만, 저장 없음)."""
+    snap = next((s for s in M.snapshots() if s["gisu_id"] == g["id"]), None) or {}
+    cash = _cash_check(g, snap)
+    m, mq, pool = int(g["mult"]), int(g["model_qty"]), float(g["pool_now"])
+    d = int(to) - m
+    close = float(snap.get("close") or 0)
+    add_qty = d * mq
+    add_cost = r2(add_qty * close) if close else None
+    pool_req_after = r2(pool * int(to))
+    # 입금 필요액: 주식 매수대금 + 새 배수 기준 Pool 부족분 (매수대금은 지금 Pool 현금에서 나가므로 함께 더한다)
+    deposit = r2(max(0.0, pool_req_after - float(cash["pool_actual"]) + (add_cost or 0)))
+    unit, cf = int(g["unit"]), float(g["cashflow"] or 0)
+    buys = [float(r["price"]) for r in M.reserved_rows(g["id"], int(g["week_no"]))
+            if r["side"] == "buy" and r["status"] == "submitted"]
+    return {
+        "gid": g["id"], "name": g["name"], "ticker": g["ticker"],
+        "from": m, "to": int(to), "delta": d, "model_qty": mq,
+        "add_qty": add_qty, "close": close or None, "add_cost": add_cost,
+        "pool_model": r2(pool), "pool_add": r2(pool * d),
+        "pool_required_now": r2(pool * m), "pool_required_after": pool_req_after,
+        "pool_actual": cash["pool_actual"], "pool_short_now": r2(min(0.0, float(cash["diff"]))),
+        "deposit_est": deposit,
+        "step_qty_from": unit * m, "step_qty_to": unit * int(to),
+        "cashflow_from": r2(cf * m), "cashflow_to": r2(cf * int(to)),
+        "week_no": int(g["week_no"]), "cyc_end": g["cyc_end"],
+        "next_submit": _next_submit_day(g), "auto_submit": int(g.get("auto_submit") or 0),
+        "top_buy_limit": max(buys) if buys else None,
+    }
+
+
+@app.get("/api/gisu/{gid}/mult_plan")
+def mult_plan(gid: str, to: int):
+    g = M.get_gisu(gid)
+    if not g:
+        raise HTTPException(404, "기수 없음")
+    if int(to) <= int(g["mult"]):
+        raise HTTPException(400, f"지금 배수(×{g['mult']})보다 큰 값을 넣으세요 — 증액만 지원합니다")
+    if int(to) > int(g["mult"]) + 50:
+        raise HTTPException(400, "배수 값을 확인하세요")
+    return _mult_plan(g, int(to))
+
+
+@app.post("/api/gisu/{gid}/mult_plan")
+def mult_plan_start(gid: str, body: MultPlanBody):
+    """배수 증액 매집 시작 — 이후 NH 앱에서 산 주식은 매집분으로 잡혀 모델에서 빠진다."""
+    g = M.get_gisu(gid)
+    if not g:
+        raise HTTPException(404, "기수 없음")
+    to = int(body.to)
+    if to <= int(g["mult"]) or to > int(g["mult"]) + 50:
+        raise HTTPException(400, f"지금 배수(×{g['mult']})보다 큰 값을 넣으세요")
+    if pending_target(g) > 0 and int(g["pending_mult"]) != to:
+        raise HTTPException(409, f"이미 ×{g['pending_mult']} 증액 매집 중입니다 — [증액 취소] 후 다시 하세요")
+    if pending_target(g) <= 0:
+        import datetime as _dt
+        M.update_gisu(gid, pending_mult=to, pending_accum=0,
+                      pending_since=_dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        logger.info(f"[VR:{gid}] 배수 증액 매집 시작 ×{g['mult']} → ×{to} (목표 {(to - int(g['mult'])) * int(g['model_qty'])}주)")
+    return {"started": True, **_mult_plan(M.get_gisu(gid), to)}
+
+
+@app.delete("/api/gisu/{gid}/mult_plan")
+def mult_plan_cancel(gid: str):
+    g = M.get_gisu(gid)
+    if not g:
+        raise HTTPException(404, "기수 없음")
+    if pending_target(g) <= 0:
+        raise HTTPException(400, "진행 중인 배수 증액이 없습니다")
+    accum = int(g.get("pending_accum") or 0)
+    M.update_gisu(gid, pending_mult=None, pending_accum=0, pending_since=None)
+    logger.info(f"[VR:{gid}] 배수 증액 취소 (×{g['pending_mult']}, 매집 {accum}주는 계좌에 남음)")
+    return {"cancelled": True, "accum": accum,
+            "note": (f"이미 산 {accum}주는 계좌에 그대로 남습니다 — 수량 감시 배너에서 기준 재설정하거나 매도하세요"
+                     if accum else "")}
 
 
 @app.get("/api/gisu/{gid}/preview")
@@ -294,16 +410,19 @@ def preview(gid: str, e: float | None = None, start: str = "", end: str = ""):
             e = r2(int(g["model_qty"]) * lc[1])
         except Exception as ex:
             raise HTTPException(502, f"E 자동산출 실패({ex}) — e 파라미터로 직접 지정하세요")
+    use_mult = effective_mult(g)     # 배수 증액 매집이 끝났으면 새 배수로 산출
     prop = build_next_cycle({
         "v": g["v"], "pool_now": g["pool_now"], "g": g["g"],
         "model_qty": g["model_qty"], "unit": g["unit"],
         "buy_limit_pct": g["buy_limit_pct"], "sell_steps": g["sell_steps"],
-        "mult": g["mult"], "cashflow": g["cashflow"],
+        "mult": use_mult, "cashflow": g["cashflow"],
         "week_no": g["week_no"], "cyc_end": g["cyc_end"],
     }, e_value=float(e))
     if start and end:
         prop["cyc_start"], prop["cyc_end"] = start, end
     prop["close_info"] = close_info
+    if use_mult != int(g["mult"]):
+        prop["mult_switch"] = {"from": int(g["mult"]), "to": use_mult}
     prop["current"] = {"week_no": g["week_no"], "cyc_end": g["cyc_end"],
                        "model_qty": g["model_qty"], "pool_now": g["pool_now"], "v": g["v"]}
     return prop
@@ -319,6 +438,7 @@ class SubmitBody(BaseModel):
     band_hi: float
     pool_start: float
     rows: list[dict]   # [{side, price, qty_acct}]
+    mult: int | None = None   # 미리보기에 쓴 배수 — 배수 증액 전환 확정 판정용
 
 
 @app.post("/api/gisu/{gid}/submit")
@@ -355,6 +475,8 @@ def submit(gid: str, body: SubmitBody):
             "pool_start": body.pool_start, "e_used": body.e_used,
         })
         rolled = True
+        if body.mult:
+            finalize_mult_if_ready(gid, int(body.mult))
     return {"submitted": len(ok), "failed": len(fail), "results": results,
             "rolled_over": rolled,
             "note": None if rolled else "일부 실패 — 주기 전환 보류. 실패건 확인 후 재시도/취소하세요."}

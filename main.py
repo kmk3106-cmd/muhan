@@ -1620,7 +1620,7 @@ function copyJournal(i){var ta=$('bjtext'+i);if(!ta)return;ta.focus();ta.select(
    try{document.execCommand('copy');done();}catch(e){toast('복사 실패 — 직접 선택해 복사하세요');}});}
  else{try{document.execCommand('copy');done();}catch(e){toast('복사 실패 — 직접 선택해 복사하세요');}}}
 /* ---------- VR (NH계좌) ---------- */
-var VRCH={},VRPREV={};
+var VRCH={},VRPREV={},VRDATA=[];
 function pgVr(){
  $('page').innerHTML='<div class="tip"><i class="fa-solid fa-circle-info"></i>'+
   '<span>토요일 <b>[미리보기]</b> → 표 확인 → <b>[예약 제출]</b> 하면 2주치 기간잔량 지정가 예약이 등록됩니다.</span></div>'+
@@ -1664,6 +1664,57 @@ function vrQtyBanner(g){var q=g&&g.qty_audit;if(!q||q.state==='ok'||q.state==='n
   '주 · 차이 기준 '+n(q.offset_base)+' → 지금 '+n(q.offset_now)+'</span>'+btn('의도한 매매면 기준 재설정')+'</div>'+
   '<div style="font-size:11.5px;color:var(--c1);margin-top:6px">반영 못 한 체결이 있거나 앱에서 직접 매매했습니다. '+
   '이대로 다음 주기를 산출하면 사다리가 라오어 표와 어긋납니다. 부분체결이면 남은 수량 체결 뒤 자동으로 풀립니다.</div></div>';}
+/* 배수 증액 매집 진행 배너 — 매집 중에 NH 앱에서 산 주식은 사다리 예약으로 설명되지 않으면
+   매집분으로 잡혀 모델에서 빠진다. 다 모이면 다음 예약부터 새 배수. */
+function vrPendBanner(g){var p=g&&g.pending;if(!p)return '';
+ var gid=esc(g.id),tone=p.ready?'green':'blue',nx=vrFmtD(p.next_submit);
+ var head=p.ready
+  ?('매집 완료 '+p.accum+' / '+p.target+'주 — 다음 예약('+nx+' 토)부터 ×'+p.to+'로 나갑니다')
+  :('배수 증액 매집 중 ×'+p.from+' → ×'+p.to+' · '+p.accum+' / '+p.target+'주'+
+    ' <span style="font-weight:400">(남은 '+p.left+'주'+(p.left_cost!=null?' ≈ '+money(p.left_cost):'')+')</span>');
+ var sub=p.ready
+  ?(g.auto_submit?'토요일 자동제출이 새 배수로 산출합니다. ':'미리보기 → 예약 제출 시 새 배수로 산출됩니다. ')+
+   '이번 주기에 걸린 예약은 기존 수량 그대로입니다.'
+  :'NH 앱에서 '+esc(g.ticker)+'를 직접 사면 매집분으로 잡혀 VR 모델에 들어가지 않습니다 (사다리 예약 체결은 제외). '+
+   '다 모이면 다음 예약('+nx+')부터 ×'+p.to+' · 덜 모이면 그 주기는 ×'+p.from+'로 나갑니다. '+
+   '반영: 매일 10:05·22:05 자동 또는 [체결 반영]';
+ sub+='<br>×'+p.to+' 기준 Pool 필요 <b>'+money(p.pool_required_after)+'</b> (지금 '+money(p.pool_actual)+')'+
+  (p.deposit_left>0?' · 입금 필요(추정) <b>'+money(p.deposit_left)+'</b>':' · Pool 충족');
+ return '<div style="margin:12px 18px 0;background:var(--'+tone+'-s);border:1px solid var(--'+tone+');'+
+  'border-left:5px solid var(--'+tone+');border-radius:10px;padding:12px 15px">'+
+  '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+  '<i class="fa-solid '+(p.ready?'fa-circle-check':'fa-cart-plus')+'" style="color:var(--'+tone+')"></i>'+
+  '<b style="color:var(--'+tone+');font-size:14.5px">'+head+'</b>'+
+  '<button class="btn sm" style="margin-left:auto" onclick="vrMultCancel(\''+gid+'\')">증액 취소</button></div>'+
+  '<div style="font-size:11.5px;color:var(--c1);margin-top:6px">'+sub+'</div></div>';}
+function vrMultUp(gid){var g=(VRDATA||[]).filter(function(x){return x.id===gid;})[0];if(!g)return;
+ if(g.pending){toast('이미 증액 매집 중입니다');return;}
+ var v=prompt(g.name+' 배수 증액\n지금 ×'+g.mult+' → 몇 배수로?',g.mult+1);if(v==null)return;
+ var to=parseInt(v,10);if(!(to>g.mult)){toast('지금 배수보다 큰 값을 넣으세요');return;}
+ fetch('/vr/api/gisu/'+gid+'/mult_plan?to='+to).then(function(r){return r.json().then(function(j){
+  if(!r.ok)throw (j&&j.detail)||'산출 실패';return j;});})
+ .then(function(p){var cf=function(x){return x<0?('인출 '+money(-x)):('적립 '+money(x));};
+  var msg=p.name+' 배수 ×'+p.from+' → ×'+p.to+' 증액\n\n'+
+   '① 추가 매수: '+p.ticker+' '+p.add_qty+'주  (모델잔여 '+p.model_qty+' × '+p.delta+')\n'+
+   '    '+(p.add_cost!=null?('지금가 '+money(p.close,2)+' 기준 약 '+money(p.add_cost)):'현재가 미확인')+'\n'+
+   '② Pool: 모델 '+money(p.pool_model)+' × '+p.to+' = '+money(p.pool_required_after)+' 필요  (지금 실제 '+money(p.pool_actual)+')\n'+
+   '③ 입금 필요 추정: 약 '+money(p.deposit_est)+'  (매수대금 + Pool 부족분)\n'+
+   '④ 적용: '+p.add_qty+'주가 다 모이면 다음 예약('+vrFmtD(p.next_submit)+' 토)부터 1칸 '+p.step_qty_from+'주 → '+p.step_qty_to+'주\n'+
+   '    덜 모이면 그 주기는 '+p.step_qty_from+'주로 나가고, 다 모인 다음 주기부터 적용\n'+
+   (p.cashflow_from?('⑤ 주기당 '+cf(p.cashflow_from)+' → '+cf(p.cashflow_to)+'\n'):'')+
+   '\n[확인]을 누르면 매집 중이 됩니다. 그다음 NH 앱에서 '+p.ticker+'를 직접 사세요.\n'+
+   '사다리 예약 체결이 아닌 매수는 자동으로 매집분으로 잡혀 VR 모델에 들어가지 않습니다.';
+  if(!confirm(msg))return;
+  return fetch('/vr/api/gisu/'+gid+'/mult_plan',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({to:to})}).then(function(r){return r.json().then(function(j){
+    if(!r.ok)throw (j&&j.detail)||'시작 실패';toast('매집 시작 — NH 앱에서 '+j.add_qty+'주를 사세요');loadVr();});});})
+ .catch(function(e){toast('실패: '+e);});}
+function vrMultCancel(gid){var g=(VRDATA||[]).filter(function(x){return x.id===gid;})[0];
+ var p=g&&g.pending;if(!p)return;
+ if(!confirm('배수 ×'+p.to+' 증액을 취소할까요?'+(p.accum?('\n\n이미 산 '+p.accum+'주는 계좌에 그대로 남습니다.\n'+
+  '취소 후 수량 감시 배너에서 기준을 재설정하거나 직접 매도하세요.'):'')))return;
+ fetch('/vr/api/gisu/'+gid+'/mult_plan',{method:'DELETE'}).then(function(r){if(!r.ok)throw 0;return r.json();})
+  .then(function(){toast('배수 증액 취소됨');loadVr();}).catch(function(){toast('취소 실패');});}
 function vrQtyReset(gid,v){
  if(!confirm('체결 감시 기준을 지금 차이('+(v>0?'+':'')+v+'주)로 재설정합니다.\n\n직접 매매했거나 원인을 확인한 경우에만 누르세요. 체결 누락이면 재설정해도 모델은 여전히 틀립니다.'))return;
  fetch('/vr/api/gisu/'+gid+'/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},
@@ -1696,7 +1747,7 @@ function vrCashBox(g){var c=g&&g.cash;if(!c)return '';
   'RP·원화·국내자산이 안 잡히니 <b>기타자산</b> 칸에 직접 넣어주세요. '+
   '이번 매수 사다리 소요 '+money(c.need_usd)+' ('+c.need_steps+'단) · NH 주문가능금액 '+
   money(c.order_amt)+'</div>';}
-function renderVr(d){var gs=(d&&d.gisu)||[];
+function renderVr(d){var gs=(d&&d.gisu)||[];VRDATA=gs;
  $('vrBody').innerHTML=gs.map(function(g){var gid=g.id;
   var info='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding:14px 18px;font-size:13.5px">'+
    [['주차',g.week_no+'주차'],['기간',vrFmtD(g.cyc_start)+' ~ '+vrFmtD(g.cyc_end)],
@@ -1725,12 +1776,13 @@ function renderVr(d){var gs=(d&&d.gisu)||[];
    '<option value="0"'+(g.auto_submit?'':' selected')+'>수동</option>'+
    '<option value="1"'+(g.auto_submit?' selected':'')+'>자동</option></select></label>'+
    '<button class="btn sm" onclick="vrSaveSet(\''+gid+'\')">설정 저장</button>'+
+   '<button class="btn sm" onclick="vrMultUp(\''+gid+'\')"><i class="fa-solid fa-cart-plus"></i> 배수 증액</button>'+
    '<button class="btn sm" onclick="vrSync(\''+gid+'\')"><i class="fa-solid fa-rotate"></i> 체결 반영</button>'+
    '<button class="btn sm p" onclick="vrPreview(\''+gid+'\')"><i class="fa-solid fa-table-list"></i> 미리보기</button></div>';
   return '<div class="grid"><div class="card"><div class="ch"><span class="ct">'+
    '<i class="fa-solid fa-scale-balanced"></i>'+esc(g.name)+' · ×'+g.mult+'배수</span>'+
    '<span class="bdg '+(g.kill_switch?'stop':'run')+'" style="margin-left:auto">'+(g.kill_switch?'정지':'운용중')+'</span></div>'+
-   vrAlertBanner(g)+vrQtyBanner(g)+info+set+
+   vrAlertBanner(g)+vrPendBanner(g)+vrQtyBanner(g)+info+set+
    '<div class="cw" style="height:240px"><canvas id="vrch_'+gid+'"></canvas></div>'+
    '<div id="vrprev_'+gid+'"></div><div id="vrres_'+gid+'"></div></div></div>';
  }).join('');
@@ -1799,7 +1851,9 @@ function vrPreview(gid,qs){var box=$('vrprev_'+gid);box.innerHTML='<div class="m
    '<button class="btn sm" onclick="vrPreviewWith(\''+gid+'\')">재산출</button></div>'+
    '<div class="hl" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;font-size:14px">'+
    '<span>V <b>'+money(p.v)+'</b></span><span>밴드 <b>'+money(p.band_lo)+' ~ '+money(p.band_hi)+'</b></span>'+
-   '<span>Pool <b>'+money(p.pool_start)+'</b></span><span>배수 <b>×'+p.mult+'</b></span></div>'+
+   '<span>Pool <b>'+money(p.pool_start)+'</b></span><span>배수 <b>×'+p.mult+'</b>'+
+   (p.mult_switch?(' <span style="color:var(--green);font-size:12px">(증액 적용 ×'+p.mult_switch.from+' → ×'+p.mult_switch.to+')</span>'):'')+
+   '</span></div>'+
    '<div style="display:flex;gap:14px;flex-wrap:wrap">'+mk(p.buys,'매수','dn')+mk(p.sells,'매도','up')+'</div>'+
    '<div style="margin-top:12px;display:flex;gap:8px;align-items:center">'+
    '<button class="btn p" onclick="vrSubmit(\''+gid+'\')"><i class="fa-solid fa-paper-plane"></i> 예약 제출 ('+ (p.buys.length+p.sells.length) +'건)</button>'+
@@ -1815,7 +1869,7 @@ function vrSubmit(gid){var p=VRPREV[gid];if(!p){toast('먼저 미리보기를 �
  if(!confirm('최종 확인: 팬딩 표와 대조하셨나요? 제출 후 취소는 NH 예약취소로만 가능합니다.'))return;
  fetch('/vr/api/gisu/'+gid+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify({week_no:p.week_no,cyc_start:s,cyc_end:en,e_used:parseFloat($('vrE_'+gid).value),
-   v:p.v,band_lo:p.band_lo,band_hi:p.band_hi,pool_start:p.pool_start,rows:rows})})
+   v:p.v,band_lo:p.band_lo,band_hi:p.band_hi,pool_start:p.pool_start,rows:rows,mult:p.mult})})
  .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
  .then(function(x){if(!x.ok){toast('제출 실패: '+((x.d&&x.d.detail)||''));return;}
   toast('예약 '+x.d.submitted+'건 제출'+(x.d.failed?(' · 실패 '+x.d.failed+'건 — 원장 확인'):' · 주기 전환 완료'));

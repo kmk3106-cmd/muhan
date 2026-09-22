@@ -93,6 +93,13 @@ def db():
                 # 체결 누락 감시 기준: NH 실보유 − 모델잔여×배수 (수동매매 등으로 생긴 기존 차이).
                 # 체결을 전부 반영하면 이 차이는 변하지 않는다 → 변하면 누락·수동매매 경보
                 "ALTER TABLE gisu ADD COLUMN qty_offset INTEGER",
+                # 배수 증액 매집: 목표 배수 · 지금까지 모은 주식(모델 제외분) · 시작 시각.
+                # 매집분은 VR 모델에 넣지 않고, 다 모이면 다음 주기 예약부터 새 배수로 전환한다.
+                "ALTER TABLE gisu ADD COLUMN pending_mult INTEGER",
+                "ALTER TABLE gisu ADD COLUMN pending_accum INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE gisu ADD COLUMN pending_since TEXT",
+                # 체결 중 모델에서 뺀 수량(배수 증액 매집분). 사다리 반영분 = qty_acct − ext_qty
+                "ALTER TABLE fills ADD COLUMN ext_qty INTEGER NOT NULL DEFAULT 0",
             ):
                 try:
                     con.execute(_mig)
@@ -228,17 +235,22 @@ def snapshots() -> list[dict]:
 
 
 def add_fill(gid: str, week_no: int, side: str, price: float, qty_acct: int,
-             fill_dt: str, dedup_key: str) -> bool:
-    """중복이면 False."""
+             fill_dt: str, dedup_key: str, ext_qty: int = 0) -> bool:
+    """중복이면 False. ext_qty = 모델에서 뺀 수량(배수 증액 매집분)."""
     with db() as con:
         try:
             con.execute(
-                "INSERT INTO fills (gisu_id,week_no,side,price,qty_acct,fill_dt,dedup_key,created_at) "
-                "VALUES (?,?,?,?,?,?,?,datetime('now','localtime'))",
-                (gid, week_no, side, price, qty_acct, fill_dt, dedup_key))
+                "INSERT INTO fills (gisu_id,week_no,side,price,qty_acct,fill_dt,dedup_key,ext_qty,created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,datetime('now','localtime'))",
+                (gid, week_no, side, price, qty_acct, fill_dt, dedup_key, int(ext_qty)))
             return True
         except sqlite3.IntegrityError:
             return False
+
+
+def fill_exists(dedup_key: str) -> bool:
+    with db() as con:
+        return con.execute("SELECT 1 FROM fills WHERE dedup_key=?", (dedup_key,)).fetchone() is not None
 
 
 def fills_rows(gid: str, week_no: int | None = None) -> list[dict]:
