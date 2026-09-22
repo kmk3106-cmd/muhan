@@ -996,6 +996,7 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
   esc(sm.label||k)+'</b><br>'+esc(sm.logic||'설명 없음')+'</span>';
  fetch('/api/suite/strategies').then(function(r){return r.json();}).then(function(d){
   var b=(d.budgets||[]).filter(function(x){return x.strategy===k;})[0]||{};
+  SMBUD=b;
   $('sBud').value=b.assigned_total!=null?b.assigned_total:'';
   $('sBinfo').innerHTML='현재 사용 <b>'+money(b.used)+'</b> / 할당 <b>'+
    (b.assigned_total==null?'미설정':money(b.assigned_total))+'</b> · 종목 '+(b.ticker_count||0)+
@@ -1028,6 +1029,7 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
  fetch(lp).then(function(r){return r.json();}).then(function(rows){
   if(!rows||!rows.length){$('tklist').innerHTML='<div class="muted">등록된 종목 없음</div>';return;}
   var inf=kind==='infinite';
+  SMROWS={};rows.forEach(function(r){SMROWS[r.id]=r;});
   $('tklist').innerHTML='<table class="tbl"><thead><tr><th>티커</th>'+
    '<th style="text-align:right">'+(inf?'시드':'총액')+'</th>'+
    '<th style="text-align:right">'+(inf?'분할(A)':'트렌치')+'</th>'+
@@ -1042,6 +1044,7 @@ function loadStratMgr(){var k=$('sSel').value;var bud=(MET&&MET.strategies||[]).
    return '<tr><td><b>'+esc(r.ticker)+'</b></td><td style="text-align:right">'+money(amt)+
    '</td><td style="text-align:right">'+div+'</td>'+infc+'<td><span class="bdg '+(on?'run':'stop')+'">'+
    (on?'진행':'대기')+'</span></td><td style="text-align:right">'+
+   '<button class="btn sm" onclick="editSeed(\''+k+'\','+r.id+')">시드 수정</button> '+
    '<button class="btn sm" onclick="togTrade(\''+k+'\','+r.id+')">진행 토글</button> '+
    '<button class="btn sm dg" onclick="delTicker(\''+k+'\','+r.id+')">삭제</button></td></tr>';
   }).join('')+'</tbody></table>';});}
@@ -1082,6 +1085,37 @@ function addTicker(){var k=$('sSel').value,kind=kindOf(k);var tk=($('fTk').value
  if(isNaN(body.seed)&&isNaN(body.total_usd)){toast('금액을 입력하세요');return;}
  api('POST',url,body).then(function(r){toast(r.message||'티커 추가됨');loadStratMgr();})
   .catch(function(e){toast('실패: '+e);});}
+/* 종목 시드(무한=seed, 트렌치형=총액) 변경 — 미리보기(변경 전/후) 확인 후 저장. 싸이클 중에도 다음 주문부터 반영 */
+var SMROWS={},SMBUD={};
+function editSeed(k,id){var inf=kindOf(k)==='infinite';var r=SMROWS[id];if(!r)return;
+ var cur=inf?r.seed:r.total_usd;
+ var v=prompt(r.ticker+' 시드 변경 (USD)\n현재 '+money(cur),cur);
+ if(v==null)return;v=parseFloat(String(v).replace(/[,$\s]/g,''));
+ if(!(v>0)){toast('금액을 확인하세요');return;}
+ if(Math.abs(v-cur)<0.005){toast('변경 없음');return;}
+ var url='/'+k+'/api/'+(inf?('portfolios/'+id):('tickers/'+id+'/seed'));
+ var pv=inf?{seed:v,preview:true}:{total_usd:v,preview:true};
+ api('PATCH',url,pv).then(function(p){var b=p.before,a=p.after,msg;
+  if(inf){msg=p.ticker+' 시드 '+money(b.seed)+' → '+money(a.seed)+'\n\n'+
+   '1회 매수액   '+money(b.B)+' → '+money(a.B)+'\n'+
+   'T   '+b.T+' ('+b.half+') → '+a.T+' ('+a.half+')\n'+
+   '☆%   '+b.star_pct+'% → '+a.star_pct+'%\n'+
+   '남은 매수 여력   '+money(b.remaining)+' → '+money(a.remaining)+'  (보유 매입 '+money(p.cost)+')';}
+  else{msg=p.ticker+' 총액 '+money(b.total_usd)+' → '+money(a.total_usd)+'\n\n'+
+   '트렌치 1회 매수액   '+money(b.per_tranche)+' → '+money(a.per_tranche)+'\n'+
+   '진행   '+p.bought+'/'+p.num_tranches+' 트렌치 매수됨 (매입 '+money(p.cost)+')\n'+
+   (p.idle>0?('→ 남은 '+p.idle+'개 트렌치부터 새 금액으로 매수 (이미 산 트렌치는 그대로)')
+    :'→ 트렌치가 다 차 있어 다음 싸이클부터 적용')+
+   (p.seed_reflect?'\n※ 추가입금 반영(ON) 상태 — 이번 싸이클 매수액은 예수금 기준으로 계산됩니다':'');}
+  var bu=SMBUD||{};
+  if(bu.assigned_total!=null){var nu=(bu.used||0)-cur+v;
+   if(nu>bu.assigned_total+0.005)msg+='\n\n※ 전략 시드 할당 총액 '+money(bu.assigned_total)+'을 넘습니다 (합계 '+
+    money(nu)+') — 위 [시드 할당]도 올려 두세요';}
+  msg+='\n\n다음 주문부터 반영됩니다 (이미 접수된 주문은 그대로). 저장할까요?';
+  if(!confirm(msg))return;
+  return api('PATCH',url,inf?{seed:v}:{total_usd:v}).then(function(x){
+   toast(x.message||'시드 변경됨');loadStratMgr();});
+ }).catch(function(e){toast('실패: '+e);});}
 function togTrade(k,id){var kind=kindOf(k);
  api('PATCH','/'+k+'/api/'+(kind==='infinite'?'portfolios':'tickers')+'/'+id+'/trading')
   .then(function(){toast('진행 상태 변경');loadStratMgr();}).catch(function(e){toast('실패: '+e);});}

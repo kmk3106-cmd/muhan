@@ -25,12 +25,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .config import DATABASE_URL, RUN_HOUR, RUN_MINUTE, TRADING_MODE, CTAC_TLNO, KIS_DEVL_YAML
 from .kis_client import KISClient, get_shared_client, reset_shared_client
-from .models import init_db, Portfolio, PortfolioState, Order, AppLog, Trade, CycleHistory
+from .models import init_db, Portfolio, PortfolioState, Order, AppLog, Trade, CycleHistory, ModeEnum
 from .settings_store import get_settings_for_display, save_settings, get_account_summary, get_kis_settings
 from .worker import (run_worker_once, kill_switch_activate, kill_switch_deactivate,
                     is_kill_switch_on, run_initial_buy, get_us_market_run_time_kst, get_next_worker_run_kst)
 from .trading_logic import SUPPORTED_VERSIONS, generate_orders
-from .trading_logic import calc_T, calc_star_pct
+from .trading_logic import calc_T, calc_T_from_avg, calc_star_pct
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -322,18 +322,73 @@ def get_portfolio(portfolio_id: int):
 class PortfolioUpdate(BaseModel):
     """포트폴리오 수정용 (부분 업데이트)"""
     initial_holdings_cost: float | None = None
+    seed: float | None = None     # 시드 변경 — 싸이클 중에도 다음 주문부터 1회 매수액(B=seed/A) 반영
+    preview: bool = False         # True: 저장하지 않고 시드 변경 전/후 수치만 반환
+
+
+def _seed_change_effect(pf: Portfolio, state, new_seed: float) -> dict:
+    """시드 변경 전/후 B·T·☆% — 워커와 같은 계산식(calc_T_from_avg·calc_star_pct).
+
+    T 는 '보유 매입금(평단×수량) ÷ B' 라서 시드를 올리면 T 가 내려간다(전반/후반이 바뀔 수 있음).
+    """
+    A = int(pf.A or 40)
+    R = getattr(pf, "R", 10.0) or 10.0
+    avg = float(state.avg_price or 0) if state is not None else 0.0
+    qty = int(state.qty or 0) if state is not None else 0
+    cost = round(avg * qty, 2)
+
+    def calc(seed: float) -> dict:
+        B = seed / A if A else 0.0
+        T = calc_T_from_avg(avg, qty, B)
+        return {"seed": round(seed, 2), "B": round(B, 2), "T": T,
+                "star_pct": round(calc_star_pct(T, A, R), 2),
+                "half": "전반전" if T < A / 2 else "후반전",
+                "remaining": round(seed - cost, 2)}
+
+    return {"ticker": pf.ticker, "cost": cost, "quarter_threshold": round(A - 0.9, 1),
+            "before": calc(float(pf.seed or 0)), "after": calc(float(new_seed))}
 
 
 @app.patch("/api/portfolios/{portfolio_id}")
 def update_portfolio(portfolio_id: int, data: PortfolioUpdate):
-    """포트폴리오 설정 수정 (기존 보유 매입금액 등)"""
+    """포트폴리오 설정 수정 (기존 보유 매입금액, 시드)"""
     with SessionLocal() as session:
         pf = session.get(Portfolio, portfolio_id)
         if not pf:
             raise HTTPException(404, "포트폴리오 없음")
-        if data.initial_holdings_cost is not None:
+        effect = None
+        if data.seed is not None:
+            new_seed = float(data.seed)
+            if not new_seed > 0:
+                raise HTTPException(400, "시드는 0보다 커야 합니다")
+            from core.compound_mode import get as _compound_state
+            if _compound_state("infinite")["mode"] == "compound":
+                raise HTTPException(409, "복리 모드에서는 싸이클 종료 때 시드가 자동 재설정되어 수정값이 덮어써집니다 — 단리로 전환 후 수정하세요")
+            state = session.scalar(
+                select(PortfolioState).where(PortfolioState.portfolio_id == pf.id)
+                .order_by(PortfolioState.synced_at.desc()).limit(1))
+            if state is not None and state.mode == ModeEnum.QUARTER.value:
+                raise HTTPException(409, "쿼터모드 진행 중에는 시드를 바꿀 수 없습니다 (쿼터 종료 후 변경)")
+            effect = _seed_change_effect(pf, state, new_seed)
+            if effect["after"]["T"] >= effect["quarter_threshold"]:
+                raise HTTPException(400, f"이 시드면 T가 {effect['after']['T']}로 쿼터모드 진입 조건"
+                                         f"(T≥{effect['quarter_threshold']})이 됩니다 — 더 큰 금액을 입력하세요")
+            if data.preview:
+                return {"preview": True, **effect}
+            pf.seed = new_seed
+            if state is not None:   # 화면 T 즉시 갱신 (다음 워커 실행 때도 같은 식으로 재계산됨)
+                state.T = effect["after"]["T"]
+                state.star_pct = calc_star_pct(state.T, pf.A, getattr(pf, "R", 10.0) or 10.0)
+            b, a = effect["before"], effect["after"]
+            session.add(AppLog(portfolio_id=pf.id, level="INFO",
+                               message=f"[{pf.ticker}] 시드 변경 ${b['seed']:,.2f} → ${a['seed']:,.2f} "
+                                       f"(1회 매수 ${b['B']:,.2f} → ${a['B']:,.2f}, T {b['T']} → {a['T']})"))
+        if data.initial_holdings_cost is not None and not data.preview:
             pf.initial_holdings_cost = max(0.0, float(data.initial_holdings_cost))
         session.commit()
+        if effect:
+            logger.info(f"[{pf.ticker}] 시드 변경 ${effect['before']['seed']:,.2f} → ${effect['after']['seed']:,.2f}")
+            return {"message": "시드 변경 완료 — 다음 주문부터 반영", **effect}
         return {"message": "수정 완료"}
 
 

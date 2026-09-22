@@ -369,6 +369,55 @@ def api_toggle_seed_reflect(ticker_id: int):
         return {"seed_reflect_enabled": tk.seed_reflect_enabled, "ticker": tk.ticker}
 
 
+class SeedUpdate(BaseModel):
+    total_usd: float
+    preview: bool = False   # True: 저장하지 않고 변경 전/후 수치만 반환
+
+
+@app.patch("/api/tickers/{ticker_id}/seed")
+def api_update_seed(ticker_id: int, data: SeedUpdate):
+    """종목 총액(시드) 변경 — 싸이클 중에도 가능.
+
+    트렌치 1회 매수액 = 총액 ÷ 트렌치 수 (주문 생성 규칙 그대로). 그래서 아직 안 산 트렌치부터
+    새 금액으로 사고, 이미 산 트렌치는 그대로 둔다. 트렌치가 다 찼으면 다음 싸이클부터 적용된다.
+    """
+    new_total = float(data.total_usd)
+    if not new_total > 0:
+        raise HTTPException(status_code=400, detail="총액은 0보다 커야 합니다")
+    from core.compound_mode import get as _compound_state
+    if _compound_state("jongsa")["mode"] == "compound":
+        raise HTTPException(status_code=409, detail="복리 모드에서는 싸이클 종료 때 시드가 자동 재설정되어 수정값이 덮어써집니다 — 단리로 전환 후 수정하세요")
+    with SessionLocal() as session:
+        tk = session.get(Ticker, ticker_id)
+        if not tk:
+            raise HTTPException(status_code=404, detail="종목 없음")
+        tranches = session.scalars(select(Tranche).where(Tranche.ticker_id == tk.id)).all()
+        n = int(tk.num_tranches or len(tranches) or 1)
+        idle = [t for t in tranches if t.status == TrancheStatus.IDLE.value]
+        bought = [t for t in tranches if t.status == TrancheStatus.BOUGHT.value]
+        cost = round(sum((t.qty or 0) * (t.avg_price or 0) for t in bought), 2)
+        old_total = float(tk.total_usd or 0)
+        effect = {
+            "ticker": tk.ticker, "num_tranches": n, "bought": len(bought), "idle": len(idle),
+            "cost": cost, "seed_reflect": bool(getattr(tk, "seed_reflect_enabled", False)),
+            "before": {"total_usd": round(old_total, 2), "per_tranche": round(old_total / n, 2)},
+            "after": {"total_usd": round(new_total, 2), "per_tranche": round(new_total / n, 2)},
+        }
+        if data.preview:
+            return {"preview": True, **effect}
+        tk.total_usd = new_total
+        for t in idle:          # 표시용 금액도 주문 규칙과 맞춤 (이미 산 트렌치는 그대로)
+            t.amount_per_tranche = round(new_total / n, 2)
+        session.add(AppLog(level="INFO",
+                           message=f"[{tk.ticker}] 총액 변경 ${old_total:,.2f} → ${new_total:,.2f} "
+                                   f"(트렌치 1회 ${old_total / n:,.2f} → ${new_total / n:,.2f}, 남은 {len(idle)}개부터 적용)"))
+        session.commit()
+    _cached_orders["data"] = []
+    _cached_orders["ts"] = 0
+    logger.info(f"[{effect['ticker']}] 총액 변경 ${old_total:,.2f} → ${new_total:,.2f}")
+    return {"message": "총액 변경 완료 — 다음 주문부터 반영", **effect}
+
+
 @app.patch("/api/tickers/{ticker_id}/trading")
 def api_toggle_trading(ticker_id: int):
     """종목 진행 ON/OFF 토글. OFF 시 해당 종목 미체결 자동 취소"""
