@@ -542,7 +542,133 @@ height:calc(var(--hd) + env(safe-area-inset-top))}
 @media(max-height:480px) and (orientation:landscape){
   .cw{height:200px}.donut-w{height:170px}
 }
-</style></head><body>
+</style>
+<!-- TS_RENEWAL_START -->
+<style id="ts-renewal-theme">
+/* Trading Suite Professional — presentation-only overlay, 2026-09-22.
+   Keep original CSS first. No controls, columns or status messages are hidden. */
+:root{--blue:#315bd9;--blue-s:#edf2ff;--indigo:#7264cf;--green:#158466;--green-s:#edf8f3;--red:#d44d59;--red-s:#fff0f2;--amber:#aa6b16;--amber-s:#fff6e8;--bg:#f4f6fa;--card:#fff;--line:#e5eaf2;--c0:#18283f;--c1:#52617a;--c2:#728098;--c3:#b7c2d4;--sb:226px;--hd:76px;--rd:14px;--sh:0 3px 16px rgba(22,40,72,.025)}
+body{font-family:Inter,'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;line-height:1.6;letter-spacing:-.25px}
+.sb{background:#152239;border-right:1px solid #253650;color:#b5c3d8}
+.brand{padding:26px 20px;border-color:#2b3a52;gap:12px;min-height:100px}
+.brand b{color:#f4f7fd;font-size:15px;letter-spacing:.15px;font-weight:700}
+.brand small{color:#93a8c8;font-size:9px;letter-spacing:2.6px;margin-top:4px}
+.brand .m{background:#3966dd;border-radius:10px;box-shadow:0 4px 14px #0b162b40}
+.nav{padding:22px 13px;scrollbar-color:#4e607a transparent}
+.ni{font-size:13px;font-weight:500;padding:13px 14px;min-height:46px;margin-bottom:5px;color:#b6c5dd;border-radius:8px;transition:background .15s}
+.ni:hover{background:#223550;color:#fff}.ni.on{background:#2c4265;box-shadow:inset 3px 0 #83a4ff;color:#fff}
+.ni .ch{border:0;padding:0}.ni .i{font-size:15px}.ni:nth-child(9){margin-top:24px}
+.sbhelp{margin:12px 14px 20px;padding:16px;border-radius:10px;background:#1d2e47;color:#a9bcd8;font-size:11px;border:1px solid #2b3d59;line-height:1.9}
+.sbhelp b{color:#dce6f8;font-size:12px;font-weight:600}
+.hd{padding-left:30px;padding-right:30px;gap:16px;background:rgba(255,255,255,.97);box-shadow:none}
+.hd .ttl{font-size:21px;font-weight:700;letter-spacing:-.8px}.hd .dt{font-size:11px;color:var(--c2)}
+.hd .st{font-size:11px;font-weight:500;background:#f3f7f6;border:1px solid #e4eeea;padding:6px 10px;border-radius:6px}
+.hd .st.off{background:var(--red-s);border-color:#f3dce0}.hd .st .d{width:6px;height:6px;box-shadow:none}
+.body{width:100%;max-width:1800px;margin:0 auto;padding:28px 30px 44px}
+.btn{min-height:40px;font-size:12px;padding:9px 14px;border-radius:7px;font-weight:600;border-color:#dce3ee}
+.btn.sm{min-height:36px;font-size:12px}.btn.p{box-shadow:0 2px 4px #315bd918}.btn.dg{border-color:#f2ccd3}
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #85a8ff;outline-offset:3px}
+input,select,textarea{max-width:100%}button:disabled{opacity:.55;cursor:not-allowed}
+.grid{gap:20px;margin-top:20px;min-width:0;align-items:start}.grid>*{min-width:0}
+.g-3-1{grid-template-columns:minmax(0,1.9fr) minmax(280px,1fr)}.g-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card{min-width:0;overflow-x:auto;overscroll-behavior-x:contain;box-shadow:var(--sh)}
+.ch{padding:18px 21px;gap:12px;flex-wrap:wrap;border-bottom:1px solid #edf0f5;min-width:0}
+.ch .ct{font-size:14px;font-weight:700;min-width:0;letter-spacing:-.35px}.ch .ct i{color:#7b90b4;font-size:13px;margin-right:9px}
+.ch .lk{font-size:11px}.ch .seg{flex-shrink:0;max-width:100%;overflow-x:auto}
+#page>.ch{min-height:65px;box-shadow:none!important;padding:13px 18px}
+.kpis{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.kpi{padding:20px 17px;position:relative;min-width:0;display:block;min-height:148px;box-shadow:none}
+.kpi>.ic{position:absolute;right:15px;top:16px;width:25px;height:25px;background:transparent!important;color:#91a2bf;font-size:13px}
+.kpi .lab{padding-right:23px;font-size:12px;color:#64758e;font-weight:500;line-height:1.5}
+.kpi .v{font-size:clamp(20px,1.65vw,29px);font-weight:700;letter-spacing:-1px;line-height:1.25;margin-top:18px;overflow-wrap:anywhere}
+.kpi .s{font-size:11px;color:#728098;margin-top:10px;line-height:1.6;overflow-wrap:anywhere}
+.kpi.hi{background:linear-gradient(125deg,#ecf1ff,#f6f8ff);border-color:#dbe4ff;box-shadow:none}
+.kpi.hi .v{color:#274ea6}.kpi .v.up{color:var(--green)}.kpi .v.down{color:var(--red)}
+.seg{background:#f0f3f8;border:1px solid #e9edf4;padding:3px;border-radius:7px;gap:3px}
+.sgb{padding:7px 11px;font-size:11px;min-height:33px;white-space:nowrap;border-radius:5px;color:#67778f}
+.sgb.on{color:#23479f;box-shadow:0 1px 5px #1c366315;background:white}
+.cw{height:320px;padding:18px 20px 12px}.donut-w{height:214px;margin-top:18px}.donut-c s{text-decoration:none;font-size:11px}.donut-c b{font-size:24px;letter-spacing:-.7px}
+.lg{padding:20px 22px 24px;gap:11px}.lg .r{font-size:12px}.lg .r .p{font-size:11px}
+.bars{padding:25px 23px;gap:22px}.bar{font-size:12px}.bar .t{margin-bottom:10px;gap:10px}.bar .tr{height:7px;background:#edf1f7}
+#slist>div{min-height:63px;flex-wrap:wrap;row-gap:6px}#slist b{font-weight:600;min-width:105px}
+.tbl{font-size:12px;white-space:nowrap}.tbl th{background:#f7f9fc;color:#718198;font-weight:500;font-size:11px;padding:13px 20px;letter-spacing:0}
+.tbl td{padding:16px 20px;border-bottom:1px solid #edf1f7;line-height:1.55}.tbl td b{font-weight:600}.tbl tbody tr:hover{background:#f7faff}
+.bdg{font-size:10px;font-weight:600;padding:4px 8px;border-radius:5px;white-space:nowrap;line-height:1.5}.bdg::before{width:5px;height:5px}
+.tag{font-size:10px;border-radius:4px;padding:4px 7px}.up,.dn{font-weight:600}
+.al{padding:16px 21px;font-size:12px}.al .at{font-size:10px}.empty{min-height:240px}.empty .s{line-height:1.9}
+.form{padding:23px;gap:19px}.fld{min-width:0}.fld label{font-size:12px;font-weight:500;margin-bottom:8px}.fld input,.fld select{border-color:#dce3ed;border-radius:7px;font-size:14px;min-height:44px}
+.tip{font-size:12px;line-height:1.85;border:1px solid #e1e8fa;margin:0 22px 20px;background:#f4f7ff}.fnote{font-size:12px;line-height:1.8}
+.fact{flex-wrap:wrap}.hl{line-height:1.8;border-radius:8px}.vtblk{padding:20px}.trc{width:36px;height:36px;border-radius:6px}.vth{flex-wrap:wrap}
+.toast{max-width:min(520px,calc(100vw - 28px));font-size:12px;border-radius:8px}.muted{line-height:1.8}
+@media(min-width:981px) and (max-width:1350px){:root{--sb:208px}.body{padding:24px}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi{min-height:138px}.kpi .v{font-size:26px}.g-3-1{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr)}}
+@media(max-width:980px){.sb{width:min(82vw,280px)}.body{padding:22px max(20px,env(safe-area-inset-left)) calc(30px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-right))}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi .v{font-size:25px}.g-3-1,.g-2{grid-template-columns:1fr}.hd{padding-left:20px;padding-right:20px;gap:10px}.hd .ttl{font-size:19px}.btn,.btn.sm,.sgb,.hamb,.ni{min-height:44px}.cw{height:310px}.tbl td{padding:15px 18px}.ch .seg{flex-wrap:wrap}.form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.hd{height:auto;min-height:70px;padding:10px max(12px,env(safe-area-inset-left));padding-top:calc(10px + env(safe-area-inset-top));gap:7px;flex-wrap:wrap}.hd .ttl{font-size:17px}.hd .dt{display:block;order:5;flex-basis:100%;font-size:10px;text-align:right;line-height:1.3}.hd .st #stt{display:inline}.hd .st{padding:5px 7px;font-size:10px;gap:5px}.hd .sp{min-width:0}#refresh{font-size:0;min-height:44px;min-width:44px;padding:9px}#refresh i{font-size:14px}.hamb{margin-left:0;min-width:36px}.body{padding:16px max(12px,env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-right))}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{padding:16px 13px;min-height:135px}.kpi .v{font-size:23px;margin-top:17px}.kpi .s{font-size:10px}.kpi .lab{font-size:11px}.kpi>.ic{right:12px;top:11px;width:21px}.grid{gap:14px;margin-top:14px}.ch{padding:15px;gap:10px}.ch .ct{font-size:13px;flex-basis:auto}.ch .seg{width:100%;flex-wrap:wrap}.sgb{font-size:12px;flex:1;padding:8px}.cw{height:265px;padding:12px 8px}.tbl th,.tbl td{padding:13px 15px}.form{grid-template-columns:1fr;padding:18px;gap:15px}.fld input,.fld select,input,select,textarea{font-size:16px}.fact .btn{min-height:46px}.tip{margin:0 15px 16px}.lg{padding:18px 16px}.lg .r{font-size:11px}#page>.ch{flex-wrap:wrap!important;gap:8px;padding:13px!important}#page>.ch>span:nth-child(2){flex-basis:70%!important;white-space:normal!important;overflow:visible!important}#acctSeg{width:100%;justify-content:space-between}.btn.sm{font-size:12px}.trc{width:36px;height:36px}}
+@media(max-width:359px){.kpis{grid-template-columns:1fr}.hd .st{font-size:9px}.hd .ttl{font-size:15px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media print{.sb,.hamb,.scrim,#refresh{display:none!important}.mn{margin:0}.hd{position:static}.body{padding:0;max-width:none}.grid{display:block}.card{break-inside:avoid;margin-top:12px;overflow:visible}.kpis{grid-template-columns:repeat(3,1fr)}body{background:white}}
+/* Existing inline multi-column forms need explicit mobile overrides. */
+@media(max-width:980px){.form[style*="grid-template-columns"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:600px){.form[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}#vrBody input,#vrBody select{font-size:16px!important;min-height:44px}#bjBody>div[style*="display:flex"]{flex-wrap:wrap}}
+.kpis:has(>.kpi:last-child:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:980px){.kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.kpis:has(>.kpi:last-child:nth-child(3)){grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:359px){.kpis:has(>.kpi:last-child:nth-child(3)),.kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:1fr}}
+
+</style>
+<script id="ts-chart-theme">
+/* Visual-only Chart.js plugin. Does not wrap Chart or change business functions.
+   Dataset values, labels, type, colors, fill/tension, axes, callbacks and events stay intact. */
+(function () {
+  'use strict';
+  if (!window.Chart || window.Chart.registry.plugins.get('tsProfessionalTheme')) return;
+  window.Chart.register({
+    id: 'tsProfessionalTheme',
+    beforeInit: function (chart) {
+      var options = chart.config.options;
+      var plugins = options.plugins || (options.plugins = {});
+      var tooltip = plugins.tooltip || (plugins.tooltip = {});
+      Object.assign(tooltip, {
+        backgroundColor: '#172840', titleColor: '#f7faff', bodyColor: '#dce6fa',
+        borderColor: '#334866', borderWidth: 1, cornerRadius: 9,
+        padding: 13, boxPadding: 5,
+        titleFont: Object.assign({}, tooltip.titleFont, {size: 12, weight: '600'}),
+        bodyFont: Object.assign({}, tooltip.bodyFont, {size: 12})
+      });
+      if (plugins.legend && plugins.legend.labels) {
+        plugins.legend.labels.padding = 18;
+        plugins.legend.labels.color = '#61718b';
+        plugins.legend.labels.font = Object.assign({}, plugins.legend.labels.font, {size: 11});
+      }
+      var scales = options.scales || {};
+      Object.keys(scales).forEach(function (key) {
+        var scale = scales[key];
+        if (scale.ticks) {
+          scale.ticks.color = '#718198';
+          scale.ticks.font = Object.assign({}, scale.ticks.font, {size: 11});
+        }
+        if (scale.grid && scale.grid.display !== false) scale.grid.color = '#edf1f7';
+      });
+    },
+    afterDatasetsDraw: function (chart) {
+      // Hover guide only: no dataset/options/event mutation.
+      if (chart.config.type !== 'line' || !chart.tooltip) return;
+      var active = chart.tooltip.getActiveElements();
+      if (!active.length || !chart.chartArea) return;
+      var x = active[0].element.x, ctx = chart.ctx, area = chart.chartArea;
+      ctx.save();
+      try {
+        ctx.beginPath(); ctx.setLineDash([3, 4]); ctx.lineWidth = 1;
+        ctx.strokeStyle = '#9badcc'; ctx.moveTo(x, area.top);
+        ctx.lineTo(x, area.bottom); ctx.stroke();
+      } finally { ctx.restore(); }
+    }
+  });
+}());
+
+</script>
+<!-- TS_RENEWAL_END -->
+</head><body>
 <div class="wrap">
   <aside class="sb" id="sb">
     <div class="brand"><div class="m"><i class="fa-solid fa-bolt"></i></div>
