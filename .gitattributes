@@ -1,0 +1,3 @@
+# 서버(리눅스)에서 실행되는 스크립트는 항상 LF — Windows autocrlf 로 CRLF 가 되면 bash 가 중간에 깨진다
+# (2026-09-22 apply_deploy.sh 가 CRLF 로 배포돼 프로세스만 내리고 중단된 사고)
+*.sh text eol=lf
