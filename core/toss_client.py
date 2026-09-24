@@ -35,7 +35,9 @@ _ENV_CANDIDATES = [
 ]
 
 _CACHE_FILE = Path(__file__).resolve().parent / "_toss.json"
+_SERIES_FILE = Path(__file__).resolve().parent / "_toss_series.jsonl"
 SNAPSHOT_TTL = 600           # 스냅샷 갱신 주기(초) — 대시보드는 캐시만 읽는다
+SERIES_MIN_GAP = 240         # 시계열 점 최소 간격(초) — 같은 시점 중복 기록 방지
 _token: dict = {"value": "", "exp": 0.0}
 
 
@@ -165,6 +167,51 @@ def _save_cache(d: dict) -> None:
         logger.warning(f"[toss] 캐시 저장 실패: {e}")
 
 
+def _append_series(snap: dict) -> None:
+    """자산 추이용 점 1개 기록 (평가+예수금). KIS equity 스냅샷과 같은 성격의 누적 파일."""
+    try:
+        last = None
+        if _SERIES_FILE.exists():
+            tail = _SERIES_FILE.read_text(encoding="utf-8").strip().splitlines()[-1:]
+            if tail:
+                last = json.loads(tail[0])
+        if last and float(snap.get("epoch") or 0) - float(last.get("epoch") or 0) < SERIES_MIN_GAP:
+            return
+        point = {
+            "ts": snap.get("ts"), "epoch": round(float(snap.get("epoch") or time.time()), 2),
+            "eval_usd": snap.get("eval_usd", 0.0),
+            "cash_usd": snap.get("cash_usd", 0.0),
+            "cash_krw_usd": snap.get("cash_krw_usd", 0.0),
+            "total_assets": round(float(snap.get("eval_usd") or 0)
+                                  + float(snap.get("cash_usd") or 0)
+                                  + float(snap.get("cash_krw_usd") or 0), 2),
+            "buy_usd": snap.get("buy_usd", 0.0),
+        }
+        with _SERIES_FILE.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(point, ensure_ascii=False) + "\n")
+    except Exception as e:
+        logger.warning(f"[toss] 시계열 기록 실패: {e}")
+
+
+def series(max_points: int = 400) -> dict:
+    """토스 계좌 자산 추이 — 기록된 점들(최근 max_points개). 계산·보정 없음."""
+    pts: list[dict] = []
+    try:
+        if _SERIES_FILE.exists():
+            for line in _SERIES_FILE.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    pts.append(json.loads(line))
+                except Exception:
+                    continue
+    except Exception as e:
+        logger.warning(f"[toss] 시계열 읽기 실패: {e}")
+    pts = pts[-max_points:]
+    return {"points": pts, "collecting": len(pts) < 2}
+
+
 def refresh(force: bool = False) -> dict:
     """토스 계좌 스냅샷 갱신 (조회만). 실패하면 직전 캐시를 그대로 둔다."""
     cur = load_cache()
@@ -225,6 +272,7 @@ def refresh(force: bool = False) -> dict:
             "error": "",
         }
         _save_cache(snap)
+        _append_series(snap)
         logger.info(f"[toss] 스냅샷 갱신: 평가 ${snap['eval_usd']:,.2f} · 예수금 ${snap['cash_usd']:,.2f} "
                     f"· 종목 {len(items)}개")
         return snap

@@ -252,6 +252,13 @@ def api_toss_refresh():
             "error": d.get("error", "")}
 
 
+@app.get("/api/suite/toss/series")
+def api_toss_series():
+    """토스 계좌 자산 추이 — 스냅샷마다 기록한 점들(평가+예수금). 조회만."""
+    from core.toss_client import series
+    return series()
+
+
 @app.get("/api/suite/series")
 def suite_series():
     from core.equity_snapshot import series
@@ -781,7 +788,7 @@ function acctView(){
 }
 function setAcct(v){ACCT=v;render();}
 /* 토스 계좌 스냅샷 수동 갱신 — 조회 전용(주문 없음). 자동은 10분 주기. */
-function tossRefresh(){toast('토스 계좌 조회 중…');
+function tossRefresh(){toast('토스 계좌 조회 중…');TOSSSER=null;
  api('POST','/api/suite/toss/refresh').then(function(d){
   toast(d&&d.ok?('토스 갱신됨 · 평가 '+money(d.eval_usd)):'토스 갱신 실패');
   loadAll();}).catch(function(e){toast('토스 갱신 실패: '+e);});}
@@ -841,7 +848,7 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
   :('<div class="seg" id="sg">'+['1주','1개월','3M','6M','전체'].map(function(r){
    return '<button class="sgb'+(r===R1?' on':'')+'">'+r+'</button>';}).join('')+'</div>');
  h+='<div class="grid g-3-1">'+
-  card(isTS?'토스 계좌':(isNH?'VR 주차별 추이':'자산 추이'),
+  card(isTS?'토스 자산 추이':(isNH?'VR 주차별 추이':'자산 추이'),
    isTS?'fa-building-columns':(isNH?'fa-scale-balanced':'fa-chart-area'),
    '<div class="cw" id="cw1"><canvas id="c1"></canvas></div>',seg)+
   '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-list"></i>전략 리스트</span></div>'+
@@ -982,6 +989,52 @@ function drawDonut(ss){if(C2){C2.destroy();C2=null;}var L=[],V=[],T=0;
 function dDays(r){return {'1주':7,'1개월':30,'3M':90,'6M':180,'전체':99999}[r]||90;}
 /* 대시보드 NH 탭 그래프 — VR 메뉴의 기수 그래프와 같은 API(/vr/api/gisu/{gid}/graph)·같은 계열.
    주차별 평가금(실선) + 밴드 최소/최대(점선). 값·계산은 VR 화면과 동일하고 여기서 만들지 않는다. */
+/* 토스 계좌 자산 추이 — 10분마다 기록한 스냅샷(평가+예수금)을 그대로 그린다.
+   하루치가 2일 이상 쌓이면 일자별(그날 마지막 값), 그 전에는 기록 시각 그대로. */
+var TOSSSER=null;
+function drawTossLine(){var w=$('cw1');if(!w)return;
+ var t=MET.toss||{};
+ var info=function(title,sub){w.innerHTML='<div class="empty"><i class="fa-solid fa-building-columns"></i>'+
+  '<div class="t">'+title+'</div><div class="s">'+sub+'</div>'+
+  '<div style="margin-top:10px"><button class="btn sm" onclick="tossRefresh()">지금 갱신</button></div></div>';};
+ var render=function(ser){
+  var pts=(ser&&ser.points)||[];
+  if(pts.length<2){
+   info(t.error?'토스 조회 오류':'토스 자산 추이 수집중',
+    t.error?esc(String(t.error).slice(0,120))
+    :('10분마다 잔고를 기록합니다 (현재 '+pts.length+'개). 점이 2개 이상 쌓이면 그래프가 표시됩니다.<br>'+
+      '평가 '+money(t.eval_total)+' · 예수금 '+money(t.cash_usd)+
+      (t.cash_krw?(' + '+Math.round(t.cash_krw).toLocaleString()+'원'+(t.fx?(' (≈'+money(t.cash_krw/t.fx)+')'):'')):'')+
+      (t.ts?(' · 갱신 '+esc(t.ts)):'')));
+   return;}
+  /* 일자별 마지막 점으로 묶기 — 2일 이상이면 일자 라벨, 아니면 시각 라벨 */
+  var bym={},order=[];
+  pts.forEach(function(p){var d=String(p.ts||'').slice(0,10);if(!(d in bym))order.push(d);bym[d]=p;});
+  var daily=order.length>=2, use=daily?order.map(function(d){return bym[d];}):pts;
+  var L=use.map(function(p){return daily?String(p.ts).slice(5,10):String(p.ts).slice(11,16);});
+  var tot=use.map(function(p){return p.total_assets;});
+  var ev=use.map(function(p){return p.eval_usd;});
+  if(C1){C1.destroy();C1=null;}
+  w.innerHTML='<canvas id="c1"></canvas>';
+  var g=$('c1').getContext('2d').createLinearGradient(0,0,0,264);
+  g.addColorStop(0,'rgba(47,107,255,.22)');g.addColorStop(.65,'rgba(47,107,255,.05)');
+  g.addColorStop(1,'rgba(47,107,255,0)');
+  C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:[
+   {label:'총자산',data:tot,borderColor:'#2f6bff',backgroundColor:g,borderWidth:2.6,
+    pointRadius:0,pointHoverRadius:4,fill:true,tension:.3},
+   {label:'주식 평가금',data:ev,borderColor:'#16a34a',borderDash:[6,4],borderWidth:1.8,
+    pointRadius:0,pointHoverRadius:4,tension:.3}]},
+   options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11}}},
+     tooltip:{callbacks:{label:function(c){return c.dataset.label+' '+money(c.parsed.y);}}}},
+    scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:8}},
+     y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
+      callback:function(v){return '$'+(v/1000).toFixed(1)+'k';}}}}}});};
+ if(TOSSSER){render(TOSSSER);return;}
+ info('토스 자산 추이 불러오는 중','');
+ fetch('/api/suite/toss/series').then(function(r){return r.json();})
+  .then(function(d){TOSSSER=d;if(ACCT==='toss')render(d);})
+  .catch(function(){info('토스 자산 추이 로드 실패','잠시 후 다시 시도하세요');});}
 function drawVrDash(){var w=$('cw1');if(!w)return;
  var list=((MET&&MET.nh&&MET.nh.accounts)||[]);
  var msg=function(ic,t,s){w.innerHTML='<div class="empty"><i class="fa-solid '+ic+'"></i>'+
@@ -1012,16 +1065,7 @@ function drawVrDash(){var w=$('cw1');if(!w)return;
       callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});
  }).catch(function(){msg('fa-triangle-exclamation','VR 추이 로드 실패','VR (NH계좌) 메뉴에서 확인하세요');});}
 function drawLine(){var w=$('cw1');if(!w)return;
- if(ACCT==='toss'){var t=MET.toss||{};
-  w.innerHTML='<div class="empty"><i class="fa-solid fa-building-columns"></i>'+
-   '<div class="t">'+(t.error?'토스 조회 오류':'토스 계좌 · 조회 전용')+'</div>'+
-   '<div class="s">'+(t.error?esc(String(t.error).slice(0,120))
-    :('매매는 토스 앱 자동모으기가 합니다. 이 화면은 잔고만 읽습니다.<br>'+
-      '예수금 '+money(t.cash_usd)+(t.cash_krw?(' + '+Math.round(t.cash_krw).toLocaleString()+'원'+
-      (t.fx?(' (≈'+money(t.cash_krw/t.fx)+')'):'')):'')+
-      (t.ts?(' · 갱신 '+esc(t.ts)):'')))+'</div>'+
-   '<div style="margin-top:10px"><button class="btn sm" onclick="tossRefresh()">지금 갱신</button></div></div>';
-  return;}
+ if(ACCT==='toss'){drawTossLine();return;}
  if(ACCT==='nh'){drawVrDash();return;}
  if(!SER||SER.collecting||!SER.points||SER.points.length<2){
   w.innerHTML='<div class="empty"><i class="fa-solid fa-chart-area"></i>'+

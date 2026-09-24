@@ -32,6 +32,7 @@ core/_t_audit.jsonl
 core/_holdings.json
 core/_compound.json
 core/_toss.json
+core/_toss_series.jsonl
 
 # Build / archive
 *.zip
