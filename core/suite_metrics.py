@@ -280,6 +280,64 @@ def _nh_vr() -> dict:
                 "strategies": [], "account": {}}
 
 
+def _toss_block() -> dict:
+    """토스증권 계좌 — core/_toss.json 캐시만 읽음 (API 무호출, 조회 전용).
+
+    토스 계좌의 매매는 토스 앱 자동모으기가 하고 여기서는 자산만 합산한다.
+    반환: {items, eval_total, cash_total, account:{...}, strategies:[...], ts, error}
+    """
+    empty = {"items": [], "eval_total": 0.0, "cash_total": 0.0, "account": {},
+             "strategies": [], "ts": "", "error": "", "configured": False}
+    try:
+        from .toss_client import load_cache, configured
+        d = load_cache()
+        if not d:
+            return {**empty, "configured": configured()}
+        items = d.get("items") or []
+        ev = round(float(d.get("eval_usd") or 0), 2)
+        buy = round(float(d.get("buy_usd") or 0), 2)
+        pnl = round(ev - buy, 2)
+        # 예수금: 달러 + 원화(환율 환산분). 환율 조회 실패 시 원화분은 제외한다.
+        cash = round(float(d.get("cash_usd") or 0) + float(d.get("cash_krw_usd") or 0), 2)
+        tot = round(ev + cash, 2)
+        strategies = [{
+            "strategy": f"toss:{it.get('ticker')}",
+            "display_name": f"{it.get('ticker')} 자동모으기 (토스)",
+            "kill_switch": False,
+            "invested": it.get("buy_amt", 0.0),
+            "realized_pnl": None,                  # 토스 앱이 매매 — 싸이클 실현 개념 없음
+            "return_pct": it.get("pnl_rt", 0.0),
+            "unrealized_pnl": it.get("pnl", 0.0),
+            "eval_amt": it.get("eval_amt", 0.0),
+            "win_rate": None, "cycles": 0, "mdd_pct": None, "errors": [],
+            "holdings_count": 1 if it.get("qty") else 0,
+            "holdings": [{"ticker": it.get("ticker"), "qty": it.get("qty"),
+                          "avg_price": it.get("avg_price"), "cost": it.get("buy_amt")}],
+        } for it in items]
+        return {
+            "items": items, "eval_total": ev, "cash_total": cash,
+            "buy_total": buy, "cash_usd": round(float(d.get("cash_usd") or 0), 2),
+            "cash_krw": round(float(d.get("cash_krw") or 0), 2), "fx": float(d.get("fx") or 0),
+            "account_no": d.get("account_no"), "ts": d.get("ts", ""),
+            "error": d.get("error", ""), "configured": True,
+            "strategies": strategies,
+            "account": {
+                "total_assets": tot,
+                "net_invested": buy,
+                "total_pnl": pnl,
+                "total_return_pct": round(pnl / buy * 100, 2) if buy > 0 else None,
+                "realized_pnl": None,
+                "unrealized_pnl": pnl,
+                "cash": cash,
+                "cash_ratio": round(cash / tot * 100, 2) if tot > 0 else None,
+                "mdd_pct": None,
+                "snapshot_at": d.get("ts", ""),
+            },
+        }
+    except Exception:
+        return empty
+
+
 def _holdings_detail() -> dict:
     """계좌 보유종목 상세(매입단가·현재가·평가손익·수익률) — 워커가 캐시한 KIS 잔고 기반.
 
@@ -394,12 +452,17 @@ def build_metrics() -> dict:
     holdings = _holdings_detail()
     nh = _nh_vr()
     nha = nh.get("account") or {}
-    # 통합(전체 탭): KIS + NH 합산 — 평가·현금은 합, 수익률은 각 순투입 합 기준
-    _inv_all = round(canon.get("buy_amt", 0) + float(nha.get("net_invested") or 0), 2)
-    _pnl_all = round(pnl + float(nha.get("total_pnl") or 0), 2)
-    _tot_all = round(tot + float(nha.get("total_assets") or 0), 2)
-    _cash_all = round(cash + float(nha.get("cash") or 0), 2)
-    _stock_all = round(canon.get("stock_evlu", 0) + nh.get("eval_total", 0), 2)
+    toss = _toss_block()
+    tsa = toss.get("account") or {}
+    # 통합(전체 탭): KIS + NH + 토스 합산 — 평가·현금은 합, 수익률은 각 순투입 합 기준
+    _inv_all = round(canon.get("buy_amt", 0) + float(nha.get("net_invested") or 0)
+                     + float(tsa.get("net_invested") or 0), 2)
+    _pnl_all = round(pnl + float(nha.get("total_pnl") or 0) + float(tsa.get("total_pnl") or 0), 2)
+    _tot_all = round(tot + float(nha.get("total_assets") or 0)
+                     + float(tsa.get("total_assets") or 0), 2)
+    _cash_all = round(cash + float(nha.get("cash") or 0) + float(tsa.get("cash") or 0), 2)
+    _stock_all = round(canon.get("stock_evlu", 0) + nh.get("eval_total", 0)
+                       + toss.get("eval_total", 0), 2)
     combined = {
         "total_assets": _tot_all,
         "net_invested": _inv_all,
@@ -442,5 +505,6 @@ def build_metrics() -> dict:
         "recent_trades": trades,                        # 14 매매로그
         "holdings": holdings,                            # 16 계좌 보유종목 상세(매입단가·현재가·수익률)
         "nh": nh,                                        # 17 NH(VR): accounts·strategies·account
-        "combined": combined,                            # 18 통합(KIS+NH) 계좌 지표 — 전체 탭
+        "toss": toss,                                    # 19 토스(조회 전용): items·account·strategies
+        "combined": combined,                            # 18 통합(KIS+NH+토스) 계좌 지표 — 전체 탭
     }

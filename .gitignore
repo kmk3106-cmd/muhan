@@ -31,6 +31,7 @@ core/_cashflow.json
 core/_t_audit.jsonl
 core/_holdings.json
 core/_compound.json
+core/_toss.json
 
 # Build / archive
 *.zip
