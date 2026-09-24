@@ -543,9 +543,8 @@ height:calc(var(--hd) + env(safe-area-inset-top))}
   .cw{height:200px}.donut-w{height:170px}
 }
 </style>
-<!-- TS_RENEWAL_START -->
-<style id="ts-renewal-theme">
-/* Trading Suite Professional — presentation-only overlay, 2026-09-22.
+<!-- TS_V3_HEAD_START -->
+<style id="ts-renewal-theme">/* Trading Suite Professional — presentation-only overlay, 2026-09-22.
    Keep original CSS first. No controls, columns or status messages are hidden. */
 :root{--blue:#315bd9;--blue-s:#edf2ff;--indigo:#7264cf;--green:#158466;--green-s:#edf8f3;--red:#d44d59;--red-s:#fff0f2;--amber:#aa6b16;--amber-s:#fff6e8;--bg:#f4f6fa;--card:#fff;--line:#e5eaf2;--c0:#18283f;--c1:#52617a;--c2:#728098;--c3:#b7c2d4;--sb:226px;--hd:76px;--rd:14px;--sh:0 3px 16px rgba(22,40,72,.025)}
 body{font-family:Inter,'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;line-height:1.6;letter-spacing:-.25px}
@@ -613,11 +612,20 @@ input,select,textarea{max-width:100%}button:disabled{opacity:.55;cursor:not-allo
 .kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:980px){.kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.kpis:has(>.kpi:last-child:nth-child(3)){grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:359px){.kpis:has(>.kpi:last-child:nth-child(3)),.kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:1fr}}
-
-</style>
-<script id="ts-chart-theme">
-/* Visual-only Chart.js plugin. Does not wrap Chart or change business functions.
+@media(max-width:359px){.kpis:has(>.kpi:last-child:nth-child(3)),.kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:1fr}}</style>
+<style id="ts-workspace-css">/* V3: editorial portfolio workspace. All operational pages remain available. */
+:root{--blue:#326957;--blue-s:#edf5f1;--green:#1b8062;--green-s:#eaf5ee;--bg:#f4f5f3;--line:#e2e7e2;--c0:#23372e;--c1:#56675c;--c2:#7b897f;--sb:204px;--rd:12px;--sh:none}
+body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun Gothic',system-ui,sans-serif}.ws-v3 .sb{background:#fafbf8;border-color:#e0e5de;color:#5b6d60}.ws-v3 .brand{padding:30px 18px;border:0;min-height:115px}.ws-v3 .brand b{color:#263d30;font-size:13px;letter-spacing:1px}.ws-v3 .brand small{color:#829184;font-size:8px}.ws-v3 .brand .m{background:#234e3a;border-radius:50%;width:31px;height:31px;box-shadow:none}.ws-v3 .nav{padding:10px 13px}.ws-v3 .ni{color:#67766b;font-size:12px;font-weight:500;border-radius:7px;margin-bottom:7px;padding:13px 12px}.ws-v3 .ni.on{background:#e6ede4;color:#204b31;box-shadow:none;font-weight:700}.ws-v3 .ni.on .i{color:#28603d}.ws-v3 .ni:hover{background:#edf1e9;color:#213c29}.ws-v3 .ni .ch{display:none}.ws-v3 .ni:nth-child(9){border-top:1px solid #e1e7de;border-radius:0;padding-top:22px}.ws-v3 .sbhelp{background:#eef2e9;border:0;color:#6b7b68;font-size:10px;margin:15px 14px 23px}.ws-v3 .sbhelp b{color:#445f43;font-size:11px}.ws-v3 .hd{background:var(--bg);border:0;height:66px;box-shadow:none;padding-left:36px;padding-right:36px}.ws-v3 .hd .ttl{font-size:12px;color:#7d8b7c;font-weight:500}.ws-v3 .hd .st{background:#eaf0e7;border:0;color:#466649}.ws-v3 .hd .st.off{background:#fff0ed;color:#aa413b}.ws-v3 .hd .dt{font-size:10px}.ws-v3 .btn{border-radius:6px}.ws-v3 .btn.p{background:#315e45;border-color:#315e45;color:white;box-shadow:none}.ws-v3 .btn.p:hover{background:#244c35}.ws-v3 .body{padding:10px 36px 44px;max-width:1750px}.ws-heading{display:flex;justify-content:space-between;align-items:center;gap:24px;margin:10px 0 28px}.ws-overline{font-size:9px;font-weight:600;letter-spacing:2.5px;color:#889587;display:block}.ws-heading h1{font-size:31px;letter-spacing:-1.2px;font-weight:600;line-height:1.4;margin:9px 0 5px}.ws-heading p{font-size:11px;color:#7e8b80}.ws-account{padding:0!important;margin:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;flex-direction:column;align-items:flex-end;gap:6px;max-width:390px}.ws-account>.ct{display:none}.ws-account>span:nth-child(2){font-size:10px!important;order:2;flex:none!important;color:#8a958c}.ws-account .seg{background:#e8ece5;border-color:#e2e7df;padding:4px}.ws-account .sgb{min-height:32px;padding:7px 17px;font-size:11px}.ws-account .sgb.on{color:#305439}.ws-main{display:grid;grid-template-columns:minmax(0,1fr) 316px;gap:22px;align-items:stretch}.ws-wealth{background:#fff;border:1px solid #e0e6de;border-radius:16px;min-width:0;overflow:hidden}.ws-wealth-top{display:flex;align-items:center;justify-content:space-between;padding:27px 28px 0;gap:15px}.ws-v3 .ws-wealth .kpi{border:0;min-height:0;background:transparent;box-shadow:none;padding:0;display:block}.ws-v3 .ws-wealth .kpi>.ic{display:none}.ws-v3 .ws-main-asset .lab{font-size:11px;color:#7e8b81;padding:0}.ws-v3 .ws-main-asset .v{font-size:46px;letter-spacing:-2.4px;font-weight:500;line-height:1.25;color:#233f30;margin:9px 0 0;overflow-wrap:anywhere}.ws-v3 .ws-main-asset .s{font-size:10px;margin-top:6px;color:#8a978e}.ws-v3 .ws-main-return{text-align:right;flex-shrink:0}.ws-v3 .ws-main-return .lab{font-size:10px;color:#8a958d;padding:0}.ws-v3 .ws-main-return .v{font-size:24px;letter-spacing:-.8px;margin-top:7px;font-weight:500}.ws-v3 .ws-main-return .s{font-size:10px;margin-top:7px}.ws-chart-context{font-size:9px;color:#8d998f;padding:19px 28px 0;line-height:1.6}.ws-wealth-chart{border:0!important;border-radius:0!important;overflow:visible!important;background:transparent}.ws-wealth-chart>.ch{border:0;padding:16px 27px 0;justify-content:flex-end}.ws-wealth-chart>.ch>.ct{font-size:11px;font-weight:500;color:#8b998e}.ws-wealth-chart>.ch>.ct i{display:none}.ws-wealth-chart .seg{background:#f7f8f5;border:0}.ws-wealth-chart .sgb{min-height:28px;font-size:10px;padding:5px 10px}.ws-wealth-chart .sgb.on{color:#2d6547;box-shadow:none;background:#eaf2e7}.ws-wealth-chart .cw{height:240px;padding:10px 22px 5px}.ws-supporting{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #edf0eb;padding:20px 28px;gap:20px;margin-top:7px}.ws-v3 .ws-supporting .kpi .lab{font-size:10px;padding:0}.ws-v3 .ws-supporting .kpi .v{font-size:21px;font-weight:500;margin-top:7px;letter-spacing:-.7px}.ws-v3 .ws-supporting .kpi .s{font-size:9px;line-height:1.65;margin-top:5px}.ws-rail{display:flex;flex-direction:column;gap:16px;min-width:0}.ws-operation{background:#fff;border:1px solid #e0e6de;border-radius:14px;padding:21px 20px;flex:1;min-width:0}.ws-section-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.ws-section-head h2{font-size:13px;font-weight:600}.ws-link{border:0;background:none;font:inherit;font-size:10px;color:#799080;cursor:pointer;white-space:nowrap}.ws-live{display:flex;align-items:center;gap:6px;font-size:10px;color:#658069;margin:15px 0 14px}.ws-live-dot{width:5px;height:5px;border-radius:50%;background:#65946d}.ws-live.attention{color:#aa413b}.ws-live.attention .ws-live-dot{background:#aa413b}.ws-v3 .ws-strategy-count{min-height:0;padding:0;margin:0 0 9px;border:0;box-shadow:none;background:none;display:flex;gap:12px}.ws-strategy-count>.ic{display:none}.ws-v3 .ws-strategy-count .lab{font-size:10px;padding:0}.ws-v3 .ws-strategy-count .v{font-size:26px;font-weight:500;letter-spacing:-.9px;line-height:1.2;margin-top:5px}.ws-v3 .ws-strategy-count .s{font-size:10px;margin-top:5px}.ws-strategy-list{border:0!important;overflow:visible!important}.ws-strategy-list>.ch{display:none}.ws-v3 #slist>div{padding:11px 0!important;font-size:10px!important;gap:6px!important;min-height:48px;flex-wrap:wrap}.ws-v3 #slist>div>b{font-size:11px;font-weight:500;min-width:100px}.ws-v3 #slist .bdg{font-size:9px;padding:3px 6px;margin-left:0!important;border-radius:3px}.ws-v3 #slist .up,.ws-v3 #slist .dn{font-size:10px}.ws-v3 #slist>div>i{width:5px!important;height:5px!important}.ws-wide-link{border:0;border-top:1px solid #e9eee7;background:none;width:100%;text-align:left;font:inherit;color:#50745a;font-size:11px;padding:16px 0 0;cursor:pointer;margin-top:8px}.ws-next{border-radius:12px;background:#e8ede1;padding:22px;color:#334e34;position:relative}.ws-next .ws-overline{font-size:8px;color:#809276}.ws-next h2{font-size:17px;font-weight:500;margin:10px 0 5px;letter-spacing:-.5px}.ws-next p{font-size:10px;color:#819078;margin-bottom:16px}.ws-primary{background:#315a3e;color:#f7faf5;border:0;border-radius:5px;padding:10px 14px;font:inherit;font-size:11px;width:100%;text-align:left;cursor:pointer;min-height:40px}.ws-primary:hover{background:#23482f}.ws-alert-row{margin:18px 0 24px}.ws-alert-card{background:#eff3ea;border:1px solid #e0e7d9!important;border-radius:9px!important;display:flex;align-items:stretch}.ws-alert-card>.ch{padding:12px 18px;border:0;flex-shrink:0}.ws-alert-card>.ch .ct{font-size:11px;color:#64775b}.ws-alert-card>.ch .ct i{color:#7b9271;font-size:11px}.ws-alert-card #palert{flex:1}.ws-alert-card .al{padding:12px 14px;font-size:11px;align-items:center;border-color:#dde6d5}.ws-alert-card .at{font-size:9px}.ws-activity{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}.ws-activity .card{border:1px solid #e0e6de;border-radius:12px;box-shadow:none;background:white}.ws-activity .ch{padding:19px 22px}.ws-activity .ch .ct{font-size:13px;font-weight:500}.ws-activity .ch .ct i{display:none}.ws-v3 .tbl th{font-size:10px;background:#f8faf6;color:#81917f;font-weight:500;padding:12px 20px;border-color:#ecf0e8}.ws-v3 .tbl td{font-size:12px;padding:16px 20px;border-color:#edf0e9}.ws-v3 .tbl td b{font-weight:500}.ws-v3 .tbl tr:hover{background:#f5f8f2}.ws-v3 .hl.g{background:#f2f7ee;border-color:#e2ebda;color:#5b7753}.ws-disclosure{margin-top:20px;border:1px solid #e0e6de;background:#fff;border-radius:12px;overflow:hidden}.ws-disclosure>summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;list-style:none;padding:22px}.ws-disclosure>summary::-webkit-details-marker{display:none}.ws-disclosure summary b{display:block;font-size:13px;font-weight:500}.ws-disclosure summary small{display:block;font-size:10px;color:#8b978b;margin-top:5px}.ws-expand{font-size:22px;color:#7c9277;font-weight:300}.ws-disclosure[open] .ws-expand{transform:rotate(45deg)}.ws-disclosure-body{padding:0 18px 18px;display:grid;gap:18px}.ws-analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;min-width:0}.ws-analysis-grid>.card{min-width:0}.ws-v3 .form{gap:20px}.ws-v3 .fld input:focus,.ws-v3 .fld select:focus{border-color:#6f9570;box-shadow:0 0 0 3px #edf3e7}.ws-v3 .tip{background:#f0f5eb;border-color:#dfe9d7}.ws-mobile{display:none}.ws-v3 .toast{background:#243e2d}
+@media(min-width:1600px){.ws-main{grid-template-columns:minmax(0,1fr) 345px}.ws-wealth-chart .cw{height:275px}.ws-v3 .ws-main-asset .v{font-size:53px}.ws-wealth-top{padding-top:33px}.ws-activity{grid-template-columns:minmax(0,1fr)} }
+@media(max-width:1200px){.ws-v3 .body{padding-left:23px;padding-right:23px}.ws-main{grid-template-columns:minmax(0,1fr) 275px;gap:16px}.ws-operation{padding:18px 16px}.ws-v3 .ws-main-asset .v{font-size:36px}.ws-v3 .ws-main-return .v{font-size:22px}.ws-wealth-top{padding:25px 22px 0}.ws-supporting{padding:19px 22px;gap:13px}.ws-v3 .ws-supporting .kpi .v{font-size:18px}.ws-heading{gap:14px}.ws-heading h1{font-size:29px}}
+@media(max-width:980px){.ws-v3 .body{padding-left:22px;padding-right:22px;padding-bottom:90px}.ws-v3 .hd{padding-left:20px;padding-right:20px}.ws-main{grid-template-columns:minmax(0,1fr) 285px}.ws-v3 .ws-main-asset .v{font-size:36px}.ws-v3 .ws-main-return .v{font-size:22px}.ws-heading h1{font-size:28px}.ws-heading{margin-bottom:22px}.ws-mobile{display:none}.ws-v3 .ws-mobile{position:fixed;bottom:0;left:0;right:0;z-index:24;display:flex;background:#fafcf8;border-top:1px solid #dde5d7;padding:8px 10px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -5px 25px #243e2d06}.ws-mobile button{background:none;border:0;color:#8c9889;font:inherit;font-size:10px;display:flex;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:5px;min-height:44px;cursor:pointer}.ws-mobile i{font-size:16px}.ws-mobile button.selected{color:#2c623a;font-weight:700}.ws-v3 .toast{bottom:calc(80px + env(safe-area-inset-bottom))}.ws-v3 .ws-wealth-chart .sgb{min-height:40px}}
+@media(max-width:760px){.ws-main{grid-template-columns:1fr}.ws-rail{display:grid;grid-template-columns:1.3fr 1fr;gap:14px}.ws-operation{padding:19px}.ws-next{display:flex;flex-direction:column;justify-content:center}.ws-v3 .ws-main-asset .v{font-size:42px}.ws-v3 .ws-main-return .v{font-size:25px}.ws-wealth-chart .cw{height:240px}.ws-heading{align-items:flex-start}.ws-account{max-width:320px}.ws-account .sgb{padding:8px 13px}.ws-analysis-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.ws-v3 .hd{height:auto;min-height:55px;padding:8px 14px;gap:9px}.ws-v3 .hd .ttl{font-size:11px}.ws-v3 .hd .dt{font-size:9px}.ws-v3 .body{padding:9px 14px 94px}.ws-heading{display:block;margin:10px 0 17px}.ws-heading h1{font-size:27px;margin-top:7px}.ws-heading p{font-size:10px}.ws-overline{font-size:8px;letter-spacing:2px}.ws-account{margin:17px 0 0!important;max-width:none;width:100%;align-items:flex-start;gap:7px}.ws-account #acctSeg{width:100%;order:1}.ws-account #acctSeg .sgb{min-height:42px;font-size:12px;flex:1}.ws-account>span:nth-child(2){font-size:9px!important;order:2;flex-basis:auto!important}.ws-wealth{border-radius:12px}.ws-wealth-top{padding:22px 19px 0;align-items:flex-start}.ws-v3 .ws-main-asset .v{font-size:33px;letter-spacing:-1.5px}.ws-v3 .ws-main-return .v{font-size:20px;letter-spacing:-.7px;margin-top:11px}.ws-v3 .ws-main-return .s{font-size:9px;max-width:105px}.ws-v3 .ws-main-asset .lab,.ws-v3 .ws-main-return .lab{font-size:9px}.ws-v3 .ws-main-asset .s{font-size:9px}.ws-chart-context{padding:15px 19px 0;font-size:8px}.ws-wealth-chart>.ch{padding:12px 15px 0;gap:8px}.ws-wealth-chart>.ch>.ct{font-size:10px}.ws-wealth-chart .seg{width:100%;margin-top:0}.ws-wealth-chart .sgb{padding:5px 6px;font-size:11px}.ws-wealth-chart .cw{height:215px;padding:8px 9px 0}.ws-supporting{padding:17px 18px;gap:12px;margin-top:4px}.ws-v3 .ws-supporting .kpi .v{font-size:17px;letter-spacing:-.5px}.ws-v3 .ws-supporting .kpi .lab{font-size:9px}.ws-v3 .ws-supporting .kpi .s{font-size:8px}.ws-rail{display:flex;gap:13px}.ws-operation{padding:18px}.ws-strategy-count{margin-bottom:3px!important}.ws-v3 .ws-strategy-count .v{font-size:23px}.ws-v3 #slist>div{min-height:47px!important}.ws-next{padding:19px;display:grid;grid-template-columns:1fr auto;column-gap:10px}.ws-next .ws-overline{grid-column:1}.ws-next h2{font-size:15px;grid-column:1;margin:5px 0}.ws-next p{grid-column:1;font-size:9px;margin:0}.ws-next .ws-primary{grid-column:2;grid-row:1/4;align-self:center;width:auto;font-size:10px;min-height:44px;padding:10px}.ws-alert-row{margin:14px 0 18px}.ws-alert-card{display:block}.ws-alert-card>.ch{padding:10px 13px 0}.ws-alert-card .al{padding:9px 13px 12px;font-size:10px}.ws-activity{gap:15px}.ws-activity .ch{padding:16px}.ws-v3 .tbl th,.ws-v3 .tbl td{padding:13px 16px}.ws-v3 .tbl th{font-size:10px}.ws-v3 .tbl td{font-size:11px}.ws-disclosure{margin-top:16px}.ws-disclosure>summary{padding:18px}.ws-disclosure summary b{font-size:12px}.ws-disclosure summary small{font-size:9px}.ws-disclosure-body{padding:0 10px 12px}.ws-analysis-grid .card>.ch .ct{font-size:12px}}
+@media(max-width:359px){.ws-wealth-top{flex-direction:column;gap:12px}.ws-v3 .ws-main-return{text-align:left}.ws-v3 .ws-main-return>div{display:flex;gap:7px;align-items:center}.ws-v3 .ws-main-return .v{margin:0;font-size:18px}.ws-v3 .ws-main-return .s{margin:0}.ws-next{display:block}.ws-next .ws-primary{margin-top:14px;width:100%}.ws-v3 .ws-main-asset .v{font-size:34px}.ws-supporting{gap:9px;padding-left:14px;padding-right:14px}.ws-v3 .ws-supporting .kpi .v{font-size:15px}}
+@media print{.ws-mobile,.ws-next{display:none!important}.ws-main{display:block}.ws-rail{margin-top:15px}.ws-disclosure:not([open])>.ws-disclosure-body{display:block}.ws-v3 .sb{display:none}.ws-v3 .body{padding:0}}
+/* Keep trading-side colors distinct from performance colors. */
+.ws-v3 .tag.buy{background:#fff0f2;color:#c23030}.ws-v3 .tag.sell{background:#edf2ff;color:#315bd9}</style>
+<script id="ts-chart-theme">/* Visual-only Chart.js plugin. Does not wrap Chart or change business functions.
    Dataset values, labels, type, colors, fill/tension, axes, callbacks and events stay intact. */
 (function () {
   'use strict';
@@ -664,10 +672,8 @@ input,select,textarea{max-width:100%}button:disabled{opacity:.55;cursor:not-allo
       } finally { ctx.restore(); }
     }
   });
-}());
-
-</script>
-<!-- TS_RENEWAL_END -->
+}());</script>
+<!-- TS_V3_HEAD_END -->
 </head><body>
 <div class="wrap">
   <aside class="sb" id="sb">
@@ -1916,7 +1922,73 @@ $('scrim').onclick=function(){$('sb').classList.remove('open');$('scrim').classL
 $('refresh').onclick=function(){SER=null;loadAll();};
 buildNav();tick();setInterval(tick,1000);loadAll();
 setInterval(function(){if(PAGE==='dash'||PAGE==='mon')loadAll();},60000);
-</script></body></html>"""
+</script>
+<!-- TS_V3_FOOT_START -->
+<script id="ts-workspace-js">/* V3 presentation adapter. Load AFTER the original app script.
+ * Moves existing nodes: never replaces original controls, data or handlers.
+ * The original render remains the only business renderer. */
+(function(){
+ 'use strict';
+ if(typeof window.render!=='function'||window.__tsWorkspaceInstalled)return;
+ window.__tsWorkspaceInstalled=true;
+ var originalRender=window.render, enabled=true, previousPage=null;
+ var disclosure={};
+ function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text)n.textContent=text;return n;}
+ function link(text,page,cls){var b=el('button',cls||'ws-link',text);b.type='button';b.onclick=function(){window.go(page);};return b;}
+ function openGroup(id,title,sub,nodes){var d=el('details','ws-disclosure');d.id=id;d.open=!!disclosure[id];var sum=el('summary');var left=el('span');left.append(el('b','',title),el('small','',sub));sum.append(left,el('span','ws-expand','＋'));d.append(sum);var contents=el('div','ws-disclosure-body');nodes.forEach(n=>contents.append(n));d.append(contents);d.addEventListener('toggle',function(){disclosure[id]=d.open;if(d.open)requestAnimationFrame(function(){[window.C1,window.C2,window.C3].forEach(c=>{if(c&&c.resize)c.resize();});});});return d;}
+ function enhance(){
+  var page=document.getElementById('page');document.body.classList.toggle('ws-v3',enabled);
+  document.querySelectorAll('.ws-mobile button').forEach(b=>{b.classList.toggle('selected',b.dataset.page===window.PAGE);});
+  if(!enabled||!window.MET||window.PAGE!=='dash')return;
+  if(page.querySelector('.ws-dashboard'))return;
+  var kpis=page.querySelector('.kpis'),account=page.querySelector('#acctSeg');
+  var ids=['cw1','slist','lg2','rbars','psum','phold','ptr','palert'];
+  if(!kpis||kpis.children.length!==6||!account||ids.some(id=>!document.getElementById(id)))return;
+  var cards={};ids.forEach(id=>{cards[id]=document.getElementById(id).closest('.card');});
+  if(ids.some(id=>!cards[id]))return;
+  // Retain all original content. Collect references before changing layout.
+  var accountRow=account.parentElement,ks=Array.from(kpis.children),oldChildren=Array.from(page.children);
+  var shell=el('div','ws-dashboard');
+  var heading=el('section','ws-heading');var intro=el('div');intro.append(el('span','ws-overline','PORTFOLIO WORKSPACE'),el('h1','','투자 현황'),el('p','','자산의 흐름과 전략의 상태를 한눈에 확인하세요.'));heading.append(intro);accountRow.classList.add('ws-account');heading.append(accountRow);shell.append(heading);
+  var main=el('div','ws-main');var wealth=el('section','ws-wealth');
+  var wealthTop=el('div','ws-wealth-top');ks[0].classList.add('ws-main-asset');ks[2].classList.add('ws-main-return');wealthTop.append(ks[0],ks[2]);wealth.append(wealthTop);
+  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='nh'?'NH · 주차별 추이는 VR 메뉴에서 확인하세요.':window.ACCT==='all'?'전체 계좌 합산 자산 · 아래 추이는 별도 시계열 기준':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
+  cards.cw1.classList.add('ws-wealth-chart');wealth.append(cards.cw1);
+  var supporting=el('div','ws-supporting');[ks[3],ks[4],ks[5]].forEach(k=>supporting.append(k));wealth.append(supporting);main.append(wealth);
+  var rail=el('aside','ws-rail');var state=el('section','ws-operation');
+  var stateHead=el('div','ws-section-head');stateHead.append(el('h2','','운용 체크'),link('모니터링 ↗','mon'));state.append(stateHead);
+  var live=el('div','ws-live');live.append(el('span','ws-live-dot'),el('span','',window.MET.automation&&window.MET.automation.running?'자동매매 시스템 가동 중':'자동매매 시스템 상태 확인'));if(!window.MET.automation||!window.MET.automation.running)live.classList.add('attention');state.append(live);
+  ks[1].classList.add('ws-strategy-count');state.append(ks[1]);cards.slist.classList.add('ws-strategy-list');state.append(cards.slist);state.append(link('전략 설정 열기 →','strat','ws-wide-link'));rail.append(state);
+  var actions=el('section','ws-next');actions.append(el('span','ws-overline','ORDER DESK'),el('h2','','주문 흐름 확인'),el('p','','예정 주문부터 미체결·체결 내역까지'),link('주문 / 체결 확인 →','order','ws-primary'));rail.append(actions);main.append(rail);shell.append(main);
+  var alert=el('div','ws-alert-row');cards.palert.classList.add('ws-alert-card');alert.append(cards.palert);shell.append(alert);
+  var activity=el('div','ws-activity');cards.phold.classList.add('ws-holdings');cards.ptr.classList.add('ws-trades');
+  // Preserve original table cells and click handlers; only placement changes.
+  activity.append(cards.phold,cards.ptr);shell.append(activity);
+  var analysis=el('div','ws-analysis-grid');analysis.append(cards.lg2,cards.rbars);
+  shell.append(openGroup('ws-analysis','전략별 상세 분석','손익 구성 · 수익률 비교 · 성과 요약',[analysis,cards.psum]));
+  oldChildren.forEach(n=>{if(n.parentNode===page)n.remove();});page.append(shell);
+ }
+ function refresh(){var current=window.PAGE,same=current===previousPage;var y=typeof window.scrollY==='number'?window.scrollY:0;
+  document.querySelectorAll('.ws-disclosure').forEach(d=>{disclosure[d.id]=d.open;});
+  var result=originalRender.apply(this,arguments);enhance();previousPage=current;
+  if(typeof requestAnimationFrame==='function')requestAnimationFrame(function(){
+   // Resizing is presentation-only and preserves original dataset/options.
+   [window.C1,window.C2,window.C3].forEach(c=>{if(c&&c.resize)c.resize();});
+   if(same&&y>0)window.scrollTo(0,y);
+  });return result;
+ }
+ window.render=refresh;
+ window.tsSetWorkspace=function(value){enabled=!!value;var s=document.getElementById('ts-workspace-css');if(s)s.disabled=!enabled;refresh();};
+ var mobile=el('nav','ws-mobile');mobile.setAttribute('aria-label','빠른 메뉴');
+ [['dash','대시보드','fa-gauge-high'],['strat','전략','fa-sliders'],['order','주문','fa-receipt'],['menu','전체 메뉴','fa-bars']].forEach(a=>{
+  var b=el('button');b.type='button';b.dataset.page=a[0];var icon=el('i','fa-solid '+a[2]);b.append(icon,el('span','',a[1]));b.onclick=function(){if(a[0]==='menu')document.getElementById('hamb').click();else window.go(a[0]);};mobile.append(b);
+ });document.body.append(mobile);
+ document.getElementById('hamb').setAttribute('aria-label','전체 메뉴 열기');document.getElementById('refresh').setAttribute('aria-label','새로고침');
+ document.addEventListener('keydown',function(e){if(e.key==='Escape'){document.getElementById('sb').classList.remove('open');document.getElementById('scrim').classList.remove('show');}});
+ if(window.MET)refresh();else document.body.classList.add('ws-v3');
+}());</script>
+<!-- TS_V3_FOOT_END -->
+</body></html>"""
 
 
 @app.get("/", response_class=HTMLResponse)
