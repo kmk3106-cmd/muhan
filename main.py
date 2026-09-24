@@ -348,7 +348,7 @@ _SHELL_HTML = r"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 body{font-family:'Noto Sans KR','본고딕','Malgun Gothic','맑은 고딕',
 'Apple SD Gothic Neo',system-ui,sans-serif;
 background:var(--bg);color:var(--c0);-webkit-font-smoothing:antialiased;
-font-size:15px;letter-spacing:-.2px}
+font-size:calc(15px*var(--ts-fs,1));letter-spacing:-.2px}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--c3);
 border-radius:8px;border:2px solid transparent;background-clip:content-box}
 a{color:inherit;text-decoration:none}
@@ -357,105 +357,105 @@ a{color:inherit;text-decoration:none}
 inset:0 auto 0 0;display:flex;flex-direction:column;z-index:30}
 .brand{display:flex;align-items:center;gap:10px;padding:17px 18px;border-bottom:1px solid var(--line)}
 .brand .m{width:34px;height:34px;border-radius:9px;color:#fff;display:flex;align-items:center;
-justify-content:center;font-size:15px;background:linear-gradient(135deg,var(--blue),var(--indigo))}
-.brand b{font-size:16px;font-weight:800;letter-spacing:-.2px}
-.brand small{display:block;font-size:10px;color:var(--c2);letter-spacing:.2em;margin-top:1px}
+justify-content:center;font-size:calc(15px*var(--ts-fs,1));background:linear-gradient(135deg,var(--blue),var(--indigo))}
+.brand b{font-size:calc(16px*var(--ts-fs,1));font-weight:800;letter-spacing:-.2px}
+.brand small{display:block;font-size:calc(10px*var(--ts-fs,1));color:var(--c2);letter-spacing:.2em;margin-top:1px}
 .nav{flex:1;overflow-y:auto;padding:10px}
 .ni{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:none;
 background:none;cursor:pointer;padding:12px 13px;border-radius:9px;color:var(--c1);
-font-family:inherit;font-size:14.5px;font-weight:600;margin-bottom:3px;transition:.14s}
+font-family:inherit;font-size:calc(14.5px*var(--ts-fs,1));font-weight:600;margin-bottom:3px;transition:.14s}
 .ni:hover{background:var(--bg);color:var(--c0)}
 .ni.on{background:var(--blue);color:#fff;font-weight:600;box-shadow:0 4px 12px rgba(47,107,255,.28)}
-.ni .i{width:19px;text-align:center;font-size:15px;opacity:.7}.ni.on .i{opacity:1}
-.ni .ch{margin-left:auto;font-size:10px;opacity:.4}
-.sbhelp{margin:10px;padding:14px;border-radius:11px;background:var(--bg);font-size:12.5px;color:var(--c1)}
-.sbhelp b{display:block;color:var(--c0);font-size:13.5px;margin-bottom:4px}
+.ni .i{width:19px;text-align:center;font-size:calc(15px*var(--ts-fs,1));opacity:.7}.ni.on .i{opacity:1}
+.ni .ch{margin-left:auto;font-size:calc(10px*var(--ts-fs,1));opacity:.4}
+.sbhelp{margin:10px;padding:14px;border-radius:11px;background:var(--bg);font-size:calc(12.5px*var(--ts-fs,1));color:var(--c1)}
+.sbhelp b{display:block;color:var(--c0);font-size:calc(13.5px*var(--ts-fs,1));margin-bottom:4px}
 .mn{flex:1;margin-left:var(--sb);min-width:0;display:flex;flex-direction:column}
 .hd{height:var(--hd);background:var(--card);border-bottom:1px solid var(--line);display:flex;
 align-items:center;gap:16px;padding:0 24px;position:sticky;top:0;z-index:20}
-.hamb{display:none;border:none;background:none;font-size:18px;color:var(--c1);cursor:pointer}
-.hd .ttl{font-size:19px;font-weight:800;letter-spacing:-.3px}
+.hamb{display:none;border:none;background:none;font-size:calc(18px*var(--ts-fs,1));color:var(--c1);cursor:pointer}
+.hd .ttl{font-size:calc(19px*var(--ts-fs,1));font-weight:800;letter-spacing:-.3px}
 .hd .sp{flex:1}
-.hd .st{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--c1)}
+.hd .st{display:flex;align-items:center;gap:7px;font-size:calc(13px*var(--ts-fs,1));font-weight:600;color:var(--c1)}
 .hd .st .d{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-s)}
 .hd .st.off .d{background:var(--red);box-shadow:0 0 0 3px var(--red-s)}
-.hd .dt{font-size:13px;color:var(--c2);font-variant-numeric:tabular-nums}
-.btn{font-family:inherit;padding:9px 15px;border-radius:9px;font-size:13.5px;font-weight:600;
+.hd .dt{font-size:calc(13px*var(--ts-fs,1));color:var(--c2);font-variant-numeric:tabular-nums}
+.btn{font-family:inherit;padding:9px 15px;border-radius:9px;font-size:calc(13.5px*var(--ts-fs,1));font-weight:600;
 cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--c1);
 display:inline-flex;align-items:center;gap:7px;transition:.14s}
 .btn:hover{background:var(--bg);color:var(--c0)}
 .btn.p{background:var(--blue);color:#fff;border-color:var(--blue)}
 .btn.p:hover{background:#2358e0;color:#fff}
-.btn.sm{padding:6px 11px;font-size:12.5px}
+.btn.sm{padding:6px 11px;font-size:calc(12.5px*var(--ts-fs,1))}
 .btn.dg{color:var(--red);border-color:var(--red-s)}.btn.dg:hover{background:var(--red-s)}
 .body{padding:24px 26px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:14px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--rd);padding:16px 18px;
 box-shadow:var(--sh);display:flex;align-items:flex-start;gap:12px}
 .kpi .ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;
-justify-content:center;font-size:14px;background:var(--blue-s);color:var(--blue);flex-shrink:0}
+justify-content:center;font-size:calc(14px*var(--ts-fs,1));background:var(--blue-s);color:var(--blue);flex-shrink:0}
 .kpi .ic.g{background:var(--green-s);color:var(--green)}.kpi .ic.r{background:var(--red-s);color:var(--red)}
 .kpi .ic.n{background:var(--bg);color:var(--c2)}.kpi .ic.a{background:var(--amber-s);color:var(--amber)}
-.kpi .lab{font-size:13px;color:var(--c1);font-weight:500}
-.kpi .v{font-size:25px;font-weight:800;color:var(--c0);margin-top:7px;letter-spacing:-.5px;
+.kpi .lab{font-size:calc(13px*var(--ts-fs,1));color:var(--c1);font-weight:500}
+.kpi .v{font-size:calc(25px*var(--ts-fs,1));font-weight:800;color:var(--c0);margin-top:7px;letter-spacing:-.5px;
 font-variant-numeric:tabular-nums;line-height:1.1}
 .kpi .v.up{color:var(--green)}.kpi .v.down{color:var(--red)}
-.kpi .v small{font-size:13px;font-weight:600;color:var(--c2)}
-.kpi .s{font-size:12px;margin-top:7px;color:var(--c2);font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:calc(13px*var(--ts-fs,1));font-weight:600;color:var(--c2)}
+.kpi .s{font-size:calc(12px*var(--ts-fs,1));margin-top:7px;color:var(--c2);font-variant-numeric:tabular-nums}
 .up{color:var(--green);font-weight:700}.dn{color:var(--red);font-weight:700}
 .grid{display:grid;gap:16px;margin-top:16px}
 .g-3-1{grid-template-columns:2fr 1fr}.g-2{grid-template-columns:1fr 1fr}
 @media(max-width:1080px){.g-3-1,.g-2{grid-template-columns:1fr}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--rd);box-shadow:var(--sh)}
 .ch{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
-.ch .ct{font-size:15.5px;font-weight:800;flex:1}.ch .ct i{color:var(--c3);margin-right:7px}
-.ch .lk{font-size:12.5px;color:var(--blue);font-weight:600;cursor:pointer}
+.ch .ct{font-size:calc(15.5px*var(--ts-fs,1));font-weight:800;flex:1}.ch .ct i{color:var(--c3);margin-right:7px}
+.ch .lk{font-size:calc(12.5px*var(--ts-fs,1));color:var(--blue);font-weight:600;cursor:pointer}
 .seg{display:flex;gap:2px;background:var(--bg);padding:3px;border-radius:8px}
-.sgb{border:none;background:none;color:var(--c2);font-family:inherit;font-weight:600;font-size:12.5px;
+.sgb{border:none;background:none;color:var(--c2);font-family:inherit;font-weight:600;font-size:calc(12.5px*var(--ts-fs,1));
 padding:6px 12px;border-radius:6px;cursor:pointer}.sgb.on{background:#fff;color:var(--c0);box-shadow:var(--sh)}
 .cw{position:relative;height:264px;padding:14px 16px}
 .donut-w{position:relative;height:200px}.donut-c{position:absolute;inset:0;display:flex;
 flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
-.donut-c s{font-size:12px;color:var(--c2)}.donut-c b{font-size:20px;font-weight:800;margin-top:2px}
+.donut-c s{font-size:calc(12px*var(--ts-fs,1));color:var(--c2)}.donut-c b{font-size:calc(20px*var(--ts-fs,1));font-weight:800;margin-top:2px}
 .lg{padding:6px 18px 16px;display:flex;flex-direction:column;gap:8px}
-.lg .r{display:flex;align-items:center;gap:8px;font-size:13.5px}
+.lg .r{display:flex;align-items:center;gap:8px;font-size:calc(13.5px*var(--ts-fs,1))}
 .lg .r i{width:9px;height:9px;border-radius:3px;flex-shrink:0}.lg .r .n{flex:1;color:var(--c1)}
 .lg .r .a{font-weight:700;font-variant-numeric:tabular-nums}.lg .r .p{color:var(--c2);width:46px;text-align:right}
 .bars{padding:14px 18px;display:flex;flex-direction:column;gap:13px}
-.bar{font-size:13.5px}.bar .t{display:flex;justify-content:space-between;margin-bottom:5px}
+.bar{font-size:calc(13.5px*var(--ts-fs,1))}.bar .t{display:flex;justify-content:space-between;margin-bottom:5px}
 .bar .t b{font-weight:700;font-variant-numeric:tabular-nums}
 .bar .tr{height:8px;background:var(--bg);border-radius:6px;overflow:hidden}
 .bar .tr i{display:block;height:100%;border-radius:6px}
-.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl{width:100%;border-collapse:collapse;font-size:calc(14px*var(--ts-fs,1))}
 .tbl th{text-align:left;color:var(--c1);font-weight:600;padding:13px 18px;
-border-bottom:1px solid var(--line);font-size:12.5px;letter-spacing:0;background:#f7f9fc}
+border-bottom:1px solid var(--line);font-size:calc(12.5px*var(--ts-fs,1));letter-spacing:0;background:#f7f9fc}
 .tbl td{padding:13px 18px;border-bottom:1px solid var(--line);color:var(--c1);font-variant-numeric:tabular-nums}
 .tbl tbody tr:hover{background:#fafbfe}.tbl tr:last-child td{border-bottom:0}.tbl td b{color:var(--c0)}
 .dn8{display:inline-flex;align-items:center;gap:8px}.dn8 i{width:8px;height:8px;border-radius:50%}
-.bdg{padding:5px 11px;border-radius:16px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
+.bdg{padding:5px 11px;border-radius:16px;font-size:calc(12.5px*var(--ts-fs,1));font-weight:700;display:inline-flex;align-items:center;gap:5px}
 .bdg::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .bdg.run{background:var(--green-s);color:#15803d}.bdg.stop{background:var(--red-s);color:#c23030}
 .bdg.part{background:var(--amber-s);color:#b45309}
-.tag{padding:4px 10px;border-radius:6px;font-size:12.5px;font-weight:700}
+.tag{padding:4px 10px;border-radius:6px;font-size:calc(12.5px*var(--ts-fs,1));font-weight:700}
 .tag.buy{background:var(--red-s);color:#c23030}.tag.sell{background:var(--blue-s);color:var(--blue)}
-.al{display:flex;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);font-size:13px}
+.al{display:flex;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);font-size:calc(13px*var(--ts-fs,1))}
 .al:last-child{border-bottom:0}.al .ad{width:7px;height:7px;border-radius:50%;margin-top:5px;flex-shrink:0}
 .al .ad.e{background:var(--red)}.al .ad.w{background:var(--amber)}.al .ad.i{background:var(--green)}
 .al .am{flex:1;color:var(--c1);line-height:1.5;word-break:break-all}
-.al .at{display:block;color:var(--c2);font-size:10.5px;margin-top:3px;font-variant-numeric:tabular-nums}
+.al .at{display:block;color:var(--c2);font-size:calc(10.5px*var(--ts-fs,1));margin-top:3px;font-variant-numeric:tabular-nums}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;
-color:var(--c2);text-align:center;gap:9px;padding:30px}.empty i{font-size:28px;color:var(--c3)}
-.empty .t{font-size:14.5px;font-weight:700;color:var(--c1)}.empty .s{font-size:12.5px}
-.muted{color:var(--c2);font-size:13.5px;padding:26px;text-align:center}
+color:var(--c2);text-align:center;gap:9px;padding:30px}.empty i{font-size:calc(28px*var(--ts-fs,1));color:var(--c3)}
+.empty .t{font-size:calc(14.5px*var(--ts-fs,1));font-weight:700;color:var(--c1)}.empty .s{font-size:calc(12.5px*var(--ts-fs,1))}
+.muted{color:var(--c2);font-size:calc(13.5px*var(--ts-fs,1));padding:26px;text-align:center}
 .form{padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:720px){.form{grid-template-columns:1fr}}
-.fld label{display:block;font-size:13px;color:var(--c1);font-weight:600;margin-bottom:7px}
+.fld label{display:block;font-size:calc(13px*var(--ts-fs,1));color:var(--c1);font-weight:600;margin-bottom:7px}
 .fld input,.fld select{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;
-font-family:inherit;font-size:14.5px;color:var(--c0);background:#fff}
+font-family:inherit;font-size:calc(14.5px*var(--ts-fs,1));color:var(--c0);background:#fff}
 .fld input:focus,.fld select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-s)}
-.fnote{grid-column:1/-1;font-size:12.5px;color:var(--c2)}
+.fnote{grid-column:1/-1;font-size:calc(12.5px*var(--ts-fs,1));color:var(--c2)}
 .fact{grid-column:1/-1;display:flex;gap:9px;justify-content:flex-end}
-.tip{font-size:13px;color:var(--c1);background:var(--blue-s);padding:12px 15px;border-radius:9px;
+.tip{font-size:calc(13px*var(--ts-fs,1));color:var(--c1);background:var(--blue-s);padding:12px 15px;border-radius:9px;
 margin:0 18px 16px;display:flex;gap:8px;align-items:flex-start}.tip i{color:var(--blue);margin-top:2px}
 /* 강조 음영박스 — 핵심 수치·주의문구용 */
 .hl{background:var(--blue-s);border:1px solid #d6e2ff;border-radius:10px;padding:12px 15px}
@@ -473,18 +473,18 @@ padding:3px 9px;font-weight:700;font-variant-numeric:tabular-nums}
 .hidden{display:none!important}
 .scrim{display:none;position:fixed;inset:0;background:rgba(20,28,46,.45);z-index:25}
 .toast{position:fixed;right:20px;bottom:20px;background:var(--c0);color:#fff;padding:14px 19px;
-border-radius:10px;font-size:13.5px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;
+border-radius:10px;font-size:calc(13.5px*var(--ts-fs,1));z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;
 transform:translateY(8px);transition:.2s;pointer-events:none}.toast.s{opacity:1;transform:none}
 @media(max-width:980px){.sb{transform:translateX(-100%);transition:.25s}.sb.open{transform:none}
 .mn{margin-left:0}.hamb{display:block}.scrim.show{display:block}.body{padding:14px}}
 .vtblk{padding:15px 18px;border-bottom:1px solid var(--line)}.vtblk:last-child{border-bottom:0}
-.vth{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.vth{display:flex;align-items:center;gap:10px;font-size:calc(14.5px*var(--ts-fs,1))}
 .trcells{display:flex;flex-wrap:wrap;gap:6px;padding:11px 0 10px}
 .trc{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;
-border-radius:8px;background:var(--bg);color:var(--c2);font-size:12.5px;font-weight:700;
+border-radius:8px;background:var(--bg);color:var(--c2);font-size:calc(12.5px*var(--ts-fs,1));font-weight:700;
 border:1px solid var(--line)}
 .trc.on{background:var(--green-s);color:#15803d;border-color:#bfe6cc}
-.vtblk details summary{cursor:pointer;font-size:11.5px;color:var(--blue);font-weight:600;
+.vtblk details summary{cursor:pointer;font-size:calc(11.5px*var(--ts-fs,1));color:var(--blue);font-weight:600;
 list-style:none;display:inline-block}.vtblk details summary::-webkit-details-marker{display:none}
 .vtblk details[open] summary{margin-bottom:9px}
 
@@ -509,7 +509,7 @@ height:calc(var(--hd) + env(safe-area-inset-top))}
 /* 태블릿/세로 — 980px 이하: 사이드바 드로어 + 안전영역 보정 */
 @media(max-width:980px){
   .hd{gap:10px}
-  .hd .ttl{font-size:16.5px;flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hd .ttl{font-size:calc(16.5px*var(--ts-fs,1));flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hamb{min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;
   margin-left:calc(-1 * 6px)}
   .sb{width:min(82vw,260px);box-shadow:0 0 0 100vmax rgba(0,0,0,0)}
@@ -538,36 +538,36 @@ height:calc(var(--hd) + env(safe-area-inset-top))}
 @media(max-width:600px){
   .hd{height:calc(54px + env(safe-area-inset-top));padding-left:max(14px,env(safe-area-inset-left));
   padding-right:max(14px,env(safe-area-inset-right))}
-  .hd .ttl{font-size:15.5px}
+  .hd .ttl{font-size:calc(15.5px*var(--ts-fs,1))}
   .hd .dt{display:none}                 /* 날짜시계 숨김(공간확보) */
   .hd .st #stt{display:none}            /* 연결상태 텍스트 숨김, 점만 유지 */
   .hd .st{gap:0}
   #refresh{font-size:0;padding:9px 11px;min-width:40px;justify-content:center} /* 아이콘만 */
-  #refresh i{font-size:14px}
+  #refresh i{font-size:calc(14px*var(--ts-fs,1))}
   .kpis{grid-template-columns:1fr 1fr;gap:10px}
   .kpi{padding:13px 13px;gap:10px}
-  .kpi .ic{width:32px;height:32px;font-size:13px}
-  .kpi .lab{font-size:12.5px}
+  .kpi .ic{width:32px;height:32px;font-size:calc(13px*var(--ts-fs,1))}
+  .kpi .lab{font-size:calc(12.5px*var(--ts-fs,1))}
   .cw{height:230px;padding:12px 8px}
   .donut-w{height:184px}
   .ch{padding:13px 14px;flex-wrap:wrap;row-gap:8px}   /* 제목·컨트롤 겹침 방지: 줄바꿈 허용 */
-  .ch .ct{font-size:14.5px;min-width:0}
+  .ch .ct{font-size:calc(14.5px*var(--ts-fs,1));min-width:0}
   .kpi>div{min-width:0}
-  .kpi .v{font-size:21px;letter-spacing:-.3px;overflow-wrap:anywhere}
+  .kpi .v{font-size:calc(21px*var(--ts-fs,1));letter-spacing:-.3px;overflow-wrap:anywhere}
   .kpi .s{overflow-wrap:anywhere}
   .tbl th,.tbl td{padding:11px 13px}
   .form{padding:15px;gap:12px}
   .fact{flex-direction:column-reverse}
   .fact .btn{width:100%;justify-content:center}
   /* iOS 입력 포커스 시 자동 줌 방지 — 폰트 ≥16px */
-  .fld input,.fld select{font-size:16px;padding:12px 13px}
-  .btn,.btn.sm,.sgb,.ni{font-size:14px}
+  .fld input,.fld select{font-size:calc(16px*var(--ts-fs,1));padding:12px 13px}
+  .btn,.btn.sm,.sgb,.ni{font-size:calc(14px*var(--ts-fs,1))}
 }
 
 /* 소형 폰 — 380px 이하: KPI 1열 */
 @media(max-width:380px){
   .kpis{grid-template-columns:1fr}
-  .hd .ttl{font-size:14.5px}
+  .hd .ttl{font-size:calc(14.5px*var(--ts-fs,1))}
   .body{padding:11px 11px calc(16px + env(safe-area-inset-bottom))}
 }
 
@@ -580,67 +580,67 @@ height:calc(var(--hd) + env(safe-area-inset-top))}
 <style id="ts-renewal-theme">/* Trading Suite Professional — presentation-only overlay, 2026-09-22.
    Keep original CSS first. No controls, columns or status messages are hidden. */
 :root{--blue:#315bd9;--blue-s:#edf2ff;--indigo:#7264cf;--green:#158466;--green-s:#edf8f3;--red:#d44d59;--red-s:#fff0f2;--amber:#aa6b16;--amber-s:#fff6e8;--bg:#f4f6fa;--card:#fff;--line:#e5eaf2;--c0:#18283f;--c1:#52617a;--c2:#728098;--c3:#b7c2d4;--sb:226px;--hd:76px;--rd:14px;--sh:0 3px 16px rgba(22,40,72,.025)}
-body{font-family:Inter,'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;line-height:1.6;letter-spacing:-.25px}
+body{font-family:Inter,'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:calc(14px*var(--ts-fs,1));line-height:1.6;letter-spacing:-.25px}
 .sb{background:#152239;border-right:1px solid #253650;color:#b5c3d8}
 .brand{padding:26px 20px;border-color:#2b3a52;gap:12px;min-height:100px}
-.brand b{color:#f4f7fd;font-size:15px;letter-spacing:.15px;font-weight:700}
-.brand small{color:#93a8c8;font-size:9px;letter-spacing:2.6px;margin-top:4px}
+.brand b{color:#f4f7fd;font-size:calc(15px*var(--ts-fs,1));letter-spacing:.15px;font-weight:700}
+.brand small{color:#93a8c8;font-size:calc(9px*var(--ts-fs,1));letter-spacing:2.6px;margin-top:4px}
 .brand .m{background:#3966dd;border-radius:10px;box-shadow:0 4px 14px #0b162b40}
 .nav{padding:22px 13px;scrollbar-color:#4e607a transparent}
-.ni{font-size:13px;font-weight:500;padding:13px 14px;min-height:46px;margin-bottom:5px;color:#b6c5dd;border-radius:8px;transition:background .15s}
+.ni{font-size:calc(13px*var(--ts-fs,1));font-weight:500;padding:13px 14px;min-height:46px;margin-bottom:5px;color:#b6c5dd;border-radius:8px;transition:background .15s}
 .ni:hover{background:#223550;color:#fff}.ni.on{background:#2c4265;box-shadow:inset 3px 0 #83a4ff;color:#fff}
-.ni .ch{border:0;padding:0}.ni .i{font-size:15px}.ni:nth-child(9){margin-top:24px}
-.sbhelp{margin:12px 14px 20px;padding:16px;border-radius:10px;background:#1d2e47;color:#a9bcd8;font-size:11px;border:1px solid #2b3d59;line-height:1.9}
-.sbhelp b{color:#dce6f8;font-size:12px;font-weight:600}
+.ni .ch{border:0;padding:0}.ni .i{font-size:calc(15px*var(--ts-fs,1))}.ni:nth-child(9){margin-top:24px}
+.sbhelp{margin:12px 14px 20px;padding:16px;border-radius:10px;background:#1d2e47;color:#a9bcd8;font-size:calc(11px*var(--ts-fs,1));border:1px solid #2b3d59;line-height:1.9}
+.sbhelp b{color:#dce6f8;font-size:calc(12px*var(--ts-fs,1));font-weight:600}
 .hd{padding-left:30px;padding-right:30px;gap:16px;background:rgba(255,255,255,.97);box-shadow:none}
-.hd .ttl{font-size:21px;font-weight:700;letter-spacing:-.8px}.hd .dt{font-size:11px;color:var(--c2)}
-.hd .st{font-size:11px;font-weight:500;background:#f3f7f6;border:1px solid #e4eeea;padding:6px 10px;border-radius:6px}
+.hd .ttl{font-size:calc(21px*var(--ts-fs,1));font-weight:700;letter-spacing:-.8px}.hd .dt{font-size:calc(11px*var(--ts-fs,1));color:var(--c2)}
+.hd .st{font-size:calc(11px*var(--ts-fs,1));font-weight:500;background:#f3f7f6;border:1px solid #e4eeea;padding:6px 10px;border-radius:6px}
 .hd .st.off{background:var(--red-s);border-color:#f3dce0}.hd .st .d{width:6px;height:6px;box-shadow:none}
 .body{width:100%;max-width:1800px;margin:0 auto;padding:28px 30px 44px}
-.btn{min-height:40px;font-size:12px;padding:9px 14px;border-radius:7px;font-weight:600;border-color:#dce3ee}
-.btn.sm{min-height:36px;font-size:12px}.btn.p{box-shadow:0 2px 4px #315bd918}.btn.dg{border-color:#f2ccd3}
+.btn{min-height:40px;font-size:calc(12px*var(--ts-fs,1));padding:9px 14px;border-radius:7px;font-weight:600;border-color:#dce3ee}
+.btn.sm{min-height:36px;font-size:calc(12px*var(--ts-fs,1))}.btn.p{box-shadow:0 2px 4px #315bd918}.btn.dg{border-color:#f2ccd3}
 button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #85a8ff;outline-offset:3px}
 input,select,textarea{max-width:100%}button:disabled{opacity:.55;cursor:not-allowed}
 .grid{gap:20px;margin-top:20px;min-width:0;align-items:start}.grid>*{min-width:0}
 .g-3-1{grid-template-columns:minmax(0,1.9fr) minmax(280px,1fr)}.g-2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .card{min-width:0;overflow-x:auto;overscroll-behavior-x:contain;box-shadow:var(--sh)}
 .ch{padding:18px 21px;gap:12px;flex-wrap:wrap;border-bottom:1px solid #edf0f5;min-width:0}
-.ch .ct{font-size:14px;font-weight:700;min-width:0;letter-spacing:-.35px}.ch .ct i{color:#7b90b4;font-size:13px;margin-right:9px}
-.ch .lk{font-size:11px}.ch .seg{flex-shrink:0;max-width:100%;overflow-x:auto}
+.ch .ct{font-size:calc(14px*var(--ts-fs,1));font-weight:700;min-width:0;letter-spacing:-.35px}.ch .ct i{color:#7b90b4;font-size:calc(13px*var(--ts-fs,1));margin-right:9px}
+.ch .lk{font-size:calc(11px*var(--ts-fs,1))}.ch .seg{flex-shrink:0;max-width:100%;overflow-x:auto}
 #page>.ch{min-height:65px;box-shadow:none!important;padding:13px 18px}
 .kpis{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .kpi{padding:20px 17px;position:relative;min-width:0;display:block;min-height:148px;box-shadow:none}
-.kpi>.ic{position:absolute;right:15px;top:16px;width:25px;height:25px;background:transparent!important;color:#91a2bf;font-size:13px}
-.kpi .lab{padding-right:23px;font-size:12px;color:#64758e;font-weight:500;line-height:1.5}
-.kpi .v{font-size:clamp(20px,1.65vw,29px);font-weight:700;letter-spacing:-1px;line-height:1.25;margin-top:18px;overflow-wrap:anywhere}
-.kpi .s{font-size:11px;color:#728098;margin-top:10px;line-height:1.6;overflow-wrap:anywhere}
+.kpi>.ic{position:absolute;right:15px;top:16px;width:25px;height:25px;background:transparent!important;color:#91a2bf;font-size:calc(13px*var(--ts-fs,1))}
+.kpi .lab{padding-right:23px;font-size:calc(12px*var(--ts-fs,1));color:#64758e;font-weight:500;line-height:1.5}
+.kpi .v{font-size:calc(clamp(20px,1.65vw,29px)*var(--ts-fs,1));font-weight:700;letter-spacing:-1px;line-height:1.25;margin-top:18px;overflow-wrap:anywhere}
+.kpi .s{font-size:calc(11px*var(--ts-fs,1));color:#728098;margin-top:10px;line-height:1.6;overflow-wrap:anywhere}
 .kpi.hi{background:linear-gradient(125deg,#ecf1ff,#f6f8ff);border-color:#dbe4ff;box-shadow:none}
 .kpi.hi .v{color:#274ea6}.kpi .v.up{color:var(--green)}.kpi .v.down{color:var(--red)}
 .seg{background:#f0f3f8;border:1px solid #e9edf4;padding:3px;border-radius:7px;gap:3px}
-.sgb{padding:7px 11px;font-size:11px;min-height:33px;white-space:nowrap;border-radius:5px;color:#67778f}
+.sgb{padding:7px 11px;font-size:calc(11px*var(--ts-fs,1));min-height:33px;white-space:nowrap;border-radius:5px;color:#67778f}
 .sgb.on{color:#23479f;box-shadow:0 1px 5px #1c366315;background:white}
-.cw{height:320px;padding:18px 20px 12px}.donut-w{height:214px;margin-top:18px}.donut-c s{text-decoration:none;font-size:11px}.donut-c b{font-size:24px;letter-spacing:-.7px}
-.lg{padding:20px 22px 24px;gap:11px}.lg .r{font-size:12px}.lg .r .p{font-size:11px}
-.bars{padding:25px 23px;gap:22px}.bar{font-size:12px}.bar .t{margin-bottom:10px;gap:10px}.bar .tr{height:7px;background:#edf1f7}
+.cw{height:320px;padding:18px 20px 12px}.donut-w{height:214px;margin-top:18px}.donut-c s{text-decoration:none;font-size:calc(11px*var(--ts-fs,1))}.donut-c b{font-size:calc(24px*var(--ts-fs,1));letter-spacing:-.7px}
+.lg{padding:20px 22px 24px;gap:11px}.lg .r{font-size:calc(12px*var(--ts-fs,1))}.lg .r .p{font-size:calc(11px*var(--ts-fs,1))}
+.bars{padding:25px 23px;gap:22px}.bar{font-size:calc(12px*var(--ts-fs,1))}.bar .t{margin-bottom:10px;gap:10px}.bar .tr{height:7px;background:#edf1f7}
 #slist>div{min-height:63px;flex-wrap:wrap;row-gap:6px}#slist b{font-weight:600;min-width:105px}
-.tbl{font-size:12px;white-space:nowrap}.tbl th{background:#f7f9fc;color:#718198;font-weight:500;font-size:11px;padding:13px 20px;letter-spacing:0}
+.tbl{font-size:calc(12px*var(--ts-fs,1));white-space:nowrap}.tbl th{background:#f7f9fc;color:#718198;font-weight:500;font-size:calc(11px*var(--ts-fs,1));padding:13px 20px;letter-spacing:0}
 .tbl td{padding:16px 20px;border-bottom:1px solid #edf1f7;line-height:1.55}.tbl td b{font-weight:600}.tbl tbody tr:hover{background:#f7faff}
-.bdg{font-size:10px;font-weight:600;padding:4px 8px;border-radius:5px;white-space:nowrap;line-height:1.5}.bdg::before{width:5px;height:5px}
-.tag{font-size:10px;border-radius:4px;padding:4px 7px}.up,.dn{font-weight:600}
-.al{padding:16px 21px;font-size:12px}.al .at{font-size:10px}.empty{min-height:240px}.empty .s{line-height:1.9}
-.form{padding:23px;gap:19px}.fld{min-width:0}.fld label{font-size:12px;font-weight:500;margin-bottom:8px}.fld input,.fld select{border-color:#dce3ed;border-radius:7px;font-size:14px;min-height:44px}
-.tip{font-size:12px;line-height:1.85;border:1px solid #e1e8fa;margin:0 22px 20px;background:#f4f7ff}.fnote{font-size:12px;line-height:1.8}
+.bdg{font-size:calc(10px*var(--ts-fs,1));font-weight:600;padding:4px 8px;border-radius:5px;white-space:nowrap;line-height:1.5}.bdg::before{width:5px;height:5px}
+.tag{font-size:calc(10px*var(--ts-fs,1));border-radius:4px;padding:4px 7px}.up,.dn{font-weight:600}
+.al{padding:16px 21px;font-size:calc(12px*var(--ts-fs,1))}.al .at{font-size:calc(10px*var(--ts-fs,1))}.empty{min-height:240px}.empty .s{line-height:1.9}
+.form{padding:23px;gap:19px}.fld{min-width:0}.fld label{font-size:calc(12px*var(--ts-fs,1));font-weight:500;margin-bottom:8px}.fld input,.fld select{border-color:#dce3ed;border-radius:7px;font-size:calc(14px*var(--ts-fs,1));min-height:44px}
+.tip{font-size:calc(12px*var(--ts-fs,1));line-height:1.85;border:1px solid #e1e8fa;margin:0 22px 20px;background:#f4f7ff}.fnote{font-size:calc(12px*var(--ts-fs,1));line-height:1.8}
 .fact{flex-wrap:wrap}.hl{line-height:1.8;border-radius:8px}.vtblk{padding:20px}.trc{width:36px;height:36px;border-radius:6px}.vth{flex-wrap:wrap}
-.toast{max-width:min(520px,calc(100vw - 28px));font-size:12px;border-radius:8px}.muted{line-height:1.8}
-@media(min-width:981px) and (max-width:1350px){:root{--sb:208px}.body{padding:24px}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi{min-height:138px}.kpi .v{font-size:26px}.g-3-1{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr)}}
-@media(max-width:980px){.sb{width:min(82vw,280px)}.body{padding:22px max(20px,env(safe-area-inset-left)) calc(30px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-right))}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi .v{font-size:25px}.g-3-1,.g-2{grid-template-columns:1fr}.hd{padding-left:20px;padding-right:20px;gap:10px}.hd .ttl{font-size:19px}.btn,.btn.sm,.sgb,.hamb,.ni{min-height:44px}.cw{height:310px}.tbl td{padding:15px 18px}.ch .seg{flex-wrap:wrap}.form{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){.hd{height:auto;min-height:70px;padding:10px max(12px,env(safe-area-inset-left));padding-top:calc(10px + env(safe-area-inset-top));gap:7px;flex-wrap:wrap}.hd .ttl{font-size:17px}.hd .dt{display:block;order:5;flex-basis:100%;font-size:10px;text-align:right;line-height:1.3}.hd .st #stt{display:inline}.hd .st{padding:5px 7px;font-size:10px;gap:5px}.hd .sp{min-width:0}#refresh{font-size:0;min-height:44px;min-width:44px;padding:9px}#refresh i{font-size:14px}.hamb{margin-left:0;min-width:36px}.body{padding:16px max(12px,env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-right))}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{padding:16px 13px;min-height:135px}.kpi .v{font-size:23px;margin-top:17px}.kpi .s{font-size:10px}.kpi .lab{font-size:11px}.kpi>.ic{right:12px;top:11px;width:21px}.grid{gap:14px;margin-top:14px}.ch{padding:15px;gap:10px}.ch .ct{font-size:13px;flex-basis:auto}.ch .seg{width:100%;flex-wrap:wrap}.sgb{font-size:12px;flex:1;padding:8px}.cw{height:265px;padding:12px 8px}.tbl th,.tbl td{padding:13px 15px}.form{grid-template-columns:1fr;padding:18px;gap:15px}.fld input,.fld select,input,select,textarea{font-size:16px}.fact .btn{min-height:46px}.tip{margin:0 15px 16px}.lg{padding:18px 16px}.lg .r{font-size:11px}#page>.ch{flex-wrap:wrap!important;gap:8px;padding:13px!important}#page>.ch>span:nth-child(2){flex-basis:70%!important;white-space:normal!important;overflow:visible!important}#acctSeg{width:100%;justify-content:space-between}.btn.sm{font-size:12px}.trc{width:36px;height:36px}}
-@media(max-width:359px){.kpis{grid-template-columns:1fr}.hd .st{font-size:9px}.hd .ttl{font-size:15px}}
+.toast{max-width:min(520px,calc(100vw - 28px));font-size:calc(12px*var(--ts-fs,1));border-radius:8px}.muted{line-height:1.8}
+@media(min-width:981px) and (max-width:1350px){:root{--sb:208px}.body{padding:24px}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi{min-height:138px}.kpi .v{font-size:calc(26px*var(--ts-fs,1))}.g-3-1{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr)}}
+@media(max-width:980px){.sb{width:min(82vw,280px)}.body{padding:22px max(20px,env(safe-area-inset-left)) calc(30px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-right))}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi .v{font-size:calc(25px*var(--ts-fs,1))}.g-3-1,.g-2{grid-template-columns:1fr}.hd{padding-left:20px;padding-right:20px;gap:10px}.hd .ttl{font-size:calc(19px*var(--ts-fs,1))}.btn,.btn.sm,.sgb,.hamb,.ni{min-height:44px}.cw{height:310px}.tbl td{padding:15px 18px}.ch .seg{flex-wrap:wrap}.form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.hd{height:auto;min-height:70px;padding:10px max(12px,env(safe-area-inset-left));padding-top:calc(10px + env(safe-area-inset-top));gap:7px;flex-wrap:wrap}.hd .ttl{font-size:calc(17px*var(--ts-fs,1))}.hd .dt{display:block;order:5;flex-basis:100%;font-size:calc(10px*var(--ts-fs,1));text-align:right;line-height:1.3}.hd .st #stt{display:inline}.hd .st{padding:5px 7px;font-size:calc(10px*var(--ts-fs,1));gap:5px}.hd .sp{min-width:0}#refresh{font-size:0;min-height:44px;min-width:44px;padding:9px}#refresh i{font-size:calc(14px*var(--ts-fs,1))}.hamb{margin-left:0;min-width:36px}.body{padding:16px max(12px,env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-right))}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{padding:16px 13px;min-height:135px}.kpi .v{font-size:calc(23px*var(--ts-fs,1));margin-top:17px}.kpi .s{font-size:calc(10px*var(--ts-fs,1))}.kpi .lab{font-size:calc(11px*var(--ts-fs,1))}.kpi>.ic{right:12px;top:11px;width:21px}.grid{gap:14px;margin-top:14px}.ch{padding:15px;gap:10px}.ch .ct{font-size:calc(13px*var(--ts-fs,1));flex-basis:auto}.ch .seg{width:100%;flex-wrap:wrap}.sgb{font-size:calc(12px*var(--ts-fs,1));flex:1;padding:8px}.cw{height:265px;padding:12px 8px}.tbl th,.tbl td{padding:13px 15px}.form{grid-template-columns:1fr;padding:18px;gap:15px}.fld input,.fld select,input,select,textarea{font-size:calc(16px*var(--ts-fs,1))}.fact .btn{min-height:46px}.tip{margin:0 15px 16px}.lg{padding:18px 16px}.lg .r{font-size:calc(11px*var(--ts-fs,1))}#page>.ch{flex-wrap:wrap!important;gap:8px;padding:13px!important}#page>.ch>span:nth-child(2){flex-basis:70%!important;white-space:normal!important;overflow:visible!important}#acctSeg{width:100%;justify-content:space-between}.btn.sm{font-size:calc(12px*var(--ts-fs,1))}.trc{width:36px;height:36px}}
+@media(max-width:359px){.kpis{grid-template-columns:1fr}.hd .st{font-size:calc(9px*var(--ts-fs,1))}.hd .ttl{font-size:calc(15px*var(--ts-fs,1))}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media print{.sb,.hamb,.scrim,#refresh{display:none!important}.mn{margin:0}.hd{position:static}.body{padding:0;max-width:none}.grid{display:block}.card{break-inside:avoid;margin-top:12px;overflow:visible}.kpis{grid-template-columns:repeat(3,1fr)}body{background:white}}
 /* Existing inline multi-column forms need explicit mobile overrides. */
 @media(max-width:980px){.form[style*="grid-template-columns"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-@media(max-width:600px){.form[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}#vrBody input,#vrBody select{font-size:16px!important;min-height:44px}#bjBody>div[style*="display:flex"]{flex-wrap:wrap}}
+@media(max-width:600px){.form[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}#vrBody input,#vrBody select{font-size:calc(16px*var(--ts-fs,1))!important;min-height:44px}#bjBody>div[style*="display:flex"]{flex-wrap:wrap}}
 .kpis:has(>.kpi:last-child:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
 .kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:980px){.kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -648,16 +648,27 @@ input,select,textarea{max-width:100%}button:disabled{opacity:.55;cursor:not-allo
 @media(max-width:359px){.kpis:has(>.kpi:last-child:nth-child(3)),.kpis:has(>.kpi:last-child:nth-child(4)){grid-template-columns:1fr}}</style>
 <style id="ts-workspace-css">/* V3: editorial portfolio workspace. All operational pages remain available. */
 :root{--blue:#326957;--blue-s:#edf5f1;--green:#1b8062;--green-s:#eaf5ee;--bg:#f4f5f3;--line:#e2e7e2;--c0:#23372e;--c1:#56675c;--c2:#7b897f;--sb:204px;--rd:12px;--sh:none}
-body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun Gothic',system-ui,sans-serif}.ws-v3 .sb{background:#fafbf8;border-color:#e0e5de;color:#5b6d60}.ws-v3 .brand{padding:30px 18px;border:0;min-height:115px}.ws-v3 .brand b{color:#263d30;font-size:13px;letter-spacing:1px}.ws-v3 .brand small{color:#829184;font-size:8px}.ws-v3 .brand .m{background:#234e3a;border-radius:50%;width:31px;height:31px;box-shadow:none}.ws-v3 .nav{padding:10px 13px}.ws-v3 .ni{color:#67766b;font-size:12px;font-weight:500;border-radius:7px;margin-bottom:7px;padding:13px 12px}.ws-v3 .ni.on{background:#e6ede4;color:#204b31;box-shadow:none;font-weight:700}.ws-v3 .ni.on .i{color:#28603d}.ws-v3 .ni:hover{background:#edf1e9;color:#213c29}.ws-v3 .ni .ch{display:none}.ws-v3 .ni:nth-child(9){border-top:1px solid #e1e7de;border-radius:0;padding-top:22px}.ws-v3 .sbhelp{background:#eef2e9;border:0;color:#6b7b68;font-size:10px;margin:15px 14px 23px}.ws-v3 .sbhelp b{color:#445f43;font-size:11px}.ws-v3 .hd{background:var(--bg);border:0;height:66px;box-shadow:none;padding-left:36px;padding-right:36px}.ws-v3 .hd .ttl{font-size:12px;color:#7d8b7c;font-weight:500}.ws-v3 .hd .st{background:#eaf0e7;border:0;color:#466649}.ws-v3 .hd .st.off{background:#fff0ed;color:#aa413b}.ws-v3 .hd .dt{font-size:10px}.ws-v3 .btn{border-radius:6px}.ws-v3 .btn.p{background:#315e45;border-color:#315e45;color:white;box-shadow:none}.ws-v3 .btn.p:hover{background:#244c35}.ws-v3 .body{padding:10px 36px 44px;max-width:1750px}.ws-heading{display:flex;justify-content:space-between;align-items:center;gap:24px;margin:10px 0 28px}.ws-overline{font-size:9px;font-weight:600;letter-spacing:2.5px;color:#889587;display:block}.ws-heading h1{font-size:31px;letter-spacing:-1.2px;font-weight:600;line-height:1.4;margin:9px 0 5px}.ws-heading p{font-size:11px;color:#7e8b80}.ws-account{padding:0!important;margin:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;flex-direction:column;align-items:flex-end;gap:6px;max-width:390px}.ws-account>.ct{display:none}.ws-account>span:nth-child(2){font-size:10px!important;order:2;flex:none!important;color:#8a958c}.ws-account .seg{background:#e8ece5;border-color:#e2e7df;padding:4px}.ws-account .sgb{min-height:32px;padding:7px 17px;font-size:11px}.ws-account .sgb.on{color:#305439}.ws-main{display:grid;grid-template-columns:minmax(0,1fr) 316px;gap:22px;align-items:stretch}.ws-wealth{background:#fff;border:1px solid #e0e6de;border-radius:16px;min-width:0;overflow:hidden}.ws-wealth-top{display:flex;align-items:center;justify-content:space-between;padding:27px 28px 0;gap:15px}.ws-v3 .ws-wealth .kpi{border:0;min-height:0;background:transparent;box-shadow:none;padding:0;display:block}.ws-v3 .ws-wealth .kpi>.ic{display:none}.ws-v3 .ws-main-asset .lab{font-size:11px;color:#7e8b81;padding:0}.ws-v3 .ws-main-asset .v{font-size:46px;letter-spacing:-2.4px;font-weight:500;line-height:1.25;color:#233f30;margin:9px 0 0;overflow-wrap:anywhere}.ws-v3 .ws-main-asset .s{font-size:10px;margin-top:6px;color:#8a978e}.ws-v3 .ws-main-return{text-align:right;flex-shrink:0}.ws-v3 .ws-main-return .lab{font-size:10px;color:#8a958d;padding:0}.ws-v3 .ws-main-return .v{font-size:24px;letter-spacing:-.8px;margin-top:7px;font-weight:500}.ws-v3 .ws-main-return .s{font-size:10px;margin-top:7px}.ws-chart-context{font-size:9px;color:#8d998f;padding:19px 28px 0;line-height:1.6}.ws-wealth-chart{border:0!important;border-radius:0!important;overflow:visible!important;background:transparent}.ws-wealth-chart>.ch{border:0;padding:16px 27px 0;justify-content:flex-end}.ws-wealth-chart>.ch>.ct{font-size:11px;font-weight:500;color:#8b998e}.ws-wealth-chart>.ch>.ct i{display:none}.ws-wealth-chart .seg{background:#f7f8f5;border:0}.ws-wealth-chart .sgb{min-height:28px;font-size:10px;padding:5px 10px}.ws-wealth-chart .sgb.on{color:#2d6547;box-shadow:none;background:#eaf2e7}.ws-wealth-chart .cw{height:240px;padding:10px 22px 5px}.ws-supporting{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #edf0eb;padding:20px 28px;gap:20px;margin-top:7px}.ws-v3 .ws-supporting .kpi .lab{font-size:10px;padding:0}.ws-v3 .ws-supporting .kpi .v{font-size:21px;font-weight:500;margin-top:7px;letter-spacing:-.7px}.ws-v3 .ws-supporting .kpi .s{font-size:9px;line-height:1.65;margin-top:5px}.ws-rail{display:flex;flex-direction:column;gap:16px;min-width:0}.ws-operation{background:#fff;border:1px solid #e0e6de;border-radius:14px;padding:21px 20px;flex:1;min-width:0}.ws-section-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.ws-section-head h2{font-size:13px;font-weight:600}.ws-link{border:0;background:none;font:inherit;font-size:10px;color:#799080;cursor:pointer;white-space:nowrap}.ws-live{display:flex;align-items:center;gap:6px;font-size:10px;color:#658069;margin:15px 0 14px}.ws-live-dot{width:5px;height:5px;border-radius:50%;background:#65946d}.ws-live.attention{color:#aa413b}.ws-live.attention .ws-live-dot{background:#aa413b}.ws-v3 .ws-strategy-count{min-height:0;padding:0;margin:0 0 9px;border:0;box-shadow:none;background:none;display:flex;gap:12px}.ws-strategy-count>.ic{display:none}.ws-v3 .ws-strategy-count .lab{font-size:10px;padding:0}.ws-v3 .ws-strategy-count .v{font-size:26px;font-weight:500;letter-spacing:-.9px;line-height:1.2;margin-top:5px}.ws-v3 .ws-strategy-count .s{font-size:10px;margin-top:5px}.ws-strategy-list{border:0!important;overflow:visible!important}.ws-strategy-list>.ch{display:none}.ws-v3 #slist>div{padding:11px 0!important;font-size:10px!important;gap:6px!important;min-height:48px;flex-wrap:wrap}.ws-v3 #slist>div>b{font-size:11px;font-weight:500;min-width:100px}.ws-v3 #slist .bdg{font-size:9px;padding:3px 6px;margin-left:0!important;border-radius:3px}.ws-v3 #slist .up,.ws-v3 #slist .dn{font-size:10px}.ws-v3 #slist>div>i{width:5px!important;height:5px!important}.ws-wide-link{border:0;border-top:1px solid #e9eee7;background:none;width:100%;text-align:left;font:inherit;color:#50745a;font-size:11px;padding:16px 0 0;cursor:pointer;margin-top:8px}.ws-next{border-radius:12px;background:#e8ede1;padding:22px;color:#334e34;position:relative}.ws-next .ws-overline{font-size:8px;color:#809276}.ws-next h2{font-size:17px;font-weight:500;margin:10px 0 5px;letter-spacing:-.5px}.ws-next p{font-size:10px;color:#819078;margin-bottom:16px}.ws-primary{background:#315a3e;color:#f7faf5;border:0;border-radius:5px;padding:10px 14px;font:inherit;font-size:11px;width:100%;text-align:left;cursor:pointer;min-height:40px}.ws-primary:hover{background:#23482f}.ws-alert-row{margin:18px 0 24px}.ws-alert-card{background:#eff3ea;border:1px solid #e0e7d9!important;border-radius:9px!important;display:flex;align-items:stretch}.ws-alert-card>.ch{padding:12px 18px;border:0;flex-shrink:0}.ws-alert-card>.ch .ct{font-size:11px;color:#64775b}.ws-alert-card>.ch .ct i{color:#7b9271;font-size:11px}.ws-alert-card #palert{flex:1}.ws-alert-card .al{padding:12px 14px;font-size:11px;align-items:center;border-color:#dde6d5}.ws-alert-card .at{font-size:9px}.ws-activity{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}.ws-activity .card{border:1px solid #e0e6de;border-radius:12px;box-shadow:none;background:white}.ws-activity .ch{padding:19px 22px}.ws-activity .ch .ct{font-size:13px;font-weight:500}.ws-activity .ch .ct i{display:none}.ws-v3 .tbl th{font-size:10px;background:#f8faf6;color:#81917f;font-weight:500;padding:12px 20px;border-color:#ecf0e8}.ws-v3 .tbl td{font-size:12px;padding:16px 20px;border-color:#edf0e9}.ws-v3 .tbl td b{font-weight:500}.ws-v3 .tbl tr:hover{background:#f5f8f2}.ws-v3 .hl.g{background:#f2f7ee;border-color:#e2ebda;color:#5b7753}.ws-disclosure{margin-top:20px;border:1px solid #e0e6de;background:#fff;border-radius:12px;overflow:hidden}.ws-disclosure>summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;list-style:none;padding:22px}.ws-disclosure>summary::-webkit-details-marker{display:none}.ws-disclosure summary b{display:block;font-size:13px;font-weight:500}.ws-disclosure summary small{display:block;font-size:10px;color:#8b978b;margin-top:5px}.ws-expand{font-size:22px;color:#7c9277;font-weight:300}.ws-disclosure[open] .ws-expand{transform:rotate(45deg)}.ws-disclosure-body{padding:0 18px 18px;display:grid;gap:18px}.ws-analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;min-width:0}.ws-analysis-grid>.card{min-width:0}.ws-v3 .form{gap:20px}.ws-v3 .fld input:focus,.ws-v3 .fld select:focus{border-color:#6f9570;box-shadow:0 0 0 3px #edf3e7}.ws-v3 .tip{background:#f0f5eb;border-color:#dfe9d7}.ws-mobile{display:none}.ws-v3 .toast{background:#243e2d}
-@media(min-width:1600px){.ws-main{grid-template-columns:minmax(0,1fr) 345px}.ws-wealth-chart .cw{height:275px}.ws-v3 .ws-main-asset .v{font-size:53px}.ws-wealth-top{padding-top:33px}.ws-activity{grid-template-columns:minmax(0,1fr)} }
-@media(max-width:1200px){.ws-v3 .body{padding-left:23px;padding-right:23px}.ws-main{grid-template-columns:minmax(0,1fr) 275px;gap:16px}.ws-operation{padding:18px 16px}.ws-v3 .ws-main-asset .v{font-size:36px}.ws-v3 .ws-main-return .v{font-size:22px}.ws-wealth-top{padding:25px 22px 0}.ws-supporting{padding:19px 22px;gap:13px}.ws-v3 .ws-supporting .kpi .v{font-size:18px}.ws-heading{gap:14px}.ws-heading h1{font-size:29px}}
-@media(max-width:980px){.ws-v3 .body{padding-left:22px;padding-right:22px;padding-bottom:90px}.ws-v3 .hd{padding-left:20px;padding-right:20px}.ws-main{grid-template-columns:minmax(0,1fr) 285px}.ws-v3 .ws-main-asset .v{font-size:36px}.ws-v3 .ws-main-return .v{font-size:22px}.ws-heading h1{font-size:28px}.ws-heading{margin-bottom:22px}.ws-mobile{display:none}.ws-v3 .ws-mobile{position:fixed;bottom:0;left:0;right:0;z-index:24;display:flex;background:#fafcf8;border-top:1px solid #dde5d7;padding:8px 10px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -5px 25px #243e2d06}.ws-mobile button{background:none;border:0;color:#8c9889;font:inherit;font-size:10px;display:flex;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:5px;min-height:44px;cursor:pointer}.ws-mobile i{font-size:16px}.ws-mobile button.selected{color:#2c623a;font-weight:700}.ws-v3 .toast{bottom:calc(80px + env(safe-area-inset-bottom))}.ws-v3 .ws-wealth-chart .sgb{min-height:40px}}
-@media(max-width:760px){.ws-main{grid-template-columns:1fr}.ws-rail{display:grid;grid-template-columns:1.3fr 1fr;gap:14px}.ws-operation{padding:19px}.ws-next{display:flex;flex-direction:column;justify-content:center}.ws-v3 .ws-main-asset .v{font-size:42px}.ws-v3 .ws-main-return .v{font-size:25px}.ws-wealth-chart .cw{height:240px}.ws-heading{align-items:flex-start}.ws-account{max-width:320px}.ws-account .sgb{padding:8px 13px}.ws-analysis-grid{grid-template-columns:1fr}}
-@media(max-width:600px){.ws-v3 .hd{height:auto;min-height:55px;padding:8px 14px;gap:9px}.ws-v3 .hd .ttl{font-size:11px}.ws-v3 .hd .dt{font-size:9px}.ws-v3 .body{padding:9px 14px 94px}.ws-heading{display:block;margin:10px 0 17px}.ws-heading h1{font-size:27px;margin-top:7px}.ws-heading p{font-size:10px}.ws-overline{font-size:8px;letter-spacing:2px}.ws-account{margin:17px 0 0!important;max-width:none;width:100%;align-items:flex-start;gap:7px}.ws-account #acctSeg{width:100%;order:1}.ws-account #acctSeg .sgb{min-height:42px;font-size:12px;flex:1}.ws-account>span:nth-child(2){font-size:9px!important;order:2;flex-basis:auto!important}.ws-wealth{border-radius:12px}.ws-wealth-top{padding:22px 19px 0;align-items:flex-start}.ws-v3 .ws-main-asset .v{font-size:33px;letter-spacing:-1.5px}.ws-v3 .ws-main-return .v{font-size:20px;letter-spacing:-.7px;margin-top:11px}.ws-v3 .ws-main-return .s{font-size:9px;max-width:105px}.ws-v3 .ws-main-asset .lab,.ws-v3 .ws-main-return .lab{font-size:9px}.ws-v3 .ws-main-asset .s{font-size:9px}.ws-chart-context{padding:15px 19px 0;font-size:8px}.ws-wealth-chart>.ch{padding:12px 15px 0;gap:8px}.ws-wealth-chart>.ch>.ct{font-size:10px}.ws-wealth-chart .seg{width:100%;margin-top:0}.ws-wealth-chart .sgb{padding:5px 6px;font-size:11px}.ws-wealth-chart .cw{height:215px;padding:8px 9px 0}.ws-supporting{padding:17px 18px;gap:12px;margin-top:4px}.ws-v3 .ws-supporting .kpi .v{font-size:17px;letter-spacing:-.5px}.ws-v3 .ws-supporting .kpi .lab{font-size:9px}.ws-v3 .ws-supporting .kpi .s{font-size:8px}.ws-rail{display:flex;gap:13px}.ws-operation{padding:18px}.ws-strategy-count{margin-bottom:3px!important}.ws-v3 .ws-strategy-count .v{font-size:23px}.ws-v3 #slist>div{min-height:47px!important}.ws-next{padding:19px;display:grid;grid-template-columns:1fr auto;column-gap:10px}.ws-next .ws-overline{grid-column:1}.ws-next h2{font-size:15px;grid-column:1;margin:5px 0}.ws-next p{grid-column:1;font-size:9px;margin:0}.ws-next .ws-primary{grid-column:2;grid-row:1/4;align-self:center;width:auto;font-size:10px;min-height:44px;padding:10px}.ws-alert-row{margin:14px 0 18px}.ws-alert-card{display:block}.ws-alert-card>.ch{padding:10px 13px 0}.ws-alert-card .al{padding:9px 13px 12px;font-size:10px}.ws-activity{gap:15px}.ws-activity .ch{padding:16px}.ws-v3 .tbl th,.ws-v3 .tbl td{padding:13px 16px}.ws-v3 .tbl th{font-size:10px}.ws-v3 .tbl td{font-size:11px}.ws-disclosure{margin-top:16px}.ws-disclosure>summary{padding:18px}.ws-disclosure summary b{font-size:12px}.ws-disclosure summary small{font-size:9px}.ws-disclosure-body{padding:0 10px 12px}.ws-analysis-grid .card>.ch .ct{font-size:12px}}
-@media(max-width:359px){.ws-wealth-top{flex-direction:column;gap:12px}.ws-v3 .ws-main-return{text-align:left}.ws-v3 .ws-main-return>div{display:flex;gap:7px;align-items:center}.ws-v3 .ws-main-return .v{margin:0;font-size:18px}.ws-v3 .ws-main-return .s{margin:0}.ws-next{display:block}.ws-next .ws-primary{margin-top:14px;width:100%}.ws-v3 .ws-main-asset .v{font-size:34px}.ws-supporting{gap:9px;padding-left:14px;padding-right:14px}.ws-v3 .ws-supporting .kpi .v{font-size:15px}}
+body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun Gothic',system-ui,sans-serif}.ws-v3 .sb{background:#fafbf8;border-color:#e0e5de;color:#5b6d60}.ws-v3 .brand{padding:30px 18px;border:0;min-height:115px}.ws-v3 .brand b{color:#263d30;font-size:calc(13px*var(--ts-fs,1));letter-spacing:1px}.ws-v3 .brand small{color:#829184;font-size:calc(8px*var(--ts-fs,1))}.ws-v3 .brand .m{background:#234e3a;border-radius:50%;width:31px;height:31px;box-shadow:none}.ws-v3 .nav{padding:10px 13px}.ws-v3 .ni{color:#67766b;font-size:calc(12px*var(--ts-fs,1));font-weight:500;border-radius:7px;margin-bottom:7px;padding:13px 12px}.ws-v3 .ni.on{background:#e6ede4;color:#204b31;box-shadow:none;font-weight:700}.ws-v3 .ni.on .i{color:#28603d}.ws-v3 .ni:hover{background:#edf1e9;color:#213c29}.ws-v3 .ni .ch{display:none}.ws-v3 .ni:nth-child(9){border-top:1px solid #e1e7de;border-radius:0;padding-top:22px}.ws-v3 .sbhelp{background:#eef2e9;border:0;color:#6b7b68;font-size:calc(10px*var(--ts-fs,1));margin:15px 14px 23px}.ws-v3 .sbhelp b{color:#445f43;font-size:calc(11px*var(--ts-fs,1))}.ws-v3 .hd{background:var(--bg);border:0;height:66px;box-shadow:none;padding-left:36px;padding-right:36px}.ws-v3 .hd .ttl{font-size:calc(12px*var(--ts-fs,1));color:#7d8b7c;font-weight:500}.ws-v3 .hd .st{background:#eaf0e7;border:0;color:#466649}.ws-v3 .hd .st.off{background:#fff0ed;color:#aa413b}.ws-v3 .hd .dt{font-size:calc(10px*var(--ts-fs,1))}.ws-v3 .btn{border-radius:6px}.ws-v3 .btn.p{background:#315e45;border-color:#315e45;color:white;box-shadow:none}.ws-v3 .btn.p:hover{background:#244c35}.ws-v3 .body{padding:10px 36px 44px;max-width:1750px}.ws-heading{display:flex;justify-content:space-between;align-items:center;gap:24px;margin:10px 0 28px}.ws-overline{font-size:calc(9px*var(--ts-fs,1));font-weight:600;letter-spacing:2.5px;color:#889587;display:block}.ws-heading h1{font-size:calc(31px*var(--ts-fs,1));letter-spacing:-1.2px;font-weight:600;line-height:1.4;margin:9px 0 5px}.ws-heading p{font-size:calc(11px*var(--ts-fs,1));color:#7e8b80}.ws-account{padding:0!important;margin:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;flex-direction:column;align-items:flex-end;gap:6px;max-width:390px}.ws-account>.ct{display:none}.ws-account>span:nth-child(2){font-size:calc(10px*var(--ts-fs,1))!important;order:2;flex:none!important;color:#8a958c}.ws-account .seg{background:#e8ece5;border-color:#e2e7df;padding:4px}.ws-account .sgb{min-height:32px;padding:7px 17px;font-size:calc(11px*var(--ts-fs,1))}.ws-account .sgb.on{color:#305439}.ws-main{display:grid;grid-template-columns:minmax(0,1fr) 316px;gap:22px;align-items:stretch}.ws-wealth{background:#fff;border:1px solid #e0e6de;border-radius:16px;min-width:0;overflow:hidden}.ws-wealth-top{display:flex;align-items:center;justify-content:space-between;padding:27px 28px 0;gap:15px}.ws-v3 .ws-wealth .kpi{border:0;min-height:0;background:transparent;box-shadow:none;padding:0;display:block}.ws-v3 .ws-wealth .kpi>.ic{display:none}.ws-v3 .ws-main-asset .lab{font-size:calc(11px*var(--ts-fs,1));color:#7e8b81;padding:0}.ws-v3 .ws-main-asset .v{font-size:calc(46px*var(--ts-fs,1));letter-spacing:-2.4px;font-weight:500;line-height:1.25;color:#233f30;margin:9px 0 0;overflow-wrap:anywhere}.ws-v3 .ws-main-asset .s{font-size:calc(10px*var(--ts-fs,1));margin-top:6px;color:#8a978e}.ws-v3 .ws-main-return{text-align:right;flex-shrink:0}.ws-v3 .ws-main-return .lab{font-size:calc(10px*var(--ts-fs,1));color:#8a958d;padding:0}.ws-v3 .ws-main-return .v{font-size:calc(24px*var(--ts-fs,1));letter-spacing:-.8px;margin-top:7px;font-weight:500}.ws-v3 .ws-main-return .s{font-size:calc(10px*var(--ts-fs,1));margin-top:7px}.ws-chart-context{font-size:calc(9px*var(--ts-fs,1));color:#8d998f;padding:19px 28px 0;line-height:1.6}.ws-wealth-chart{border:0!important;border-radius:0!important;overflow:visible!important;background:transparent}.ws-wealth-chart>.ch{border:0;padding:16px 27px 0;justify-content:flex-end}.ws-wealth-chart>.ch>.ct{font-size:calc(11px*var(--ts-fs,1));font-weight:500;color:#8b998e}.ws-wealth-chart>.ch>.ct i{display:none}.ws-wealth-chart .seg{background:#f7f8f5;border:0}.ws-wealth-chart .sgb{min-height:28px;font-size:calc(10px*var(--ts-fs,1));padding:5px 10px}.ws-wealth-chart .sgb.on{color:#2d6547;box-shadow:none;background:#eaf2e7}.ws-wealth-chart .cw{height:240px;padding:10px 22px 5px}.ws-supporting{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #edf0eb;padding:20px 28px;gap:20px;margin-top:7px}.ws-v3 .ws-supporting .kpi .lab{font-size:calc(10px*var(--ts-fs,1));padding:0}.ws-v3 .ws-supporting .kpi .v{font-size:calc(21px*var(--ts-fs,1));font-weight:500;margin-top:7px;letter-spacing:-.7px}.ws-v3 .ws-supporting .kpi .s{font-size:calc(9px*var(--ts-fs,1));line-height:1.65;margin-top:5px}.ws-rail{display:flex;flex-direction:column;gap:16px;min-width:0}.ws-operation{background:#fff;border:1px solid #e0e6de;border-radius:14px;padding:21px 20px;flex:1;min-width:0}.ws-section-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.ws-section-head h2{font-size:calc(13px*var(--ts-fs,1));font-weight:600}.ws-link{border:0;background:none;font:inherit;font-size:calc(10px*var(--ts-fs,1));color:#799080;cursor:pointer;white-space:nowrap}.ws-live{display:flex;align-items:center;gap:6px;font-size:calc(10px*var(--ts-fs,1));color:#658069;margin:15px 0 14px}.ws-live-dot{width:5px;height:5px;border-radius:50%;background:#65946d}.ws-live.attention{color:#aa413b}.ws-live.attention .ws-live-dot{background:#aa413b}.ws-v3 .ws-strategy-count{min-height:0;padding:0;margin:0 0 9px;border:0;box-shadow:none;background:none;display:flex;gap:12px}.ws-strategy-count>.ic{display:none}.ws-v3 .ws-strategy-count .lab{font-size:calc(10px*var(--ts-fs,1));padding:0}.ws-v3 .ws-strategy-count .v{font-size:calc(26px*var(--ts-fs,1));font-weight:500;letter-spacing:-.9px;line-height:1.2;margin-top:5px}.ws-v3 .ws-strategy-count .s{font-size:calc(10px*var(--ts-fs,1));margin-top:5px}.ws-strategy-list{border:0!important;overflow:visible!important}.ws-strategy-list>.ch{display:none}.ws-v3 #slist>div{padding:11px 0!important;font-size:calc(10px*var(--ts-fs,1))!important;gap:6px!important;min-height:48px;flex-wrap:wrap}.ws-v3 #slist>div>b{font-size:calc(11px*var(--ts-fs,1));font-weight:500;min-width:100px}.ws-v3 #slist .bdg{font-size:calc(9px*var(--ts-fs,1));padding:3px 6px;margin-left:0!important;border-radius:3px}.ws-v3 #slist .up,.ws-v3 #slist .dn{font-size:calc(10px*var(--ts-fs,1))}.ws-v3 #slist>div>i{width:5px!important;height:5px!important}.ws-wide-link{border:0;border-top:1px solid #e9eee7;background:none;width:100%;text-align:left;font:inherit;color:#50745a;font-size:calc(11px*var(--ts-fs,1));padding:16px 0 0;cursor:pointer;margin-top:8px}.ws-next{border-radius:12px;background:#e8ede1;padding:22px;color:#334e34;position:relative}.ws-next .ws-overline{font-size:calc(8px*var(--ts-fs,1));color:#809276}.ws-next h2{font-size:calc(17px*var(--ts-fs,1));font-weight:500;margin:10px 0 5px;letter-spacing:-.5px}.ws-next p{font-size:calc(10px*var(--ts-fs,1));color:#819078;margin-bottom:16px}.ws-primary{background:#315a3e;color:#f7faf5;border:0;border-radius:5px;padding:10px 14px;font:inherit;font-size:calc(11px*var(--ts-fs,1));width:100%;text-align:left;cursor:pointer;min-height:40px}.ws-primary:hover{background:#23482f}.ws-alert-row{margin:18px 0 24px}.ws-alert-card{background:#eff3ea;border:1px solid #e0e7d9!important;border-radius:9px!important;display:flex;align-items:stretch}.ws-alert-card>.ch{padding:12px 18px;border:0;flex-shrink:0}.ws-alert-card>.ch .ct{font-size:calc(11px*var(--ts-fs,1));color:#64775b}.ws-alert-card>.ch .ct i{color:#7b9271;font-size:calc(11px*var(--ts-fs,1))}.ws-alert-card #palert{flex:1}.ws-alert-card .al{padding:12px 14px;font-size:calc(11px*var(--ts-fs,1));align-items:center;border-color:#dde6d5}.ws-alert-card .at{font-size:calc(9px*var(--ts-fs,1))}.ws-activity{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}.ws-activity .card{border:1px solid #e0e6de;border-radius:12px;box-shadow:none;background:white}.ws-activity .ch{padding:19px 22px}.ws-activity .ch .ct{font-size:calc(13px*var(--ts-fs,1));font-weight:500}.ws-activity .ch .ct i{display:none}.ws-v3 .tbl th{font-size:calc(10px*var(--ts-fs,1));background:#f8faf6;color:#81917f;font-weight:500;padding:12px 20px;border-color:#ecf0e8}.ws-v3 .tbl td{font-size:calc(12px*var(--ts-fs,1));padding:16px 20px;border-color:#edf0e9}.ws-v3 .tbl td b{font-weight:500}.ws-v3 .tbl tr:hover{background:#f5f8f2}.ws-v3 .hl.g{background:#f2f7ee;border-color:#e2ebda;color:#5b7753}.ws-disclosure{margin-top:20px;border:1px solid #e0e6de;background:#fff;border-radius:12px;overflow:hidden}.ws-disclosure>summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;list-style:none;padding:22px}.ws-disclosure>summary::-webkit-details-marker{display:none}.ws-disclosure summary b{display:block;font-size:calc(13px*var(--ts-fs,1));font-weight:500}.ws-disclosure summary small{display:block;font-size:calc(10px*var(--ts-fs,1));color:#8b978b;margin-top:5px}.ws-expand{font-size:calc(22px*var(--ts-fs,1));color:#7c9277;font-weight:300}.ws-disclosure[open] .ws-expand{transform:rotate(45deg)}.ws-disclosure-body{padding:0 18px 18px;display:grid;gap:18px}.ws-analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;min-width:0}.ws-analysis-grid>.card{min-width:0}.ws-v3 .form{gap:20px}.ws-v3 .fld input:focus,.ws-v3 .fld select:focus{border-color:#6f9570;box-shadow:0 0 0 3px #edf3e7}.ws-v3 .tip{background:#f0f5eb;border-color:#dfe9d7}.ws-mobile{display:none}.ws-v3 .toast{background:#243e2d}
+@media(min-width:1600px){.ws-main{grid-template-columns:minmax(0,1fr) 345px}.ws-wealth-chart .cw{height:275px}.ws-v3 .ws-main-asset .v{font-size:calc(53px*var(--ts-fs,1))}.ws-wealth-top{padding-top:33px}.ws-activity{grid-template-columns:minmax(0,1fr)} }
+@media(max-width:1200px){.ws-v3 .body{padding-left:23px;padding-right:23px}.ws-main{grid-template-columns:minmax(0,1fr) 275px;gap:16px}.ws-operation{padding:18px 16px}.ws-v3 .ws-main-asset .v{font-size:calc(36px*var(--ts-fs,1))}.ws-v3 .ws-main-return .v{font-size:calc(22px*var(--ts-fs,1))}.ws-wealth-top{padding:25px 22px 0}.ws-supporting{padding:19px 22px;gap:13px}.ws-v3 .ws-supporting .kpi .v{font-size:calc(18px*var(--ts-fs,1))}.ws-heading{gap:14px}.ws-heading h1{font-size:calc(29px*var(--ts-fs,1))}}
+@media(max-width:980px){.ws-v3 .body{padding-left:22px;padding-right:22px;padding-bottom:90px}.ws-v3 .hd{padding-left:20px;padding-right:20px}.ws-main{grid-template-columns:minmax(0,1fr) 285px}.ws-v3 .ws-main-asset .v{font-size:calc(36px*var(--ts-fs,1))}.ws-v3 .ws-main-return .v{font-size:calc(22px*var(--ts-fs,1))}.ws-heading h1{font-size:calc(28px*var(--ts-fs,1))}.ws-heading{margin-bottom:22px}.ws-mobile{display:none}.ws-v3 .ws-mobile{position:fixed;bottom:0;left:0;right:0;z-index:24;display:flex;background:#fafcf8;border-top:1px solid #dde5d7;padding:8px 10px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -5px 25px #243e2d06}.ws-mobile button{background:none;border:0;color:#8c9889;font:inherit;font-size:calc(10px*var(--ts-fs,1));display:flex;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:5px;min-height:44px;cursor:pointer}.ws-mobile i{font-size:calc(16px*var(--ts-fs,1))}.ws-mobile button.selected{color:#2c623a;font-weight:700}.ws-v3 .toast{bottom:calc(80px + env(safe-area-inset-bottom))}.ws-v3 .ws-wealth-chart .sgb{min-height:40px}}
+@media(max-width:760px){.ws-main{grid-template-columns:1fr}.ws-rail{display:grid;grid-template-columns:1.3fr 1fr;gap:14px}.ws-operation{padding:19px}.ws-next{display:flex;flex-direction:column;justify-content:center}.ws-v3 .ws-main-asset .v{font-size:calc(42px*var(--ts-fs,1))}.ws-v3 .ws-main-return .v{font-size:calc(25px*var(--ts-fs,1))}.ws-wealth-chart .cw{height:240px}.ws-heading{align-items:flex-start}.ws-account{max-width:320px}.ws-account .sgb{padding:8px 13px}.ws-analysis-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.ws-v3 .hd{height:auto;min-height:55px;padding:8px 14px;gap:9px}.ws-v3 .hd .ttl{font-size:calc(11px*var(--ts-fs,1))}.ws-v3 .hd .dt{font-size:calc(9px*var(--ts-fs,1))}.ws-v3 .body{padding:9px 14px 94px}.ws-heading{display:block;margin:10px 0 17px}.ws-heading h1{font-size:calc(27px*var(--ts-fs,1));margin-top:7px}.ws-heading p{font-size:calc(10px*var(--ts-fs,1))}.ws-overline{font-size:calc(8px*var(--ts-fs,1));letter-spacing:2px}.ws-account{margin:17px 0 0!important;max-width:none;width:100%;align-items:flex-start;gap:7px}.ws-account #acctSeg{width:100%;order:1}.ws-account #acctSeg .sgb{min-height:42px;font-size:calc(12px*var(--ts-fs,1));flex:1}.ws-account>span:nth-child(2){font-size:calc(9px*var(--ts-fs,1))!important;order:2;flex-basis:auto!important}.ws-wealth{border-radius:12px}.ws-wealth-top{padding:22px 19px 0;align-items:flex-start}.ws-v3 .ws-main-asset .v{font-size:calc(33px*var(--ts-fs,1));letter-spacing:-1.5px}.ws-v3 .ws-main-return .v{font-size:calc(20px*var(--ts-fs,1));letter-spacing:-.7px;margin-top:11px}.ws-v3 .ws-main-return .s{font-size:calc(9px*var(--ts-fs,1));max-width:105px}.ws-v3 .ws-main-asset .lab,.ws-v3 .ws-main-return .lab{font-size:calc(9px*var(--ts-fs,1))}.ws-v3 .ws-main-asset .s{font-size:calc(9px*var(--ts-fs,1))}.ws-chart-context{padding:15px 19px 0;font-size:calc(8px*var(--ts-fs,1))}.ws-wealth-chart>.ch{padding:12px 15px 0;gap:8px}.ws-wealth-chart>.ch>.ct{font-size:calc(10px*var(--ts-fs,1))}.ws-wealth-chart .seg{width:100%;margin-top:0}.ws-wealth-chart .sgb{padding:5px 6px;font-size:calc(11px*var(--ts-fs,1))}.ws-wealth-chart .cw{height:215px;padding:8px 9px 0}.ws-supporting{padding:17px 18px;gap:12px;margin-top:4px}.ws-v3 .ws-supporting .kpi .v{font-size:calc(17px*var(--ts-fs,1));letter-spacing:-.5px}.ws-v3 .ws-supporting .kpi .lab{font-size:calc(9px*var(--ts-fs,1))}.ws-v3 .ws-supporting .kpi .s{font-size:calc(8px*var(--ts-fs,1))}.ws-rail{display:flex;gap:13px}.ws-operation{padding:18px}.ws-strategy-count{margin-bottom:3px!important}.ws-v3 .ws-strategy-count .v{font-size:calc(23px*var(--ts-fs,1))}.ws-v3 #slist>div{min-height:47px!important}.ws-next{padding:19px;display:grid;grid-template-columns:1fr auto;column-gap:10px}.ws-next .ws-overline{grid-column:1}.ws-next h2{font-size:calc(15px*var(--ts-fs,1));grid-column:1;margin:5px 0}.ws-next p{grid-column:1;font-size:calc(9px*var(--ts-fs,1));margin:0}.ws-next .ws-primary{grid-column:2;grid-row:1/4;align-self:center;width:auto;font-size:calc(10px*var(--ts-fs,1));min-height:44px;padding:10px}.ws-alert-row{margin:14px 0 18px}.ws-alert-card{display:block}.ws-alert-card>.ch{padding:10px 13px 0}.ws-alert-card .al{padding:9px 13px 12px;font-size:calc(10px*var(--ts-fs,1))}.ws-activity{gap:15px}.ws-activity .ch{padding:16px}.ws-v3 .tbl th,.ws-v3 .tbl td{padding:13px 16px}.ws-v3 .tbl th{font-size:calc(10px*var(--ts-fs,1))}.ws-v3 .tbl td{font-size:calc(11px*var(--ts-fs,1))}.ws-disclosure{margin-top:16px}.ws-disclosure>summary{padding:18px}.ws-disclosure summary b{font-size:calc(12px*var(--ts-fs,1))}.ws-disclosure summary small{font-size:calc(9px*var(--ts-fs,1))}.ws-disclosure-body{padding:0 10px 12px}.ws-analysis-grid .card>.ch .ct{font-size:calc(12px*var(--ts-fs,1))}}
+@media(max-width:359px){.ws-wealth-top{flex-direction:column;gap:12px}.ws-v3 .ws-main-return{text-align:left}.ws-v3 .ws-main-return>div{display:flex;gap:7px;align-items:center}.ws-v3 .ws-main-return .v{margin:0;font-size:calc(18px*var(--ts-fs,1))}.ws-v3 .ws-main-return .s{margin:0}.ws-next{display:block}.ws-next .ws-primary{margin-top:14px;width:100%}.ws-v3 .ws-main-asset .v{font-size:calc(34px*var(--ts-fs,1))}.ws-supporting{gap:9px;padding-left:14px;padding-right:14px}.ws-v3 .ws-supporting .kpi .v{font-size:calc(15px*var(--ts-fs,1))}}
 @media print{.ws-mobile,.ws-next{display:none!important}.ws-main{display:block}.ws-rail{margin-top:15px}.ws-disclosure:not([open])>.ws-disclosure-body{display:block}.ws-v3 .sb{display:none}.ws-v3 .body{padding:0}}
 /* Keep trading-side colors distinct from performance colors. */
 .ws-v3 .tag.buy{background:#fff0f2;color:#c23030}.ws-v3 .tag.sell{background:#edf2ff;color:#315bd9}</style>
+<!-- TS_TYPE_SCALE_START -->
+<style id="ts-type-scale">/* 글자 크기 단일 조절 노브 (2026-09-24).
+   모든 font-size 는 calc(원본px * var(--ts-fs,1)) 로 걸려 있다.
+   아래 숫자 하나만 바꾸면 화면 전체 글자 배율이 바뀐다 (1 = 리뉴얼 원본).
+   이 블록을 통째로 지우면 fallback 1 이 적용돼 원본 크기로 정확히 복귀한다. */
+:root{--ts-fs:1.3}</style>
+<script id="ts-type-scale-js">/* 캔버스(Chart.js) 글자는 CSS 변수가 닿지 않아 JS 로 같은 배율을 적용한다. */
+var TSFS=(function(){try{
+  var v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts-fs'));
+  return (isFinite(v)&&v>0)?v:1;}catch(e){return 1;}})();</script>
+<!-- TS_TYPE_SCALE_END -->
 <script id="ts-chart-theme">/* Visual-only Chart.js plugin. Does not wrap Chart or change business functions.
    Dataset values, labels, type, colors, fill/tension, axes, callbacks and events stay intact. */
 (function () {
@@ -673,20 +684,20 @@ body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun G
         backgroundColor: '#172840', titleColor: '#f7faff', bodyColor: '#dce6fa',
         borderColor: '#334866', borderWidth: 1, cornerRadius: 9,
         padding: 13, boxPadding: 5,
-        titleFont: Object.assign({}, tooltip.titleFont, {size: 12, weight: '600'}),
-        bodyFont: Object.assign({}, tooltip.bodyFont, {size: 12})
+        titleFont: Object.assign({}, tooltip.titleFont, {size: 12*TSFS, weight: '600'}),
+        bodyFont: Object.assign({}, tooltip.bodyFont, {size: 12*TSFS})
       });
       if (plugins.legend && plugins.legend.labels) {
         plugins.legend.labels.padding = 18;
         plugins.legend.labels.color = '#61718b';
-        plugins.legend.labels.font = Object.assign({}, plugins.legend.labels.font, {size: 11});
+        plugins.legend.labels.font = Object.assign({}, plugins.legend.labels.font, {size: 11*TSFS});
       }
       var scales = options.scales || {};
       Object.keys(scales).forEach(function (key) {
         var scale = scales[key];
         if (scale.ticks) {
           scale.ticks.color = '#718198';
-          scale.ticks.font = Object.assign({}, scale.ticks.font, {size: 11});
+          scale.ticks.font = Object.assign({}, scale.ticks.font, {size: 11*TSFS});
         }
         if (scale.grid && scale.grid.display !== false) scale.grid.color = '#edf1f7';
       });
@@ -798,7 +809,7 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
  var h='<div class="ch" style="background:var(--card);border:1px solid var(--line);border-radius:var(--rd);'+
   'margin-bottom:14px;box-shadow:var(--sh);flex-wrap:nowrap">'+
   '<span class="ct" style="flex:0 0 auto"><i class="fa-solid fa-wallet"></i>계좌</span>'+
-  '<span style="font-size:12.5px;color:var(--c2);flex:1 1 auto;min-width:0;white-space:nowrap;'+
+  '<span style="font-size:calc(12.5px*var(--ts-fs,1));color:var(--c2);flex:1 1 auto;min-width:0;white-space:nowrap;'+
   'overflow:hidden;text-overflow:ellipsis">'+esc(V.note)+'</span>'+
   '<div class="seg" id="acctSeg" style="flex:0 0 auto">'+
   [['all','전체'],['kis','KIS'],['nh','NH·VR'],['toss','토스']].map(function(x){
@@ -867,7 +878,7 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
   card('알림','fa-bell','<div id="palert"></div>')+'</div>';
  $('page').innerHTML=h;
  $('slist').innerHTML=ss.map(function(s,i){return '<div style="display:flex;align-items:center;'+
-  'gap:9px;padding:13px 18px;border-bottom:1px solid var(--line);font-size:12.5px">'+
+  'gap:9px;padding:13px 18px;border-bottom:1px solid var(--line);font-size:calc(12.5px*var(--ts-fs,1))">'+
   '<i style="width:9px;height:9px;border-radius:50%;background:'+PAL[i%5]+'"></i>'+
   '<b style="flex:1">'+esc(s.display_name)+'</b>'+sP(s.return_pct)+
   '<span class="bdg '+(s.kill_switch?'stop':'run')+'" style="margin-left:8px">'+
@@ -910,7 +921,7 @@ function renderSum(ss){
  ss.map(function(s,i){var isVr=String(s.strategy||'').indexOf('vr:')===0;
  return '<tr><td><span class="dn8"><i style="background:'+PAL[i%5]+
  '"></i><b>'+esc(s.display_name)+'</b></span></td><td style="text-align:right">'+money(s.invested)+
- '</td><td style="text-align:right">'+(isVr?sM(s.unrealized_pnl)+'<span style="color:var(--c2);font-size:10px"> 평가</span>':sM(s.realized_pnl))+
+ '</td><td style="text-align:right">'+(isVr?sM(s.unrealized_pnl)+'<span style="color:var(--c2);font-size:calc(10px*var(--ts-fs,1))"> 평가</span>':sM(s.realized_pnl))+
  '</td><td style="text-align:right">'+
  sP(s.return_pct)+'</td><td style="text-align:right">'+(s.win_rate==null?'—':s.win_rate.toFixed(1)+'%')+
  '</td><td style="text-align:right">'+s.holdings_count+'종목</td><td><span class="bdg '+
@@ -947,7 +958,7 @@ function renderHold(h){var its=(ACCT==='nh')?[]:((h&&h.items)||[]).slice();
   '<th style="text-align:right">평가금액</th><th style="text-align:right">평가손익</th>'+
   '<th style="text-align:right">수익률</th></tr></thead><tbody>'+
   its.map(function(x){var up=(x.pnl||0)>=0;return '<tr><td><b>'+esc(x.ticker)+'</b>'+
-   (x.name?'<br><span style="color:var(--c2);font-size:10.5px">'+esc(x.name)+'</span>':'')+'</td>'+
+   (x.name?'<br><span style="color:var(--c2);font-size:calc(10.5px*var(--ts-fs,1))">'+esc(x.name)+'</span>':'')+'</td>'+
    '<td>'+esc(x.display_name||'-')+'</td>'+
    '<td style="text-align:right">'+x.qty+'</td>'+
    '<td style="text-align:right">'+money(x.avg_price,2)+'</td>'+
@@ -958,7 +969,7 @@ function renderHold(h){var its=(ACCT==='nh')?[]:((h&&h.items)||[]).slice();
    '<td style="text-align:right" class="'+(up?'up':'dn')+'">'+(up?'+':'')+Number(x.pnl_rt||0).toFixed(2)+'%</td></tr>';}).join('')+
   '</tbody></table>'+
   '<div style="padding:12px 18px"><div class="hl '+(tPnl>=0?'g':'r')+'" style="display:flex;gap:18px;'+
-  'flex-wrap:wrap;font-size:14px">합계 <span>매입 <b>'+money(tBuy)+'</b></span>'+
+  'flex-wrap:wrap;font-size:calc(14px*var(--ts-fs,1))">합계 <span>매입 <b>'+money(tBuy)+'</b></span>'+
   '<span>평가 <b>'+money(tEval)+'</b></span><span>손익 <b class="'+(tPnl>=0?'up':'dn')+'">'+
   (tPnl>=0?'+':'')+money(tPnl)+'</b></span><span>수익률 <b class="'+(tRt>=0?'up':'dn')+'">'+
   (tRt>=0?'+':'')+tRt.toFixed(2)+'%</b></span></div></div>';}
@@ -1025,10 +1036,10 @@ function drawTossLine(){var w=$('cw1');if(!w)return;
    {label:'주식 평가금',data:ev,borderColor:'#16a34a',borderDash:[6,4],borderWidth:1.8,
     pointRadius:0,pointHoverRadius:4,tension:.3}]},
    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11}}},
+    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11*TSFS}}},
      tooltip:{callbacks:{label:function(c){return c.dataset.label+' '+money(c.parsed.y);}}}},
-    scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:8}},
-     y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
+    scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10*TSFS},maxTicksLimit:8}},
+     y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10*TSFS},
       callback:function(v){return '$'+(v/1000).toFixed(1)+'k';}}}}}});};
  if(TOSSSER){render(TOSSSER);return;}
  info('토스 자산 추이 불러오는 중','');
@@ -1058,10 +1069,10 @@ function drawVrDash(){var w=$('cw1');if(!w)return;
    {label:'최대',data:rows.map(function(r){return r.band_hi;}),borderColor:'#6c5ce7',
     borderDash:[6,4],borderWidth:1.6,pointRadius:0,spanGaps:true}]},
    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11}}},
+    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11*TSFS}}},
      tooltip:{callbacks:{label:function(c){return c.dataset.label+' '+money(c.parsed.y);}}}},
-    scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10}}},
-     y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
+    scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10*TSFS}}},
+     y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10*TSFS},
       callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});
  }).catch(function(){msg('fa-triangle-exclamation','VR 추이 로드 실패','VR (NH계좌) 메뉴에서 확인하세요');});}
 function drawLine(){var w=$('cw1');if(!w)return;
@@ -1109,13 +1120,13 @@ function drawLine(){var w=$('cw1');if(!w)return;
  C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:ds},options:{responsive:true,
   maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',boxWidth:7,
-   padding:14,font:{size:11}}},tooltip:{backgroundColor:'#1a2233',padding:11,cornerRadius:9,
+   padding:14,font:{size:11*TSFS}}},tooltip:{backgroundColor:'#1a2233',padding:11,cornerRadius:9,
    callbacks:{label:function(c){return ' '+c.dataset.label+': $'+
     Number(c.parsed.y).toLocaleString(undefined,{maximumFractionDigits:0});}}}},
-  scales:{x:{grid:{display:false},title:{display:true,text:'일자',color:'#9aa3b2',font:{size:10}},
-   ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:10}},
+  scales:{x:{grid:{display:false},title:{display:true,text:'일자',color:'#9aa3b2',font:{size:10*TSFS}},
+   ticks:{color:'#9aa3b2',font:{size:10*TSFS},maxTicksLimit:10}},
   y:{position:'left',min:yMin,max:yMax,grid:{color:'#eef1f6'},
-   ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:7,
+   ticks:{color:'#9aa3b2',font:{size:10*TSFS},maxTicksLimit:7,
    callback:function(v){return '$'+(v>=1000?(v/1000).toFixed(1)+'k':v);}}},
   y2:{display:false,min:0,max:Math.max(maxBar*3.2,1)}}}});}
 /* ---------- 전략 관리 ---------- */
@@ -1297,7 +1308,7 @@ function pgPort(){var ss=(MET.strategies||[]).concat(((MET.toss||{}).strategies)
  var dS=STRATS.filter(function(s){return s.kind!=='infinite';});
  if(dS.length){h+='<div class="grid">'+card('가상 트렌치 현황 · 떨사오팔 / 종사종팔','fa-layer-group',
   '<div id="vtr"><div class="muted">트렌치 불러오는 중…</div></div>',
-  '<span style="font-size:11.5px;color:var(--c2)">매수=초록 · 대기=회색</span>')+'</div>';}
+  '<span style="font-size:calc(11.5px*var(--ts-fs,1));color:var(--c2)">매수=초록 · 대기=회색</span>')+'</div>';}
  $('page').innerHTML=h;
  if(dS.length)loadTranches(dS);}
 function loadTranches(dS){var box=$('vtr');var blocks=[];var pend=0;
@@ -1324,7 +1335,7 @@ function trBlock(strat,d,tk){var trs=(d&&d.tranches)||[];
   '</td><td style="text-align:right">'+(t.days_held||0)+'일</td><td style="text-align:right">'+
   money(t.amount_per_tranche)+'</td></tr>';}).join('');
  return '<div class="vtblk"><div class="vth"><b>'+esc((d&&d.ticker)||tk.ticker)+'</b>'+
-  '<span style="color:var(--c2);font-size:11.5px">'+esc(strat)+'</span>'+
+  '<span style="color:var(--c2);font-size:calc(11.5px*var(--ts-fs,1))">'+esc(strat)+'</span>'+
   '<span class="bdg run" style="margin-left:auto">'+bg+' / '+trs.length+' 매수</span></div>'+
   '<div class="trcells">'+cells+'</div>'+
   '<details><summary>트렌치 상세 보기</summary><div style="overflow-x:auto"><table class="tbl">'+
@@ -1359,11 +1370,11 @@ function renderTradesTable(){var rows=trdSort(TRD.filter(trdMatch));
  var arrow=function(k){return TRDS.k===k?(TRDS.d>0?' ▲':' ▼'):' ↕';};
  var H=function(k,label,right){return '<th style="cursor:pointer;user-select:none'+
    (right?';text-align:right':'')+'" onclick="trdSetSort(\''+k+'\')">'+label+
-   '<span style="color:var(--c3);font-size:10px">'+arrow(k)+'</span></th>';};
+   '<span style="color:var(--c3);font-size:calc(10px*var(--ts-fs,1))">'+arrow(k)+'</span></th>';};
  var stratOpts='<option value="">전략 전체</option>'+STRATS.map(function(s){
    return '<option value="'+s.key+'"'+(TRDF.s===s.key?' selected':'')+'>'+esc(s.label)+'</option>';}).join('');
  var ipStyle='padding:7px 10px;border:1px solid var(--line);border-radius:8px;'+
-   'font-family:inherit;font-size:12.5px;background:#fff;color:var(--c0)';
+   'font-family:inherit;font-size:calc(12.5px*var(--ts-fs,1));background:#fff;color:var(--c0)';
  var bar='<div style="padding:12px 16px;border-bottom:1px solid var(--line);'+
    'display:flex;flex-wrap:wrap;gap:8px;align-items:center">'+
    '<select onchange="TRDF.s=this.value;renderTradesTable();" style="'+ipStyle+'">'+stratOpts+'</select>'+
@@ -1371,11 +1382,11 @@ function renderTradesTable(){var rows=trdSort(TRD.filter(trdMatch));
    'oninput="TRDF.t=this.value;renderTradesTable();" style="'+ipStyle+';width:100px;text-transform:uppercase">'+
    '<input type="date" value="'+_ymd2iso(TRDF.d1)+'" '+
    'onchange="TRDF.d1=this.value.replace(/-/g,\'\');renderTradesTable();" style="'+ipStyle+'">'+
-   '<span style="color:var(--c2);font-size:11.5px">~</span>'+
+   '<span style="color:var(--c2);font-size:calc(11.5px*var(--ts-fs,1))">~</span>'+
    '<input type="date" value="'+_ymd2iso(TRDF.d2)+'" '+
    'onchange="TRDF.d2=this.value.replace(/-/g,\'\');renderTradesTable();" style="'+ipStyle+'">'+
    '<button class="btn sm" onclick="trdReset();"><i class="fa-solid fa-rotate-left"></i> 초기화</button>'+
-   '<span style="color:var(--c2);font-size:11.5px;margin-left:auto">'+
+   '<span style="color:var(--c2);font-size:calc(11.5px*var(--ts-fs,1));margin-left:auto">'+
    rows.length+' / '+TRD.length+'건</span></div>';
  var tbl=rows.length?('<div style="overflow-x:auto"><table class="tbl"><thead><tr>'+
    H('trade_date','일자')+H('_s','전략')+H('ticker','티커')+
@@ -1414,7 +1425,7 @@ function oTab(i){var box=$('otab');box.innerHTML='<div class="muted">불러오�
   all.map(function(o){return '<tr><td>'+esc(o._s)+'</td><td><b>'+esc(o.ticker)+'</b></td>'+
   '<td><span class="tag '+(o.side==='buy'?'buy">매수':'sell">매도')+'</span></td><td>'+esc(o.order_type||'')+
   '</td><td style="text-align:right">'+o.qty+'</td><td style="text-align:right">'+money(o.price,2)+
-  '</td><td style="text-align:right">'+money(o.amount,2)+'</td><td style="color:#9aa3b2;font-size:11px">'+
+  '</td><td style="text-align:right">'+money(o.amount,2)+'</td><td style="color:#9aa3b2;font-size:calc(11px*var(--ts-fs,1))">'+
   esc(o.desc||'')+'</td></tr>';}).join('')+'</tbody></table></div>'):
   '<div class="muted">오늘 예정 주문 없음 (장 시작 전이거나 조건 미충족)</div>';});}
  else if(i===1){Promise.all(paths.map(function(k){return fetch('/'+k+'/api/orders/pending')
@@ -1496,8 +1507,8 @@ function cycTrades(k,cid,title){var box=$('cycd_'+k);
   var bSum=bs.reduce(function(a,t){return a+(t.amount||0);},0);
   var sSum=sl.reduce(function(a,t){return a+(t.amount||0);},0);
   box.innerHTML='<div style="padding:14px 18px;border-top:1px solid var(--line)">'+
-   '<b style="font-size:13px">'+esc(title)+' 매수/매도 상세</b> '+
-   '<span style="color:var(--c2);font-size:11.5px">매수 '+bs.length+'건 '+money(bSum)+
+   '<b style="font-size:calc(13px*var(--ts-fs,1))">'+esc(title)+' 매수/매도 상세</b> '+
+   '<span style="color:var(--c2);font-size:calc(11.5px*var(--ts-fs,1))">매수 '+bs.length+'건 '+money(bSum)+
    ' · 매도 '+sl.length+'건 '+money(sSum)+' · 손익 '+sM(sSum-bSum)+'</span>'+
    '<div style="overflow-x:auto;margin-top:10px"><table class="tbl"><thead><tr><th>일자</th>'+
    '<th>구분</th><th>유형</th><th style="text-align:right">트렌치/회차</th>'+
@@ -1538,7 +1549,7 @@ function pgSys(){var ss=MET.strategies||[];var a=MET.account||{};
     ' · 평가 '+money(t.eval_total)+' · 예수금 '+money(t.cash_usd)+
     (t.ts?(' · 갱신 '+esc(t.ts.slice(5,16))):'')+
     ' <button class="btn sm" style="margin-left:8px" onclick="tossRefresh()">지금 갱신</button>'+
-    (t.error?('<br><span class="dn" style="font-size:11px">'+esc(String(t.error).slice(0,90))+'</span>'):''));})()+
+    (t.error?('<br><span class="dn" style="font-size:calc(11px*var(--ts-fs,1))">'+esc(String(t.error).slice(0,90))+'</span>'):''));})()+
   '</div></div>'+
   '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-power-off"></i>'+
   '전략 가동 · 정지</span></div><div style="padding:4px 0">'+
@@ -1550,7 +1561,7 @@ function pgSys(){var ss=MET.strategies||[];var a=MET.account||{};
   '</div></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="ch"><span class="ct">'+
   '<i class="fa-solid fa-money-bill-transfer"></i>입출금 내역</span>'+
-  '<span style="font-size:11.5px;color:var(--c2)">차트 입금·출금 기준</span></div>'+
+  '<span style="font-size:calc(11.5px*var(--ts-fs,1));color:var(--c2)">차트 입금·출금 기준</span></div>'+
   '<div class="form" style="grid-template-columns:repeat(4,1fr) auto">'+
   '<div class="fld"><label>일자</label><input id="cfDate" type="date"></div>'+
   '<div class="fld"><label>구분</label><select id="cfKind">'+
@@ -1562,7 +1573,7 @@ function pgSys(){var ss=MET.strategies||[];var a=MET.account||{};
   '<div id="cfList"><div class="muted">불러오는 중…</div></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="ch"><span class="ct">'+
   '<i class="fa-solid fa-magnifying-glass-chart"></i>일일 점검</span>'+
-  '<span style="font-size:12.5px;color:var(--c2)">매일 09:00 자동 · T값 · 싸이클</span>'+
+  '<span style="font-size:calc(12.5px*var(--ts-fs,1));color:var(--c2)">매일 09:00 자동 · T값 · 싸이클</span>'+
   '<button class="btn sm p" style="margin-left:auto" onclick="tAuditRun()">'+
   '<i class="fa-solid fa-play"></i> 지금 점검</button></div>'+
   '<div id="tAuditBox"><div class="muted">불러오는 중…</div></div></div>'+
@@ -1583,37 +1594,37 @@ function _sectionOverallBadge(sec,emptyLbl){var ov=(sec&&sec.overall)||'none';
  return ' <span class="bdg '+b[0]+'" style="margin-left:auto">'+lbl+'</span>';}
 function _renderTItem(it){var b=_bdgFor(it.status);
  var det='';
- if(it.T_stored!=null){det='<div style="font-size:11px;color:var(--c2);margin-top:4px">'+
+ if(it.T_stored!=null){det='<div style="font-size:calc(11px*var(--ts-fs,1));color:var(--c2);margin-top:4px">'+
   'T(DB)='+it.T_stored+' · T(cum)='+it.T_recalc_cum+' · T(보유원가)='+it.T_from_holding+
   ' · cum_buy='+money(it.cum_buy)+' · cum_sell='+money(it.cum_sell)+
   ' · avg×qty='+money((it.avg_price||0)*(it.qty||0))+
   ' · B='+money(it.B,2)+' (seed '+money(it.seed)+' / A '+it.A+')</div>';}
- var reason=it.reason?('<div style="font-size:11.5px;color:var(--red);margin-top:5px;'+
+ var reason=it.reason?('<div style="font-size:calc(11.5px*var(--ts-fs,1));color:var(--red);margin-top:5px;'+
   'background:var(--red-s);padding:8px 10px;border-radius:8px">'+esc(it.reason)+'</div>'):'';
- var note=it.note?('<div style="font-size:11px;color:var(--c2);margin-top:5px;'+
+ var note=it.note?('<div style="font-size:calc(11px*var(--ts-fs,1));color:var(--c2);margin-top:5px;'+
   'background:var(--bg);padding:7px 10px;border-radius:8px"><i class="fa-solid fa-circle-info"></i> '+
   esc(it.note)+'</div>'):'';
  return '<div style="padding:12px 18px;border-bottom:1px solid var(--line)">'+
   '<div style="display:flex;align-items:center;gap:10px">'+
-  '<b style="font-size:13px">'+esc(it.ticker||'-')+'</b>'+
-  '<span style="color:var(--c2);font-size:11px">싸이클 C'+(it.cycle||1)+'</span>'+
+  '<b style="font-size:calc(13px*var(--ts-fs,1))">'+esc(it.ticker||'-')+'</b>'+
+  '<span style="color:var(--c2);font-size:calc(11px*var(--ts-fs,1))">싸이클 C'+(it.cycle||1)+'</span>'+
   '<span class="bdg '+b[0]+'" style="margin-left:auto">'+b[1]+'</span></div>'+
   det+reason+note+'</div>';}
 function _renderCycItem(it){var b=_bdgFor(it.status);
  var scope=it.scope==='continuity'?' · 연속성':'';
  var det='';
- if(it.start_date){det='<div style="font-size:11px;color:var(--c2);margin-top:4px;word-break:break-all">'+
+ if(it.start_date){det='<div style="font-size:calc(11px*var(--ts-fs,1));color:var(--c2);margin-top:4px;word-break:break-all">'+
   esc(it.start_date)+' ~ '+esc(it.end_date)+' · trades '+(it.trades_count||0)+
   '건 (매수 '+(it.buys_count||0)+'/'+(it.buy_qty||0)+'주 '+money(it.buy_sum)+
   ' · 매도 '+(it.sells_count||0)+'/'+(it.sell_qty||0)+'주 '+money(it.sell_sum)+
   ') · history(buy '+money(it.history_buy)+' / sell '+money(it.history_sell)+
   ' / profit '+money(it.history_profit)+') · last_sell '+esc(it.last_sell_date||'-')+'</div>';}
- var reason=it.reason?('<div style="font-size:11.5px;color:var(--red);margin-top:5px;'+
+ var reason=it.reason?('<div style="font-size:calc(11.5px*var(--ts-fs,1));color:var(--red);margin-top:5px;'+
   'background:var(--red-s);padding:8px 10px;border-radius:8px">'+esc(it.reason)+'</div>'):'';
  return '<div style="padding:12px 18px;border-bottom:1px solid var(--line)">'+
   '<div style="display:flex;align-items:center;gap:10px">'+
-  '<b style="font-size:13px">'+esc(it.ticker||'-')+'</b>'+
-  '<span style="color:var(--c2);font-size:11px">'+esc(it.strategy||'')+
+  '<b style="font-size:calc(13px*var(--ts-fs,1))">'+esc(it.ticker||'-')+'</b>'+
+  '<span style="color:var(--c2);font-size:calc(11px*var(--ts-fs,1))">'+esc(it.strategy||'')+
   ' · C'+(it.cycle||'-')+scope+'</span>'+
   '<span class="bdg '+b[0]+'" style="margin-left:auto">'+b[1]+'</span></div>'+
   det+reason+'</div>';}
@@ -1622,7 +1633,7 @@ function renderTAudit(d){var box=$('tAuditBox');
  if(!ts){box.innerHTML='<div class="muted">아직 감사 기록이 없습니다. "지금 검증"으로 1회 실행하세요.</div>';return;}
  var b=_bdgFor(overall);
  var head='<div style="padding:11px 18px;border-bottom:1px solid var(--line);'+
-  'display:flex;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap">'+
+  'display:flex;align-items:center;gap:10px;font-size:calc(12px*var(--ts-fs,1));flex-wrap:wrap">'+
   '<span class="bdg '+b[0]+'">전체 '+b[1]+'</span>'+
   '<span style="color:var(--c2)">최근 검증 '+esc(ts.replace('T',' ').slice(0,19))+'</span>'+
   '<button class="btn sm" style="margin-left:auto" onclick="tAuditHistory()">'+
@@ -1634,7 +1645,7 @@ function renderTAudit(d){var box=$('tAuditBox');
  var tv=sec.t_value||{items:[]};var ci=sec.cycle_integrity||{items:[]};
  var hdr=function(title,icon,sec,empty){
   return '<div style="padding:10px 18px;background:var(--bg);'+
-   'display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;color:var(--c1);'+
+   'display:flex;align-items:center;gap:9px;font-size:calc(12px*var(--ts-fs,1));font-weight:700;color:var(--c1);'+
    'border-bottom:1px solid var(--line);border-top:1px solid var(--line)">'+
    '<i class="fa-solid '+icon+'" style="color:var(--c2)"></i>'+esc(title)+
    _sectionOverallBadge(sec,empty)+'</div>';};
@@ -1661,7 +1672,7 @@ function tAuditHistory(){fetch('/api/suite/t_audit/history?limit=30').then(funct
   alert('T값 감사 이력 (최근 30회)\n\n'+lines);});}
 function loadCashflow(){fetch('/api/suite/cashflow').then(function(r){return r.json();})
  .then(function(d){var e=d.entries||[],s=d.summary||{};var w=$('cfList');
-  var head='<div style="padding:10px 18px;font-size:12px;color:var(--c1)">총 입금 <b class="up">'+
+  var head='<div style="padding:10px 18px;font-size:calc(12px*var(--ts-fs,1));color:var(--c1)">총 입금 <b class="up">'+
    money(s.total_deposit)+'</b> · 총 출금 <b class="dn">'+money(s.total_withdraw)+
    '</b> · 순입금 <b>'+money(s.net)+'</b></div>';
   if(!e.length){w.innerHTML=head+'<div class="muted">기록 없음 — 위에서 추가하세요</div>';return;}
@@ -1684,7 +1695,7 @@ function delCashflow(id){if(!confirm('이 입출금 기록을 삭제할까요?')
  api('DELETE','/api/suite/cashflow/'+id).then(function(){toast('삭제됨');
   loadCashflow();SER=null;}).catch(function(e){toast('실패: '+e);});}
 function row(k,v){return '<div style="display:flex;justify-content:space-between;padding:13px 18px;'+
- 'border-bottom:1px solid var(--line);font-size:12.5px"><span style="color:var(--c1)">'+k+
+ 'border-bottom:1px solid var(--line);font-size:calc(12.5px*var(--ts-fs,1))"><span style="color:var(--c1)">'+k+
  '</span><b>'+v+'</b></div>';}
 function togKill(k,act){if(!confirm(act?'이 전략을 정지(Kill Switch ON)할까요?':'이 전략을 재가동할까요?'))return;
  api('POST','/'+k+'/api/kill_switch?activate='+act).then(function(){
@@ -1712,9 +1723,9 @@ function bjRenderMode(){
   loadIntros();
  }else{
   $('bjCtl').innerHTML='<div style="padding:12px 18px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-   '<span style="font-size:12px;color:var(--c1)">일자</span>'+
+   '<span style="font-size:calc(12px*var(--ts-fs,1));color:var(--c1)">일자</span>'+
    '<input type="date" id="bjDate" style="padding:7px 10px;border:1px solid var(--line);'+
-   'border-radius:8px;font-family:inherit;font-size:12.5px">'+
+   'border-radius:8px;font-family:inherit;font-size:calc(12.5px*var(--ts-fs,1))">'+
    '<button class="btn sm" onclick="loadJournal($(\'bjDate\').value.replace(/-/g,\'\'))">'+
    '<i class="fa-solid fa-rotate"></i> 조회</button></div>';
   $('bjTip').innerHTML='일자를 고르면 전략별로 그날 <b>매수·매도·싸이클</b>이 정리됩니다. 각 전략 블록의 <b>복사</b>를 눌러 네이버 블로그에 붙여넣으세요(전략당 1개 글).';
@@ -1728,13 +1739,13 @@ function loadIntros(){
 function renderIntros(its){var box=$('bjBody');
  box.innerHTML=its.map(function(s,i){
   var head='<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;'+
-   'border-top:1px solid var(--line);background:var(--bg)"><b style="font-size:13px">'+
+   'border-top:1px solid var(--line);background:var(--bg)"><b style="font-size:calc(13px*var(--ts-fs,1))">'+
    esc(s.display_name)+' · 전략 소개</b>'+
    '<button class="btn sm p" style="margin-left:auto" onclick="copyIntro('+i+')">'+
    '<i class="fa-solid fa-copy"></i> 복사</button></div>';
   var ta='<div style="padding:10px 18px 16px"><textarea id="bjintro'+i+'" readonly '+
    'style="width:100%;height:230px;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);'+
-   'border-radius:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;'+
+   'border-radius:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:calc(12.5px*var(--ts-fs,1));line-height:1.6;'+
    'color:var(--c0);background:#fbfcfe;resize:vertical;white-space:pre">'+esc(s.intro||'')+'</textarea></div>';
   return head+ta;}).join('');}
 function copyIntro(i){var ta=$('bjintro'+i);if(!ta)return;ta.focus();ta.select();
@@ -1752,14 +1763,14 @@ function loadJournal(ymd){
   .catch(function(){if($('bjBody'))$('bjBody').innerHTML='<div class="muted">일지 로드 실패</div>';});}
 function renderJournal(d){var box=$('bjBody');var ss=(d&&d.strategies)||[];
  var dd=d.date||'';var diso=dd.length===8?(dd.slice(0,4)+'-'+dd.slice(4,6)+'-'+dd.slice(6,8)):dd;
- var html='<div style="padding:8px 18px 4px;font-size:12px;color:var(--c2)">'+esc(diso)+
+ var html='<div style="padding:8px 18px 4px;font-size:calc(12px*var(--ts-fs,1));color:var(--c2)">'+esc(diso)+
   ' 기준 · 최근 체결일 '+esc((d.latest_date||'').replace(/(\d{4})(\d{2})(\d{2})/,"$1-$2-$3"))+'</div>';
  html+=ss.map(function(s,i){
   var act=s.has_activity;
   var head='<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;'+
    'border-top:1px solid var(--line);background:var(--bg)">'+
-   '<b style="font-size:13px">'+esc(s.display_name)+'</b>'+
-   '<span style="color:var(--c2);font-size:11.5px">매수 '+(s.buy_count||0)+'건 '+money(s.buy_sum)+
+   '<b style="font-size:calc(13px*var(--ts-fs,1))">'+esc(s.display_name)+'</b>'+
+   '<span style="color:var(--c2);font-size:calc(11.5px*var(--ts-fs,1))">매수 '+(s.buy_count||0)+'건 '+money(s.buy_sum)+
    ' · 매도 '+(s.sell_count||0)+'건 '+money(s.sell_sum)+
    ' · 보유 '+(s.holdings_qty||0)+'주'+
    ((s.cycles_ended&&s.cycles_ended.length)?(' · 🎯싸이클종료 '+s.cycles_ended.length):'')+'</span>'+
@@ -1768,7 +1779,7 @@ function renderJournal(d){var box=$('bjBody');var ss=(d&&d.strategies)||[];
   var ta='<div style="padding:10px 18px 16px"><textarea id="bjtext'+i+'" readonly '+
    'style="width:100%;height:'+(act?'200px':'120px')+';box-sizing:border-box;padding:12px 14px;'+
    'border:1px solid var(--line);border-radius:10px;font-family:ui-monospace,Menlo,Consolas,monospace;'+
-   'font-size:12.5px;line-height:1.6;color:var(--c0);background:#fbfcfe;resize:vertical;'+
+   'font-size:calc(12.5px*var(--ts-fs,1));line-height:1.6;color:var(--c0);background:#fbfcfe;resize:vertical;'+
    'white-space:pre">'+esc(s.text||'')+'</textarea></div>';
   return head+ta;}).join('');
  box.innerHTML=html;}
@@ -1796,10 +1807,10 @@ function vrAlertBanner(g){var a=g&&g.alert;if(!a)return '';
   'border-left:5px solid var(--red);border-radius:10px;padding:12px 15px">'+
   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
   '<i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i>'+
-  '<b style="color:var(--red);font-size:15px">예약 미접수 '+a.unresolved+'건</b>'+
-  '<span style="font-size:12px;color:var(--c1)">'+esc(a.detail||'')+'</span></div>'+
-  (a.reason?'<div style="font-size:11.5px;color:var(--c1);margin-top:6px">사유: '+esc(a.reason)+'</div>':'')+
-  (a.at?'<div style="font-size:10.5px;color:var(--c2);margin-top:3px">마지막 시도 '+esc(a.at)+
+  '<b style="color:var(--red);font-size:calc(15px*var(--ts-fs,1))">예약 미접수 '+a.unresolved+'건</b>'+
+  '<span style="font-size:calc(12px*var(--ts-fs,1));color:var(--c1)">'+esc(a.detail||'')+'</span></div>'+
+  (a.reason?'<div style="font-size:calc(11.5px*var(--ts-fs,1));color:var(--c1);margin-top:6px">사유: '+esc(a.reason)+'</div>':'')+
+  (a.at?'<div style="font-size:calc(10.5px*var(--ts-fs,1));color:var(--c2);margin-top:3px">마지막 시도 '+esc(a.at)+
    ' · 미리보기 후 예약 제출로 채우거나, 다음 토요일 자동제출을 기다리세요</div>':'')+
   '</div>';}
 /* 체결 누락 감시 — NH 실보유와 모델(잔여×배수)의 차이가 기준에서 변하면 빨간 배너.
@@ -1811,17 +1822,17 @@ function vrQtyBanner(g){var q=g&&g.qty_audit;if(!q||q.state==='ok'||q.state==='n
   q.offset_now+')">'+lbl+'</button>';};
  if(q.state==='unset')
   return '<div style="margin:12px 18px 0;background:var(--amber-s);border:1px solid var(--amber);border-radius:10px;'+
-   'padding:10px 15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">'+
+   'padding:10px 15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:calc(12.5px*var(--ts-fs,1))">'+
    '<i class="fa-solid fa-circle-info" style="color:var(--amber)"></i>체결 감시 기준 미설정 — 지금 NH '+q.acct_qty+
    '주 / 모델 '+q.model_qty_acct+'주 (차이 '+n(q.offset_now)+'주)'+btn('이 차이를 기준으로 설정')+'</div>';
  return '<div style="margin:12px 18px 0;background:var(--red-s);border:1px solid var(--red);'+
   'border-left:5px solid var(--red);border-radius:10px;padding:12px 15px">'+
   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
   '<i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i>'+
-  '<b style="color:var(--red);font-size:15px">보유수량 불일치 '+n(q.diff)+'주</b>'+
-  '<span style="font-size:12px;color:var(--c1)">NH 실보유 '+q.acct_qty+'주 · 모델 '+q.model_qty_acct+
+  '<b style="color:var(--red);font-size:calc(15px*var(--ts-fs,1))">보유수량 불일치 '+n(q.diff)+'주</b>'+
+  '<span style="font-size:calc(12px*var(--ts-fs,1));color:var(--c1)">NH 실보유 '+q.acct_qty+'주 · 모델 '+q.model_qty_acct+
   '주 · 차이 기준 '+n(q.offset_base)+' → 지금 '+n(q.offset_now)+'</span>'+btn('의도한 매매면 기준 재설정')+'</div>'+
-  '<div style="font-size:11.5px;color:var(--c1);margin-top:6px">반영 못 한 체결이 있거나 앱에서 직접 매매했습니다. '+
+  '<div style="font-size:calc(11.5px*var(--ts-fs,1));color:var(--c1);margin-top:6px">반영 못 한 체결이 있거나 앱에서 직접 매매했습니다. '+
   '이대로 다음 주기를 산출하면 사다리가 라오어 표와 어긋납니다. 부분체결이면 남은 수량 체결 뒤 자동으로 풀립니다.</div></div>';}
 /* 배수 증액 매집 진행 배너 — 매집 중에 NH 앱에서 산 주식은 사다리 예약으로 설명되지 않으면
    매집분으로 잡혀 모델에서 빠진다. 다 모이면 다음 예약부터 새 배수. */
@@ -1843,9 +1854,9 @@ function vrPendBanner(g){var p=g&&g.pending;if(!p)return '';
   'border-left:5px solid var(--'+tone+');border-radius:10px;padding:12px 15px">'+
   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
   '<i class="fa-solid '+(p.ready?'fa-circle-check':'fa-cart-plus')+'" style="color:var(--'+tone+')"></i>'+
-  '<b style="color:var(--'+tone+');font-size:14.5px">'+head+'</b>'+
+  '<b style="color:var(--'+tone+');font-size:calc(14.5px*var(--ts-fs,1))">'+head+'</b>'+
   '<button class="btn sm" style="margin-left:auto" onclick="vrMultCancel(\''+gid+'\')">증액 취소</button></div>'+
-  '<div style="font-size:11.5px;color:var(--c1);margin-top:6px">'+sub+'</div></div>';}
+  '<div style="font-size:calc(11.5px*var(--ts-fs,1));color:var(--c1);margin-top:6px">'+sub+'</div></div>';}
 function vrMultUp(gid){var g=(VRDATA||[]).filter(function(x){return x.id===gid;})[0];if(!g)return;
  if(g.pending){toast('이미 증액 매집 중입니다');return;}
  var v=prompt(g.name+' 배수 증액\n지금 ×'+g.mult+' → 몇 배수로?',g.mult+1);if(v==null)return;
@@ -1886,43 +1897,43 @@ function vrCashBox(g){var c=g&&g.cash;if(!c)return '';
  var short=c.short,tone=short?'red':'blue';
  var box=function(lbl,val,sub,tone){return '<div style="flex:1;min-width:160px;background:var(--'+tone+
   '-s);border:1px solid var(--'+tone+');border-radius:10px;padding:10px 13px">'+
-  '<div style="font-size:11.5px;color:var(--c1)">'+lbl+'</div>'+
-  '<b style="font-size:17px;color:var(--'+tone+')">'+val+'</b>'+
-  (sub?'<div style="font-size:10.5px;color:var(--c2);margin-top:2px">'+sub+'</div>':'')+'</div>';};
+  '<div style="font-size:calc(11.5px*var(--ts-fs,1));color:var(--c1)">'+lbl+'</div>'+
+  '<b style="font-size:calc(17px*var(--ts-fs,1));color:var(--'+tone+')">'+val+'</b>'+
+  (sub?'<div style="font-size:calc(10.5px*var(--ts-fs,1));color:var(--c2);margin-top:2px">'+sub+'</div>':'')+'</div>';};
  var fxs=c.fx?('@'+money(c.fx,2)+'원'):'환율 미확인';
  /* NH 는 예수금을 원화/외화 두 벌로 주는데 같은 지갑이라 더하면 두 번 센다.
     same_pot 이면 원화는 '상당액' 으로만 병기. */
  var mix='예수금 '+money(c.cash_usd)+' + 기타자산 '+money(c.ext_assets)+
    (c.ext_krw?(' (원화 '+Math.round(c.ext_krw).toLocaleString()+'원 → '+money(c.ext_krw_usd)+' '+fxs+')'):'');
  return '<div style="display:flex;gap:10px;flex-wrap:wrap;padding:0 18px 6px">'+
-  box('필요 Pool <span style="font-size:10px">(모델×배수)</span>',money(c.pool_required),
+  box('필요 Pool <span style="font-size:calc(10px*var(--ts-fs,1))">(모델×배수)</span>',money(c.pool_required),
       '모델 '+money(c.pool_model)+' × '+g.mult+'배수','amber')+
-  box('실제 보유 Pool <span style="font-size:10px">(달러환산)</span>',money(c.pool_actual),mix,'blue')+
+  box('실제 보유 Pool <span style="font-size:calc(10px*var(--ts-fs,1))">(달러환산)</span>',money(c.pool_actual),mix,'blue')+
   box(short?'부족분':'여유분',(short?'−':'+')+money(Math.abs(c.diff)),
       short?'Pool 이 모델보다 모자랍니다':'모델 Pool 충족',tone)+
   '</div>'+
-  '<div style="padding:0 18px 12px;font-size:10.5px;color:var(--c2)">'+
+  '<div style="padding:0 18px 12px;font-size:calc(10.5px*var(--ts-fs,1));color:var(--c2)">'+
   'Pool = 주식 외 자산 전부(현금·RP·원화·타종목). NH API 는 해외주식만 조회돼 '+
   'RP·원화·국내자산이 안 잡히니 <b>기타자산</b> 칸에 직접 넣어주세요. '+
   '이번 매수 사다리 소요 '+money(c.need_usd)+' ('+c.need_steps+'단) · NH 주문가능금액 '+
   money(c.order_amt)+'</div>';}
 function renderVr(d){var gs=(d&&d.gisu)||[];VRDATA=gs;
  $('vrBody').innerHTML=gs.map(function(g){var gid=g.id;
-  var info='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding:14px 18px;font-size:13.5px">'+
+  var info='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding:14px 18px;font-size:calc(13.5px*var(--ts-fs,1))">'+
    [['주차',g.week_no+'주차'],['기간',vrFmtD(g.cyc_start)+' ~ '+vrFmtD(g.cyc_end)],
     ['V',money(g.v)],['밴드',money(g.band_lo)+' ~ '+money(g.band_hi)],
-    ['모델 잔여',g.model_qty+'주'],['Pool <span style="font-size:10.5px">(모델)</span>',money(g.pool_now)],
+    ['모델 잔여',g.model_qty+'주'],['Pool <span style="font-size:calc(10.5px*var(--ts-fs,1))">(모델)</span>',money(g.pool_now)],
     ['계좌',esc(String(g.acct_no).slice(0,3)+'-**-**'+String(g.acct_no).slice(-3))],
     ['예약',g.reserved_this_week+'건']]
    .concat(g.snapshot?[['보유',g.snapshot.qty+'주'],
-    ['평가',money(g.snapshot.eval_usd)+' <span style="color:var(--c2);font-size:11px">@'+
+    ['평가',money(g.snapshot.eval_usd)+' <span style="color:var(--c2);font-size:calc(11px*var(--ts-fs,1))">@'+
      money(g.snapshot.close,2)+'</span>']]:[])
-   .concat(g.cash?[['총자산 <span style="font-size:10.5px">(달러환산)</span>',
-    money(g.cash.assets_usd)+' <span style="color:var(--c2);font-size:11px">주식+예수금</span>']]:[])
+   .concat(g.cash?[['총자산 <span style="font-size:calc(10.5px*var(--ts-fs,1))">(달러환산)</span>',
+    money(g.cash.assets_usd)+' <span style="color:var(--c2);font-size:calc(11px*var(--ts-fs,1))">주식+예수금</span>']]:[])
    .map(function(x){
-    return '<div><div style="color:var(--c2);font-size:12px">'+x[0]+'</div><b>'+x[1]+'</b></div>';}).join('')+'</div>'
+    return '<div><div style="color:var(--c2);font-size:calc(12px*var(--ts-fs,1))">'+x[0]+'</div><b>'+x[1]+'</b></div>';}).join('')+'</div>'
    +vrCashBox(g);
-  var set='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 18px 12px;font-size:11.5px">'+
+  var set='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 18px 12px;font-size:calc(11.5px*var(--ts-fs,1))">'+
    [['배수','vrM_'+gid,g.mult],['현금흐름/주기(인출−)','vrC_'+gid,g.cashflow],
     ['G','vrG_'+gid,g.g],['매도단수','vrS_'+gid,g.sell_steps],
     ['기타자산 $ (RP·타종목)','vrX_'+gid,((g.cash&&g.cash.ext_usd)||0)],
@@ -1951,7 +1962,7 @@ function renderVr(d){var gs=(d&&d.gisu)||[];VRDATA=gs;
 function renderVrLedger(gid){fetch('/vr/api/gisu/'+gid).then(function(r){return r.json();})
  .then(function(d){var rows=(d.reserved||[]).slice(-24).reverse();var box=$('vrres_'+gid);if(!box)return;
   if(!rows.length){box.innerHTML='';return;}
-  box.innerHTML='<div style="padding:0 18px 14px"><details><summary style="cursor:pointer;font-size:11.5px;'+
+  box.innerHTML='<div style="padding:0 18px 14px"><details><summary style="cursor:pointer;font-size:calc(11.5px*var(--ts-fs,1));'+
    'color:var(--blue);font-weight:600">예약 원장 ('+rows.length+'건)</summary>'+
    '<div style="overflow-x:auto;margin-top:8px"><table class="tbl"><thead><tr><th>주차</th><th>구분</th>'+
    '<th style="text-align:right">가격</th><th style="text-align:right">수량</th><th>기간</th><th>NH접수번호</th><th>상태</th></tr></thead><tbody>'+
@@ -1971,10 +1982,10 @@ function drawVrChart(gid,gd){var el=$('vrch_'+gid);if(!el)return;
   {label:'최소',data:rows.map(function(r){return r.band_lo;}),borderColor:'#6c5ce7',borderDash:[6,4],borderWidth:1.6,pointRadius:0,spanGaps:true},
   {label:'최대',data:rows.map(function(r){return r.band_hi;}),borderColor:'#6c5ce7',borderDash:[6,4],borderWidth:1.6,pointRadius:0,spanGaps:true}]},
   options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11}}},
+   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11*TSFS}}},
     tooltip:{backgroundColor:'#1a2233',padding:10,cornerRadius:8}},
-   scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10}}},
-    y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
+   scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10*TSFS}}},
+    y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10*TSFS},
      callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});}
 function vrSaveSet(gid){var b={mult:parseInt($('vrM_'+gid).value),cashflow:parseFloat($('vrC_'+gid).value),
   g:parseFloat($('vrG_'+gid).value),sell_steps:parseInt($('vrS_'+gid).value),
@@ -1993,7 +2004,7 @@ function vrPreview(gid,qs){var box=$('vrprev_'+gid);box.innerHTML='<div class="m
  fetch('/vr/api/gisu/'+gid+'/preview'+(qs||'')).then(function(r){
   if(!r.ok)return r.json().then(function(e){throw (e&&e.detail)||'산출 실패';});return r.json();})
  .then(function(p){VRPREV[gid]=p;
-  var mk=function(rows,label,cls){return '<div style="flex:1;min-width:260px"><b style="font-size:12px">'+label+
+  var mk=function(rows,label,cls){return '<div style="flex:1;min-width:260px"><b style="font-size:calc(12px*var(--ts-fs,1))">'+label+
    ' ('+rows.length+'단)</b><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th>'+
    '<th style="text-align:right">가격</th><th style="text-align:right">계좌수량</th>'+
    '<th style="text-align:right">모델잔여</th><th style="text-align:right">Pool</th></tr></thead><tbody>'+
@@ -2002,21 +2013,21 @@ function vrPreview(gid,qs){var box=$('vrprev_'+gid);box.innerHTML='<div class="m
     r.remain_after+'</td><td style="text-align:right">'+money(r.pool_after,2)+'</td></tr>';}).join('')+
    '</tbody></table></div></div>';};
   box.innerHTML='<div style="padding:12px 18px;border-top:1px solid var(--line)">'+
-   '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;margin-bottom:10px">'+
+   '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:calc(12px*var(--ts-fs,1));margin-bottom:10px">'+
    '<b>'+p.week_no+'주차 제안</b>'+
    '<span>기간 <input id="vrDs_'+gid+'" value="'+p.cyc_start+'" style="width:86px"> ~ <input id="vrDe_'+gid+'" value="'+p.cyc_end+'" style="width:86px"></span>'+
    '<span>E(마감평가금) <input id="vrE_'+gid+'" value="'+p.e_used+'" style="width:96px">'+
    (p.close_info?' <span style="color:var(--c2)">(자동: '+vrFmtD(p.close_info.date)+' 종가 $'+p.close_info.close+' × '+p.current.model_qty+'주)</span>':'')+'</span>'+
    '<button class="btn sm" onclick="vrPreviewWith(\''+gid+'\')">재산출</button></div>'+
-   '<div class="hl" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;font-size:14px">'+
+   '<div class="hl" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;font-size:calc(14px*var(--ts-fs,1))">'+
    '<span>V <b>'+money(p.v)+'</b></span><span>밴드 <b>'+money(p.band_lo)+' ~ '+money(p.band_hi)+'</b></span>'+
    '<span>Pool <b>'+money(p.pool_start)+'</b></span><span>배수 <b>×'+p.mult+'</b>'+
-   (p.mult_switch?(' <span style="color:var(--green);font-size:12px">(증액 적용 ×'+p.mult_switch.from+' → ×'+p.mult_switch.to+')</span>'):'')+
+   (p.mult_switch?(' <span style="color:var(--green);font-size:calc(12px*var(--ts-fs,1))">(증액 적용 ×'+p.mult_switch.from+' → ×'+p.mult_switch.to+')</span>'):'')+
    '</span></div>'+
    '<div style="display:flex;gap:14px;flex-wrap:wrap">'+mk(p.buys,'매수','dn')+mk(p.sells,'매도','up')+'</div>'+
    '<div style="margin-top:12px;display:flex;gap:8px;align-items:center">'+
    '<button class="btn p" onclick="vrSubmit(\''+gid+'\')"><i class="fa-solid fa-paper-plane"></i> 예약 제출 ('+ (p.buys.length+p.sells.length) +'건)</button>'+
-   '<span style="font-size:11px;color:var(--c2)">제출 전 팬딩 표와 가격(±$0.01)·수량을 대조하세요</span></div></div>';})
+   '<span style="font-size:calc(11px*var(--ts-fs,1));color:var(--c2)">제출 전 팬딩 표와 가격(±$0.01)·수량을 대조하세요</span></div></div>';})
  .catch(function(e){box.innerHTML='<div class="muted">'+esc(String(e))+'</div>';});}
 function vrPreviewWith(gid){var e=$('vrE_'+gid).value,s=$('vrDs_'+gid).value,en=$('vrDe_'+gid).value;
  vrPreview(gid,'?e='+encodeURIComponent(e)+'&start='+s+'&end='+en);}
