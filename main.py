@@ -697,6 +697,7 @@ body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun G
 <div class="toast" id="toast"></div>
 <script>
 var STRATS=__STRATS__;var PAGE='dash';var MET=null;var SER=null;var R1='3M';
+var VRSEL='';
 var C1=null,C2=null,C3=null;var PAL=['#2f6bff','#16a34a','#6c5ce7','#d97706','#e5484d'];
 var BARPAL=['#16a34a','#2f6bff','#e5484d','#d97706','#6c5ce7'];
 var MENU=[['dash','대시보드','fa-gauge-high'],['strat','전략 관리','fa-sliders'],
@@ -786,10 +787,19 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
   kpi('리스크'+(isNH?' (참고)':''),'fa-shield-halved','a',
    (a.mdd_pct==null?(isNH?'—':'수집중'):(Math.abs(a.mdd_pct)<8?'양호':Math.abs(a.mdd_pct)<15?'보통':'주의')),'',
    'MDD '+(a.mdd_pct==null?'—':Number(a.mdd_pct).toFixed(2)+'%'))+'</div>';
- var seg='<div class="seg" id="sg">'+['1주','1개월','3M','6M','전체'].map(function(r){
-  return '<button class="sgb'+(r===R1?' on':'')+'">'+r+'</button>';}).join('')+'</div>';
+ /* NH 탭: 기간 대신 기수 선택 — 그래프도 VR 주차별(평가금·밴드)로 바뀐다 */
+ var vrList=(isNH?((MET.nh&&MET.nh.accounts)||[]):[]);
+ if(isNH&&vrList.length&&!vrList.some(function(x){return x.gisu===VRSEL;}))VRSEL=vrList[0].gisu;
+ var seg=isNH
+  ?('<div class="seg" id="sg">'+vrList.map(function(x){
+    var nm=(((MET.nh&&MET.nh.strategies)||[]).filter(function(s){return s.strategy==='vr:'+x.gisu;})[0]||{}).display_name||x.gisu;
+    return '<button class="sgb'+(VRSEL===x.gisu?' on':'')+'" data-gid="'+esc(x.gisu)+'">'+
+     esc(String(nm).replace(' (NH)','').replace('VR ',''))+'</button>';}).join('')+'</div>')
+  :('<div class="seg" id="sg">'+['1주','1개월','3M','6M','전체'].map(function(r){
+   return '<button class="sgb'+(r===R1?' on':'')+'">'+r+'</button>';}).join('')+'</div>');
  h+='<div class="grid g-3-1">'+
-  card('자산 추이','fa-chart-area','<div class="cw" id="cw1"><canvas id="c1"></canvas></div>',seg)+
+  card(isNH?'VR 주차별 추이':'자산 추이',isNH?'fa-scale-balanced':'fa-chart-area',
+   '<div class="cw" id="cw1"><canvas id="c1"></canvas></div>',seg)+
   '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-list"></i>전략 리스트</span></div>'+
   '<div id="slist"></div></div></div>';
  h+='<div class="grid g-2">'+
@@ -815,7 +825,8 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
  if(isNH&&$('ptr'))$('ptr').innerHTML='<div class="muted">VR 매매 이력은 VR (NH계좌) 메뉴의 예약 원장·체결에서 확인하세요</div>';
  if($('sg'))[].forEach.call($('sg').children,function(b){b.onclick=function(){
   [].forEach.call($('sg').children,function(x){x.classList.remove('on');});
-  b.classList.add('on');R1=b.textContent;drawLine();};});
+  b.classList.add('on');
+   if(ACCT==='nh')VRSEL=b.dataset.gid;else R1=b.textContent;drawLine();};});
  if(!SER){fetch('/api/suite/series').then(function(r){return r.json();}).then(function(d){
   SER=d;drawLine();});}else drawLine();
  renderBars(ss);}
@@ -919,9 +930,39 @@ function drawDonut(ss){if(C2){C2.destroy();C2=null;}var L=[],V=[],T=0;
   (V[i]>=0?'+':'')+money(V[i])+'</span><span class="p">'+
   (Math.abs(V[i])/tot*100).toFixed(1)+'%</span></div>';}).join('');}
 function dDays(r){return {'1주':7,'1개월':30,'3M':90,'6M':180,'전체':99999}[r]||90;}
+/* 대시보드 NH 탭 그래프 — VR 메뉴의 기수 그래프와 같은 API(/vr/api/gisu/{gid}/graph)·같은 계열.
+   주차별 평가금(실선) + 밴드 최소/최대(점선). 값·계산은 VR 화면과 동일하고 여기서 만들지 않는다. */
+function drawVrDash(){var w=$('cw1');if(!w)return;
+ var list=((MET&&MET.nh&&MET.nh.accounts)||[]);
+ var msg=function(ic,t,s){w.innerHTML='<div class="empty"><i class="fa-solid '+ic+'"></i>'+
+  '<div class="t">'+t+'</div><div class="s">'+s+'</div></div>';};
+ if(!list.length){msg('fa-scale-balanced','VR 기수 없음','NH 계좌 기수가 등록되면 주차별 추이가 표시됩니다');return;}
+ var gid=VRSEL||list[0].gisu;
+ fetch('/vr/api/gisu/'+gid+'/graph').then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(gd){
+  if(ACCT!=='nh')return;                       /* 응답 도착 전 계좌를 바꿨으면 그리지 않는다 */
+  var rows=(gd&&gd.weekly)||[];
+  if(rows.length<2){msg('fa-chart-line','주차 기록 누적 중','2주차 이상 기록되면 라오어식 추이가 표시됩니다');return;}
+  var ev=rows.map(function(r){return r.eval_amt;});
+  if(gd.live_eval!=null){var idx=rows.findIndex(function(r){return r.week_no===gd.current_week;});
+   if(idx>=0&&ev[idx]==null)ev[idx]=gd.live_eval;}
+  if(C1){C1.destroy();C1=null;}
+  w.innerHTML='<canvas id="c1"></canvas>';
+  C1=new Chart($('c1'),{type:'line',data:{labels:rows.map(function(r){return r.week_no+'주';}),datasets:[
+   {label:'평가금',data:ev,borderColor:'#e5484d',backgroundColor:'rgba(229,72,77,.08)',
+    borderWidth:2.4,pointRadius:3,pointHoverRadius:5,tension:.15,spanGaps:true,fill:true},
+   {label:'최소',data:rows.map(function(r){return r.band_lo;}),borderColor:'#6c5ce7',
+    borderDash:[6,4],borderWidth:1.6,pointRadius:0,spanGaps:true},
+   {label:'최대',data:rows.map(function(r){return r.band_hi;}),borderColor:'#6c5ce7',
+    borderDash:[6,4],borderWidth:1.6,pointRadius:0,spanGaps:true}]},
+   options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:7,font:{size:11}}},
+     tooltip:{callbacks:{label:function(c){return c.dataset.label+' '+money(c.parsed.y);}}}},
+    scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2',font:{size:10}}},
+     y:{grid:{color:'#eef1f6'},ticks:{color:'#9aa3b2',font:{size:10},
+      callback:function(v){return '$'+(v/1000).toFixed(0)+'k';}}}}}});
+ }).catch(function(){msg('fa-triangle-exclamation','VR 추이 로드 실패','VR (NH계좌) 메뉴에서 확인하세요');});}
 function drawLine(){var w=$('cw1');if(!w)return;
- if(ACCT==='nh'){w.innerHTML='<div class="empty"><i class="fa-solid fa-scale-balanced"></i>'+
-  '<div class="t">VR 주차별 추이는 VR 메뉴에서</div><div class="s">기수별 평가금·밴드 그래프(라오어식)는 좌측 <b>VR (NH계좌)</b> 메뉴에 있습니다</div></div>';return;}
+ if(ACCT==='nh'){drawVrDash();return;}
  if(!SER||SER.collecting||!SER.points||SER.points.length<2){
   w.innerHTML='<div class="empty"><i class="fa-solid fa-chart-area"></i>'+
   '<div class="t">자산추이 데이터 수집중</div><div class="s">equity 스냅샷 30분 주기 누적 시 표시</div></div>';return;}
@@ -1952,7 +1993,7 @@ setInterval(function(){if(PAGE==='dash'||PAGE==='mon')loadAll();},60000);
   var heading=el('section','ws-heading');var intro=el('div');intro.append(el('span','ws-overline','PORTFOLIO WORKSPACE'),el('h1','','투자 현황'),el('p','','자산의 흐름과 전략의 상태를 한눈에 확인하세요.'));heading.append(intro);accountRow.classList.add('ws-account');heading.append(accountRow);shell.append(heading);
   var main=el('div','ws-main');var wealth=el('section','ws-wealth');
   var wealthTop=el('div','ws-wealth-top');ks[0].classList.add('ws-main-asset');ks[2].classList.add('ws-main-return');wealthTop.append(ks[0],ks[2]);wealth.append(wealthTop);
-  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='nh'?'NH · 주차별 추이는 VR 메뉴에서 확인하세요.':window.ACCT==='all'?'전체 계좌 합산 자산 · 아래 추이는 별도 시계열 기준':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
+  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='nh'?'VR 기수별 평가금과 밴드(라오어식) · 위 버튼으로 기수 선택':window.ACCT==='all'?'전체 계좌 합산 자산 · 아래 추이는 별도 시계열 기준':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
   cards.cw1.classList.add('ws-wealth-chart');wealth.append(cards.cw1);
   var supporting=el('div','ws-supporting');[ks[3],ks[4],ks[5]].forEach(k=>supporting.append(k));wealth.append(supporting);main.append(wealth);
   var rail=el('aside','ws-rail');var state=el('section','ws-operation');
