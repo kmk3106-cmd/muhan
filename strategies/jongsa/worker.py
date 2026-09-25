@@ -234,12 +234,22 @@ def _normalize_odno(s: str) -> str:
     return str(s or "").strip().lstrip("0") or "0"
 
 
-def _get_kis_pending_odnos(client: KISClient, ticker: str, ctac_tlno: str) -> set[str]:
-    """KIS 미체결 조회 후 해당 종목의 odno 집합 반환. 빈 집합 = 미체결 없음."""
+def _get_kis_pending_odnos(client: KISClient, ticker: str, ctac_tlno: str):
+    """KIS 미체결 조회 후 해당 종목의 odno 집합 반환.
+
+    반환: set — 조회 성공. 빈 집합이면 '정말 미체결이 없다'는 뜻.
+          None — 조회 실패/불완전. '모른다'는 뜻이며, 호출부는 이때 아무것도 단정하면 안 된다.
+
+    거래소 3곳 중 하나라도 실패하면 None 이다. 종목이 그 거래소에 있을 수 있어서,
+    일부만 받은 목록으로 '이 주문은 없다'고 판단하면 살아있는 주문을 취소로 오판한다.
+    """
     odnos = set()
     nccs_parts = []
     for ovrs in ["NASD", "NYSE", "AMEX"]:
-        df = client.inquire_nccs(ovrs_excg_cd=ovrs, ctac_tlno=ctac_tlno)
+        ok, df = client.inquire_nccs_ex(ovrs_excg_cd=ovrs, ctac_tlno=ctac_tlno)
+        if not ok:
+            logger.warning(f"  [{ticker}] 미체결 조회 실패({ovrs}) → 취소 판정 보류")
+            return None
         if not df.empty:
             nccs_parts.append(df)
     if not nccs_parts:
@@ -268,7 +278,13 @@ def _get_kis_pending_order_keys(client: KISClient, ticker: str, ctac_tlno: str) 
     keys = set()
     nccs_parts = []
     for ovrs in ["NASD", "NYSE", "AMEX"]:
-        df = client.inquire_nccs(ovrs_excg_cd=ovrs, ctac_tlno=ctac_tlno)
+        ok, df = client.inquire_nccs_ex(ovrs_excg_cd=ovrs, ctac_tlno=ctac_tlno)
+        if not ok:
+            # 이 층은 'DB 에 없는데 KIS 에 있는' 주문을 거르는 보조 수단이다.
+            # 조회가 불확실하면 거를 수 없다는 뜻이므로 남긴다 — 주된 방어는 DB(pending) 쪽이고,
+            # 그쪽은 _sync_pending_with_kis 의 fail-safe 로 유지된다.
+            logger.warning(f"  [{ticker}] 미체결 조회 실패({ovrs}) → KIS 중복대조 생략 (DB 대조만 적용)")
+            return keys
         if not df.empty:
             nccs_parts.append(df)
     if not nccs_parts:
@@ -336,6 +352,15 @@ def _sync_pending_with_kis(session: Session, client: KISClient, ticker_obj: Tick
     """
     yesterday_str = _yesterday_kst()
     kis_odnos = _get_kis_pending_odnos(client, ticker_obj.ticker, ctac_tlno)
+    # [2026-09-25] 조회가 불확실하면 아무것도 취소하지 않는다 (fail-safe).
+    # 예전에는 조회 실패·목록 누락도 '미체결 없음'과 같게 보고 DB 주문을 cancelled 로 바꿨다.
+    # 그러면 중복방지에서 빠져 **KIS 에 아직 살아있는 주문에 같은 물량을 또 내고**
+    # 가능수량 초과로 전건 거부된다(2026-09-24 TECL·SPXL APBK0988 매시간 반복).
+    # 취소를 놓치면 그 주문은 다음 실행에서 정리되지만, 반대로 오판하면 중복 주문이 나간다.
+    if kis_odnos is None:
+        _log_structured(session, "WARNING", ticker_obj.ticker, "미체결",
+                        "미체결 조회 불확실 → 취소 판정 보류 (기존 주문 유지, 중복 제출 방지)")
+        return 0
     filled_odnos = _get_kis_filled_odnos(client, ticker_obj.ticker, today_str, ctac_tlno)
     db_pending = session.scalars(
         select(TradeOrder).where(

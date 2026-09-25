@@ -484,18 +484,61 @@ class KISClient:
         rows = out if isinstance(out, list) else [out]
         return pd.DataFrame(rows)
 
-    def inquire_nccs(self, ovrs_excg_cd: str = "NASD", sort_sqn: str = "DS",
-                     ctac_tlno: str = "01000000000") -> pd.DataFrame:
+    def inquire_nccs_ex(self, ovrs_excg_cd: str = "NASD", sort_sqn: str = "DS",
+                        ctac_tlno: str = "01000000000") -> tuple[bool, pd.DataFrame]:
+        """미체결 조회 — (조회성공여부, 결과) 반환. **연속조회 포함.**
+
+        왜 (ok, df) 인가: 빈 DataFrame 하나로는 '미체결이 없다'와 '조회가 실패했다'를
+        구분할 수 없다. 호출부가 이 둘을 같게 보면 살아있는 주문을 '없다'고 단정하게
+        되고, 그 단정으로 DB 주문을 취소 처리하면 같은 물량에 주문을 또 내게 된다
+        (2026-09-24 TECL·SPXL APBK0988 중복 거부).
+
+        왜 연속조회인가: 한 페이지만 받으면 미체결이 많을 때 뒷장이 통째로 누락되고,
+        누락된 주문은 위와 똑같이 '없는 주문'으로 취급된다. 공용계좌라 3전략 미체결이
+        함께 쌓이므로 실제로 넘길 수 있다. (inquire_ccnl 에 이미 있는 루프와 동일 형태)
+
+        ok=False 는 '모른다'는 뜻이다. 호출부는 이때 아무것도 단정하지 말아야 한다.
+        """
         cano, acnt_prdt_cd = self._get_account()
         tr_id = "VTTS3018R" if self.env_dv == "demo" else "TTTS3018R"
-        res = self._request("GET", "/uapi/overseas-stock/v1/trading/inquire-nccs", tr_id,
-                            params={"CANO": cano, "ACNT_PRDT_CD": acnt_prdt_cd,
-                                    "OVRS_EXCG_CD": ovrs_excg_cd, "SORT_SQN": sort_sqn,
-                                    "CTX_AREA_FK200": "", "CTX_AREA_NK200": ""},
-                            ctac_tlno=ctac_tlno)
-        if res.get("rt_cd") != "0": return pd.DataFrame()
-        out = res.get("output", [])
-        return pd.DataFrame(out if isinstance(out, list) else [out])
+        all_rows = []
+        ctx_fk200 = ctx_nk200 = ""
+        ok = False
+        for page in range(20):
+            res = self._request("GET", "/uapi/overseas-stock/v1/trading/inquire-nccs", tr_id,
+                                params={"CANO": cano, "ACNT_PRDT_CD": acnt_prdt_cd,
+                                        "OVRS_EXCG_CD": ovrs_excg_cd, "SORT_SQN": sort_sqn,
+                                        "CTX_AREA_FK200": ctx_fk200, "CTX_AREA_NK200": ctx_nk200},
+                                ctac_tlno=ctac_tlno)
+            if res.get("rt_cd") != "0":
+                if page == 0:
+                    logger.warning(f"미체결 조회 실패({ovrs_excg_cd}): {res.get('msg1', '')}")
+                    return False, pd.DataFrame()
+                # 뒷장에서 끊기면 앞장까지는 유효하나 전체 목록은 아니다 → 모른다로 본다
+                logger.warning(f"미체결 연속조회 중단({ovrs_excg_cd}, page={page}): {res.get('msg1', '')}")
+                return False, (pd.DataFrame(all_rows) if all_rows else pd.DataFrame())
+            ok = True
+            out = res.get("output", [])
+            if out:
+                all_rows.extend(out if isinstance(out, list) else [out])
+            tr_cont = res.get("tr_cont", "")
+            ctx_fk200 = res.get("ctx_area_fk200", "")
+            ctx_nk200 = res.get("ctx_area_nk200", "")
+            if tr_cont not in ("M", "F") or (not ctx_fk200 and not ctx_nk200):
+                break
+            time.sleep(0.5)
+        else:
+            # 20장을 다 돌고도 끝이 안 났다 = 목록을 다 못 받았다
+            logger.warning(f"미체결 연속조회 20페이지 초과({ovrs_excg_cd}) — 전체 목록 미확보")
+            return False, pd.DataFrame(all_rows) if all_rows else pd.DataFrame()
+        return ok, (pd.DataFrame(all_rows) if all_rows else pd.DataFrame())
+
+    def inquire_nccs(self, ovrs_excg_cd: str = "NASD", sort_sqn: str = "DS",
+                     ctac_tlno: str = "01000000000") -> pd.DataFrame:
+        """기존 호출부 호환용 — 결과만 반환. 실패/빈 결과를 구분해야 하면 inquire_nccs_ex 사용."""
+        _ok, df = self.inquire_nccs_ex(ovrs_excg_cd=ovrs_excg_cd, sort_sqn=sort_sqn,
+                                       ctac_tlno=ctac_tlno)
+        return df
 
     def order(self, ord_dv: str, pdno: str, ord_qty: str, ovrs_ord_unpr: str,
               ord_dvsn: str = ORD_DVSN_LIMIT, ovrs_excg_cd: str = "NASD",
