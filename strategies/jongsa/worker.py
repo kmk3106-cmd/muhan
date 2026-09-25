@@ -688,6 +688,68 @@ def _extract_account_summary(balance_df1, balance_df2) -> dict:
     }
 
 
+def _fit_sells_to_capacity(sell_orders, sellable: int):
+    """매도가능수량 안에 '통째로' 들어가는 주문만 고른다. (keep_ids, dropped) 반환.
+
+    - 손절(MOC)이 최우선: 리스크 관리라 이익실현보다 먼저 자리를 준다.
+    - 그다음은 주문가가 낮은 순 = 체결 가능성이 높은 순.
+    - 부분 수량으로 쪼개지 않는다. 트렌치 매도는 전량 체결을 전제로 상태가
+      복구되므로(_sync_executions), 반쪽 체결은 트렌치 정합을 깨뜨린다.
+    """
+    keep, room = set(), max(int(sellable), 0)
+    for o in sorted(sell_orders, key=lambda o: (0 if o.order_type == "MOC" else 1, o.price)):
+        q = int(o.qty or 0)
+        if 0 < q <= room:
+            keep.add(id(o))
+            room -= q
+    return keep, [o for o in sell_orders if id(o) not in keep]
+
+
+def _get_sellable_qty(client: KISClient, ticker: str, ctac_tlno: str):
+    """해외주식 잔고에서 해당 종목의 (매도가능수량, 보유수량) 조회.
+
+    ord_psbl_qty(매도가능수량)는 KIS 가 **미결제(T+2)분과 이미 걸려 있는 미체결
+    매도주문에 묶인 수량을 빼고** 주는 값이다. 즉 '지금 이 종목을 최대 몇 주까지
+    팔 수 있는가' 그 자체이고, APBK0988(주문수량이 가능수량보다 큽니다)은
+    주문수량이 이 값을 넘을 때 난다. 보유수량(ovrs_cblc_qty)과는 다르다.
+
+    반환: (매도가능수량, 보유수량). 잔고에서 종목 행을 못 찾거나 컬럼 명세가
+          다르면 None → 호출부는 가드를 적용하지 않는다. 조회가 안 된다는 이유로
+          정상 매도까지 막지는 않는다(막아도 KIS 가 거부할 뿐 손해는 같다).
+    """
+    sellable = None
+    held = 0
+    for ovrs in ("NASD", "NYSE", "AMEX"):
+        try:
+            df1, _ = client.inquire_balance(ovrs_excg_cd=ovrs, ctac_tlno=ctac_tlno)
+        except Exception as e:
+            logger.debug(f"[{ticker}] 잔고조회({ovrs}) 실패: {e}")
+            continue
+        if df1.empty:
+            continue
+        cols = {str(c).upper().replace("_", ""): c for c in df1.columns}
+        pdno_col = cols.get("OVRSPDNO") or cols.get("PDNO")
+        psbl_col = cols.get("ORDPSBLQTY")
+        cblc_col = cols.get("OVRSCBLCQTY")
+        if pdno_col is None or psbl_col is None:
+            continue
+        rows = df1[df1[pdno_col].astype(str).str.strip() == str(ticker).strip()]
+        for _, row in rows.iterrows():
+            try:
+                q = int(float(row[psbl_col]))
+            except (TypeError, ValueError):
+                continue
+            sellable = q if sellable is None else max(sellable, q)
+            if cblc_col is not None:
+                try:
+                    held = max(held, int(float(row[cblc_col])))
+                except (TypeError, ValueError):
+                    pass
+    if sellable is None:
+        return None
+    return sellable, held
+
+
 def _update_account_summary(client: KISClient, ctac_tlno: str) -> tuple[bool, str]:
     """계좌 요약 정보 업데이트. (성공여부, 메시지) 반환"""
     try:
@@ -932,6 +994,30 @@ def _run_worker_once_impl(submit_orders: bool = True):
                             _log_structured(session, "INFO", ticker_obj.ticker, "미체결",
                                             f"기존 미체결 {skipped}건 유지 → 신규 {len(orders)}건만 제출")
                             logger.info(f"  [{ticker_obj.ticker}] 스킵 {skipped}건, 제출 {len(orders)}건")
+                        # ----- 매도 가용수량 가드 (APBK0988 반복 거부 방지) -----
+                        # 트렌치별 매도수량 합계가 '매도가능수량'을 넘으면 KIS 가 전건을 거부한다.
+                        # 매도가능수량은 미결제(T+2)분과 기존 미체결 매도에 묶인 수량이 빠진 값이라
+                        # 보유수량과 다르다. 넘칠 때 조용히 쏘지 말고, 들어갈 만큼만 내고 나머지는
+                        # 사유와 함께 보류한다(다음 워커에서 재시도).
+                        # 실사고: 2026-09-24 TECL 1건·SPXL 3건 전건 거부가 매시간 반복.
+                        sell_os = [o for o in orders if o.side == "sell"]
+                        if sell_os:
+                            _sq = _get_sellable_qty(client, ticker_obj.ticker, ctac_tlno)
+                            want = sum(int(o.qty or 0) for o in sell_os)
+                            if _sq is not None and want > _sq[0]:
+                                sellable, held = _sq
+                                keep, dropped = _fit_sells_to_capacity(sell_os, sellable)
+                                orders = [o for o in orders
+                                          if o.side != "sell" or id(o) in keep]
+                                _log_structured(
+                                    session, "WARNING", ticker_obj.ticker, "스킵",
+                                    f"매도가능 {sellable}주 < 요청 {want}주 (보유 {held}주) → "
+                                    + ", ".join(f"T{o.tranche_num} {o.qty}주" for o in dropped)
+                                    + " 보류. 미결제(T+2) 또는 기존 미체결 매도에 묶인 수량 "
+                                      "— 다음 워커에서 재시도")
+                                logger.warning(
+                                    f"  [{ticker_obj.ticker}] 매도가능 {sellable} < 요청 {want} "
+                                    f"(보유 {held}) → {len(dropped)}건 보류")
                         if orders:
                             order_desc = ", ".join(
                                 f"{'매수' if o.side == 'buy' else '매도'} T{o.tranche_num} {o.order_type}"
