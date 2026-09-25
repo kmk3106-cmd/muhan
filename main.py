@@ -658,6 +658,44 @@ body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun G
 @media print{.ws-mobile,.ws-next{display:none!important}.ws-main{display:block}.ws-rail{margin-top:15px}.ws-disclosure:not([open])>.ws-disclosure-body{display:block}.ws-v3 .sb{display:none}.ws-v3 .body{padding:0}}
 /* Keep trading-side colors distinct from performance colors. */
 .ws-v3 .tag.buy{background:#fff0f2;color:#c23030}.ws-v3 .tag.sell{background:#edf2ff;color:#315bd9}</style>
+<!-- TS_DENSITY_START -->
+<style id="ts-density">/* 좁은 폭(<=900px) 밀도 정리 — 2026-09-25.
+   기능·데이터·열 구성 무변경. 표는 같은 마크업을 카드로 '읽히게만' 바꾼다.
+   롤백: 이 블록 제거 (cardify() 가 붙인 data-l 은 CSS 없이는 아무 효과 없음). */
+
+/* (1) 제 칸에 안 들어가는 넓은 표 → 항목 카드. 전환 판단은 fitTables() 가 실측으로 한다
+   (.rcard 가 붙은 표에만 적용되므로 들어가는 표는 그대로 표로 남는다). */
+.tbl.rcard thead{display:none}
+.tbl.rcard,.tbl.rcard tbody,.tbl.rcard tr,.tbl.rcard td{display:block;width:auto}
+.tbl.rcard tr{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px 14px;
+ border:1px solid var(--line);border-radius:11px;background:var(--card);padding:15px 16px;margin:0 0 10px}
+.tbl.rcard tr:hover{background:var(--card)}
+.tbl.rcard td{border:0!important;padding:0!important;text-align:left!important;min-width:0;overflow-wrap:anywhere}
+.tbl.rcard td:first-child{grid-column:1/-1;padding-bottom:11px!important;
+ border-bottom:1px solid var(--line)!important;font-size:calc(13px*var(--ts-fs,1))}
+.tbl.rcard td:not(:first-child)[data-l]::before{content:attr(data-l);display:block;color:var(--c2);
+ font-weight:500;letter-spacing:0;margin-bottom:4px;font-size:calc(10px*var(--ts-fs,1))}
+@media(max-width:380px){.tbl.rcard tr{grid-template-columns:minmax(0,1fr)}}
+
+/* (2) 알림: 최근 2건만 펼치고 나머지는 접기 (renderAlert) */
+.almore>summary{cursor:pointer;list-style:none;padding:11px 14px;color:var(--c1);min-height:40px;
+ font-size:calc(11px*var(--ts-fs,1));display:flex;align-items:center;gap:6px}
+.almore>summary::-webkit-details-marker{display:none}
+.almore>summary::after{content:'\25BE';margin-left:auto;color:var(--c2)}
+.almore[open]>summary::after{content:'\25B4'}
+.almore>summary:hover{background:var(--bg)}
+
+/* (3) ORDER DESK: 좁은 폭에서 rail 1단 + 배너형 — 빈 카드가 화면 절반을 먹던 것 방지.
+   <=359px 는 기존 블록(세로 배치)을 그대로 두기 위해 min-width:360px 로 시작한다. */
+@media(min-width:360px) and (max-width:900px){
+ .ws-rail{display:flex!important;flex-direction:column!important;gap:14px}
+ .ws-next{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:center;padding:19px 20px}
+ .ws-next .ws-overline{grid-column:1}
+ .ws-next h2{grid-column:1;margin:5px 0;font-size:calc(15px*var(--ts-fs,1))}
+ .ws-next p{grid-column:1;margin:0}
+ .ws-next .ws-primary{grid-column:2;grid-row:1/4;align-self:center;width:auto;min-height:44px;padding:10px 14px}
+}</style>
+<!-- TS_DENSITY_END -->
 <!-- TS_TYPE_SCALE_START -->
 <style id="ts-type-scale">/* 글자 크기 단일 조절 노브 (2026-09-24).
    모든 font-size 는 calc(원본px * var(--ts-fs,1)) 로 걸려 있다.
@@ -899,6 +937,26 @@ function renderBars(ss){var mx=Math.max(1,Math.max.apply(null,ss.map(function(s)
   return '<div class="bar"><div class="t"><span>'+esc(s.display_name)+'</span>'+sP(v)+
   '</div><div class="tr"><i style="width:'+(Math.abs(v)/mx*100)+'%;background:'+
   BARPAL[i%BARPAL.length]+'"></i></div></div>';}).join('');}
+function cardify(box){/* 표의 thead 라벨을 각 td 의 data-l 로 복사해 둔다(카드 모드에서 라벨로 쓰임).
+ 마크업·열 구성·값은 그대로. 카드로 바꿀지 말지는 fitTables() 가 실측으로 정한다. */
+ var t=(box&&box.tagName==='TABLE')?box:(box&&box.querySelector?box.querySelector('table.tbl'):null);
+ if(!t)return;
+ var hs=[].map.call(t.querySelectorAll('thead th'),function(th){return (th.textContent||'').trim();});
+ if(hs.length){[].forEach.call(t.querySelectorAll('tbody tr'),function(tr){
+  [].forEach.call(tr.children,function(td,i){if(hs[i])td.setAttribute('data-l',hs[i]);});});}
+ fitTables();
+ /* V3 어댑터(enhance)가 렌더 직후 카드를 다른 칸으로 옮긴다 → 옮겨진 폭으로 한 프레임 뒤 재측정 */
+ if(typeof requestAnimationFrame==='function')requestAnimationFrame(fitTables);}
+function cardifyAll(root){var r=root||document.getElementById('page');if(!r)return;
+ [].forEach.call(r.querySelectorAll('table.tbl'),function(t){cardify(t);});}
+function fitTables(){/* 표가 제 칸에 안 들어갈 때만 카드로 바꾼다. 항상 '표 기준 폭'으로 재서
+ 되돌리기도 되므로 창을 넓히면 자동으로 표로 복귀한다(임의 브레이크포인트 없음). */
+ [].forEach.call(document.querySelectorAll('table.tbl'),function(t){
+  var p=t.parentElement;if(!p)return;
+  t.classList.remove('rcard');
+  if(t.scrollWidth>p.clientWidth+1)t.classList.add('rcard');});}
+if(typeof window!=='undefined'){var _ftT=null;
+ window.addEventListener('resize',function(){clearTimeout(_ftT);_ftT=setTimeout(fitTables,150);});}
 function renderSum(ss){
  if(ACCT==='nh'){  /* VR 기수 전용 표: V·밴드·Pool·평가 */
   $('psum').innerHTML='<table class="tbl"><thead><tr><th>기수</th><th>주차</th>'+
@@ -913,7 +971,7 @@ function renderSum(ss){
    '<td style="text-align:right">'+money(s.pool)+'</td>'+
    '<td style="text-align:right">'+sP(s.return_pct)+'</td>'+
    '<td>'+esc(String(s.cyc_end||'').replace(/(\d{4})(\d{2})(\d{2})/,'$1.$2.$3'))+'</td></tr>';}).join('')+
-   '</tbody></table>';return;}
+   '</tbody></table>';cardify($('psum'));return;}
  $('psum').innerHTML='<table class="tbl"><thead><tr><th>전략명</th>'+
  '<th style="text-align:right">원금</th><th style="text-align:right">누적손익</th>'+
  '<th style="text-align:right">수익률</th><th style="text-align:right">승률</th>'+
@@ -926,7 +984,7 @@ function renderSum(ss){
  sP(s.return_pct)+'</td><td style="text-align:right">'+(s.win_rate==null?'—':s.win_rate.toFixed(1)+'%')+
  '</td><td style="text-align:right">'+s.holdings_count+'종목</td><td><span class="bdg '+
  (s.kill_switch?'stop':'run')+'">'+(s.kill_switch?'정지':'운용중')+'</span></td></tr>';}).join('')+
- '</tbody></table>';}
+ '</tbody></table>';cardify($('psum'));}
 function renderTr(ts){$('ptr').innerHTML=ts.length?('<table class="tbl"><thead><tr><th>일자</th>'+
  '<th>전략</th><th>종목</th><th>구분</th><th style="text-align:right">수량</th>'+
  '<th style="text-align:right">체결가</th><th style="text-align:right">금액</th></tr></thead><tbody>'+
@@ -934,7 +992,7 @@ function renderTr(ts){$('ptr').innerHTML=ts.length?('<table class="tbl"><thead><
  '</td><td><b>'+esc(t.ticker)+'</b></td><td><span class="tag '+(t.side==='buy'?'buy">매수':'sell">매도')+
  '</span></td><td style="text-align:right">'+t.qty+'</td><td style="text-align:right">'+money(t.price,2)+
  '</td><td style="text-align:right">'+money(t.amount,2)+'</td></tr>';}).join('')+'</tbody></table>'):
- '<div class="muted">매매 내역 없음</div>';}
+ '<div class="muted">매매 내역 없음</div>';cardify($('ptr'));}
 function renderHold(h){var its=(ACCT==='nh')?[]:((h&&h.items)||[]).slice();
  var box=$('phold');var tsEl=$('holdts');
  if(tsEl)tsEl.textContent=h&&h.ts?('갱신 '+String(h.ts).replace('T',' ').slice(0,16)):'';
@@ -972,15 +1030,25 @@ function renderHold(h){var its=(ACCT==='nh')?[]:((h&&h.items)||[]).slice();
   'flex-wrap:wrap;font-size:calc(14px*var(--ts-fs,1))">합계 <span>매입 <b>'+money(tBuy)+'</b></span>'+
   '<span>평가 <b>'+money(tEval)+'</b></span><span>손익 <b class="'+(tPnl>=0?'up':'dn')+'">'+
   (tPnl>=0?'+':'')+money(tPnl)+'</b></span><span>수익률 <b class="'+(tRt>=0?'up':'dn')+'">'+
-  (tRt>=0?'+':'')+tRt.toFixed(2)+'%</b></span></div></div>';}
+  (tRt>=0?'+':'')+tRt.toFixed(2)+'%</b></span></div></div>';cardify(box);}
 function renderAlert(ss){var rows=[];ss.forEach(function(s){(s.errors||[]).forEach(function(l){
  rows.push({lv:l.level,m:'['+s.display_name+'] '+l.message,t:l.created_at});});});
  rows.sort(function(a,b){return (b.t||'').localeCompare(a.t||'');});
- $('palert').innerHTML=rows.length?rows.slice(0,7).map(function(r){
- var c=r.lv==='ERROR'?'e':(r.lv==='WARNING'?'w':'i');
- return '<div class="al"><span class="ad '+c+'"></span><span class="am">'+esc(r.m)+
- '<span class="at">'+esc((r.t||'').replace('T',' ').slice(0,19))+'</span></span></div>';}).join(''):
- '<div class="al"><span class="ad i"></span><span class="am">자동매매 정상 운영 중 · 최근 오류 없음</span></div>';}
+ /* 대시보드 첫 화면을 알림이 덮지 않도록 최근 2건만 펼치고 나머지는 접는다.
+    (오류가 있는데 조용해지면 안 되므로 요약줄에 ERROR/WARNING 건수를 표기) */
+ function al(r){var c=r.lv==='ERROR'?'e':(r.lv==='WARNING'?'w':'i');
+  return '<div class="al"><span class="ad '+c+'"></span><span class="am">'+esc(r.m)+
+  '<span class="at">'+esc((r.t||'').replace('T',' ').slice(0,19))+'</span></span></div>';}
+ if(!rows.length){$('palert').innerHTML=
+  '<div class="al"><span class="ad i"></span><span class="am">자동매매 정상 운영 중 · 최근 오류 없음</span></div>';
+  return;}
+ var head=rows.slice(0,2),rest=rows.slice(2,20);
+ var nE=rows.filter(function(r){return r.lv==='ERROR';}).length;
+ var nW=rows.filter(function(r){return r.lv==='WARNING';}).length;
+ var sum=[nE?('오류 '+nE):'',nW?('경고 '+nW):''].filter(Boolean).join(' · ')||('알림 '+rows.length);
+ $('palert').innerHTML=head.map(al).join('')+(rest.length?
+  ('<details class="almore"><summary>'+esc(sum)+' · 지난 알림 '+rest.length+'건 더 보기</summary>'+
+   rest.map(al).join('')+'</details>'):'');}
 function drawDonut(ss){if(C2){C2.destroy();C2=null;}var L=[],V=[],T=0;
  var isNH=(ACCT==='nh');
  ss.forEach(function(s){
@@ -1462,7 +1530,7 @@ function pgRisk(){var a=MET.account||{},ss=MET.strategies||[];
   sP(s.mdd_pct))+'</td><td style="text-align:right">'+sP(s.return_pct)+'</td><td><span class="bdg '+
   (s.kill_switch?'stop':'run')+'">'+(s.kill_switch?'정지':'운용중')+'</span></td></tr>';}).join('')+
   '</tbody></table></div>')+'</div>';
- $('page').innerHTML=h;}
+ $('page').innerHTML=h;cardifyAll();}
 function pgPerf(){var ss=MET.strategies||[];
  var h='<div class="tip"><i class="fa-solid fa-rotate"></i>종료된 싸이클의 손익·거래내역입니다. '+
   '진행중 싸이클은 종료 후 집계됩니다.</div>'+
@@ -1478,7 +1546,7 @@ function pgPerf(){var ss=MET.strategies||[];
   '</tbody></table></div>')+'</div>';
  ss.forEach(function(s){h+='<div class="grid">'+card('싸이클별 손익 · '+esc(s.display_name),
   'fa-rotate','<div id="cyc_'+s.strategy+'"><div class="muted">싸이클 불러오는 중…</div></div>')+'</div>';});
- $('page').innerHTML=h;
+ $('page').innerHTML=h;cardifyAll();
  ss.forEach(function(s){fetch('/'+s.strategy+'/api/cycles').then(function(r){return r.json();})
   .then(function(d){var it=(d&&d.items)||[];var sm=(d&&d.summary)||{};
    var box=$('cyc_'+s.strategy);
@@ -1496,7 +1564,7 @@ function pgPerf(){var ss=MET.strategies||[];
     sP(c.profit_pct)+'</td><td style="text-align:right">'+
     '<button class="btn sm" onclick="cycTrades(\''+s.strategy+'\','+c.id+',\''+
     esc(c.ticker)+' C'+c.cycle_number+'\')">매수/매도</button></td></tr>';}).join('')+
-    '</tbody></table></div><div id="cycd_'+s.strategy+'"></div>';
+    '</tbody></table></div><div id="cycd_'+s.strategy+'"></div>';cardifyAll(box);
   }).catch(function(){$('cyc_'+s.strategy).innerHTML='<div class="muted">싸이클 로드 실패</div>';});});}
 function cycTrades(k,cid,title){var box=$('cycd_'+k);
  box.innerHTML='<div class="muted">'+esc(title)+' 거래 불러오는 중…</div>';
