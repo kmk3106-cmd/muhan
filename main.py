@@ -849,7 +849,7 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
   :('<div class="seg" id="sg">'+['1주','1개월','3M','6M','전체'].map(function(r){
    return '<button class="sgb'+(r===R1?' on':'')+'">'+r+'</button>';}).join('')+'</div>');
  h+='<div class="grid g-3-1">'+
-  card(isTS?'토스 자산 추이':(isNH?'VR 주차별 추이':'자산 추이'),
+  card(isTS?'토스 자산 추이':(isNH?'VR 주차별 추이':(isAll?'전체 자산 추이 (KIS+NH+토스)':'KIS 자산 추이')),
    isTS?'fa-building-columns':(isNH?'fa-scale-balanced':'fa-chart-area'),
    '<div class="cw" id="cw1"><canvas id="c1"></canvas></div>',seg)+
   '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-list"></i>전략 리스트</span></div>'+
@@ -1071,8 +1071,20 @@ function drawLine(){var w=$('cw1');if(!w)return;
  if(!SER||SER.collecting||!SER.points||SER.points.length<2){
   w.innerHTML='<div class="empty"><i class="fa-solid fa-chart-area"></i>'+
   '<div class="t">자산추이 데이터 수집중</div><div class="s">equity 스냅샷 30분 주기 누적 시 표시</div></div>';return;}
+ /* 전체 탭: 위의 총자산(KIS+NH+토스)과 같은 범위로 그린다.
+    합산값은 2026-09-30 적재분부터 있어 그 이전 점은 제외한다 (KIS 단독값과 섞으면 축이 뒤틀린다) */
+ var useComb=(ACCT==='all');
+ if(useComb){
+  var cp=(SER.points||[]).filter(function(p){return p.combined_assets!=null;});
+  if(cp.length<2){
+   w.innerHTML='<div class="empty"><i class="fa-solid fa-chart-area"></i>'+
+    '<div class="t">전체 합산 추이 수집중 ('+cp.length+'개)</div>'+
+    '<div class="s">KIS+NH+토스 합산은 30분마다 쌓입니다. 그전 기록은 KIS 계좌만이라 합산 그래프에 쓰지 않습니다.<br>'+
+    'KIS 추이는 <b>KIS 탭</b>에서 바로 볼 수 있습니다.</div></div>';return;}
+ }
  if(C1){C1.destroy();C1=null;}w.innerHTML='<canvas id="c1"></canvas>';
- var n=dDays(R1),p=SER.points,last=new Date(p[p.length-1].ts),cut=new Date(last-n*864e5);
+ var n=dDays(R1),p=(useComb?SER.points.filter(function(x){return x.combined_assets!=null;}):SER.points);
+ var last=new Date(p[p.length-1].ts),cut=new Date(last-n*864e5);
  var f=p.map(function(x,i){return {x:x,i:i};}).filter(function(o){return new Date(o.x.ts)>=cut;});
  // 일(日) 단위 집계: 날짜별 마지막 스냅샷 1포인트 = 그날의 자산/수익률
  var bym={},order=[];
@@ -1082,7 +1094,7 @@ function drawLine(){var w=$('cw1');if(!w)return;
   '<div class="t">일별 추이 누적 중</div><div class="s">거래일이 2일 이상 쌓이면 일자별 추이가 표시됩니다 (현재 '+
   dp.length+'일치)</div></div>';return;}
  var L=dp.map(function(o){return String(o.x.ts).slice(5,10);});
- var vals=dp.map(function(o){return o.x.total_assets;});
+ var vals=dp.map(function(o){return useComb?o.x.combined_assets:o.x.total_assets;});
  // ── 세로축 다이내믹 레인지: 데이터 min~max에 15% 패딩만 → 변화가 드라마틱하게 보이도록
  var vmin=Math.min.apply(null,vals),vmax=Math.max.apply(null,vals);
  var span=Math.max(vmax-vmin,vmax*0.01,1),pad=span*0.15;
@@ -1099,7 +1111,7 @@ function drawLine(){var w=$('cw1');if(!w)return;
  var grad=gctx.createLinearGradient(0,0,0,264);
  grad.addColorStop(0,'rgba(47,107,255,.22)');grad.addColorStop(.65,'rgba(47,107,255,.05)');
  grad.addColorStop(1,'rgba(47,107,255,0)');
- var ds=[{label:'총자산',type:'line',data:vals,borderColor:'#2f6bff',
+ var ds=[{label:(useComb?'총자산 (KIS+NH+토스)':'KIS 자산'),type:'line',data:vals,borderColor:'#2f6bff',
   backgroundColor:grad,borderWidth:2.6,pointRadius:0,pointHoverRadius:4,
   pointHoverBackgroundColor:'#2f6bff',fill:true,tension:.3,yAxisID:'y',order:1}];
  if(maxBar>0){
@@ -2111,7 +2123,7 @@ setInterval(function(){if(PAGE==='dash'||PAGE==='mon')loadAll();},60000);
   var heading=el('section','ws-heading');var intro=el('div');intro.append(el('span','ws-overline','PORTFOLIO WORKSPACE'),el('h1','','투자 현황'),el('p','','자산의 흐름과 전략의 상태를 한눈에 확인하세요.'));heading.append(intro);accountRow.classList.add('ws-account');heading.append(accountRow);shell.append(heading);
   var main=el('div','ws-main');var wealth=el('section','ws-wealth');
   var wealthTop=el('div','ws-wealth-top');ks[0].classList.add('ws-main-asset');ks[2].classList.add('ws-main-return');wealthTop.append(ks[0],ks[2]);wealth.append(wealthTop);
-  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='toss'?'토스 계좌 잔고 · 매매는 토스 앱 자동모으기 (조회 전용)':window.ACCT==='nh'?'VR 기수별 평가금과 밴드(라오어식) · 위 버튼으로 기수 선택':window.ACCT==='all'?'전체 계좌 합산 자산 · 아래 추이는 별도 시계열 기준':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
+  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='toss'?'토스 계좌 잔고 · 매매는 토스 앱 자동모으기 (조회 전용)':window.ACCT==='nh'?'VR 기수별 평가금과 밴드(라오어식) · 위 버튼으로 기수 선택':window.ACCT==='all'?'KIS + NH + 토스 합산 · 30분마다 기록':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
   cards.cw1.classList.add('ws-wealth-chart');wealth.append(cards.cw1);
   var supporting=el('div','ws-supporting');[ks[3],ks[4],ks[5]].forEach(k=>supporting.append(k));wealth.append(supporting);main.append(wealth);
   var rail=el('aside','ws-rail');var state=el('section','ws-operation');

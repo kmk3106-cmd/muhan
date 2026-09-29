@@ -41,9 +41,26 @@ def snapshot() -> dict | None:
         for k in strategies:
             cy = _cycles(k)
             realized[k] = cy.get("realized")
+        # NH(VR)·토스 자산도 함께 적재 — 대시보드 '전체' 탭 총자산과 같은 범위로 그리기 위해.
+        # 둘 다 캐시(vr.db 스냅샷 / core/_toss.json)만 읽는다 (증권사 API 무호출).
+        nh_assets = toss_assets = 0.0
+        try:
+            from .suite_metrics import _nh_vr
+            nh_assets = float((_nh_vr().get("account") or {}).get("total_assets") or 0)
+        except Exception:
+            pass
+        try:
+            from .suite_metrics import _toss_block
+            toss_assets = float((_toss_block().get("account") or {}).get("total_assets") or 0)
+        except Exception:
+            pass
+        kis_total = float(canon.get("tot_evlu", 0) or 0)
         pt = {
             "ts": _now_kst().isoformat(timespec="seconds"),
-            "total_assets": canon.get("tot_evlu", 0),
+            "total_assets": canon.get("tot_evlu", 0),      # KIS 계좌 (기존 의미 유지)
+            "nh_assets": round(nh_assets, 2),
+            "toss_assets": round(toss_assets, 2),
+            "combined_assets": round(kis_total + nh_assets + toss_assets, 2),
             "net_invested": canon.get("buy_amt", 0),
             "cash": canon.get("cash", 0),
             "pnl": canon.get("pnl", 0),
@@ -214,7 +231,11 @@ def series(max_points: int = 400) -> dict:
     est_pts, est_sret = [], {}
     real_pts = [{
         "ts": p.get("ts"),
-        "total_assets": float(p.get("total_assets") or 0),
+        "total_assets": float(p.get("total_assets") or 0),      # KIS
+        # 합산(KIS+NH+토스)은 2026-09-30 이후 적재분에만 있다 — 없는 과거 점은 None
+        "combined_assets": (float(p["combined_assets"]) if p.get("combined_assets") else None),
+        "nh_assets": (float(p["nh_assets"]) if p.get("nh_assets") else None),
+        "toss_assets": (float(p["toss_assets"]) if p.get("toss_assets") else None),
         "net_invested": float(p.get("net_invested") or 0),
         "cum_pnl": float(p.get("pnl") or 0),
         "est": False,
