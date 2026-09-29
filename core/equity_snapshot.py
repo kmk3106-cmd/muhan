@@ -216,7 +216,15 @@ def series(max_points: int = 400) -> dict:
     pts = _despike(_load())
     if len(pts) > max_points:
         step = len(pts) // max_points + 1
-        pts = pts[::step] + [pts[-1]]
+        thinned = pts[::step] + [pts[-1]]
+        # 합산(KIS+NH+토스) 기록 점은 솎아내지 않는다 — 전체 탭 그래프가 이 점들만 쓴다
+        seen = {str(p.get("ts")) for p in thinned}
+        for p in pts:
+            if p.get("combined_assets") and str(p.get("ts")) not in seen:
+                thinned.append(p)
+                seen.add(str(p.get("ts")))
+        thinned.sort(key=lambda p: str(p.get("ts") or ""))
+        pts = thinned
     try:
         from .strategy_adapters import active_rows, ADAPTERS
         seeds = {k: 0 for k in ADAPTERS}
