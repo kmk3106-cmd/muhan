@@ -40,11 +40,31 @@ rm -rf "$BAK"
 mv "$NEW" "$APP"
 
 echo "[3/7] DB/예산/Kill Switch 복원"
+# [2026-09-29 수정] DB 가 WAL 모드다. .db 만 복사하면 **마지막 체크포인트 이후 커밋이 통째로 유실**된다
+# (실제 사고: 배포 직전 DB 수정 2건이 배포 후 사라짐 — WAL 크기가 수백KB~2MB 로 상시 존재).
+# 프로세스는 [1/7] 에서 이미 정지됐으므로 여기서 체크포인트를 돌려 WAL 을 본체에 반영한 뒤 복사한다.
+# 체크포인트가 실패해도 -wal/-shm 을 함께 복사해 두므로 데이터는 보존된다.
 if [ -d "$BAK" ]; then
-    cp "$BAK/strategies/infinite/infinite_buy.db" "$APP/strategies/infinite/" 2>/dev/null || true
-    cp "$BAK/strategies/ddsop/ddsop.db"           "$APP/strategies/ddsop/"    2>/dev/null || true
-    cp "$BAK/strategies/jongsa/jongsa.db"         "$APP/strategies/jongsa/"   2>/dev/null || true
-    cp "$BAK/strategies/vr/vr.db"                 "$APP/strategies/vr/"       2>/dev/null || true
+    for _db in "$BAK/strategies/infinite/infinite_buy.db" "$BAK/strategies/ddsop/ddsop.db" \
+               "$BAK/strategies/jongsa/jongsa.db" "$BAK/strategies/vr/vr.db"; do
+        [ -f "$_db" ] || continue
+        "$VENV/bin/python" - "$_db" <<'PYCKPT' 2>/dev/null || echo "  [경고] 체크포인트 실패: $_db (WAL 동반 복사로 보존)"
+import sqlite3, sys
+con = sqlite3.connect(sys.argv[1], timeout=20)
+con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+con.close()
+PYCKPT
+    done
+    # .db 와 함께 -wal/-shm 도 복사 (체크포인트가 실패했을 때의 안전망)
+    for _pair in "strategies/infinite/infinite_buy.db:strategies/infinite" \
+                 "strategies/ddsop/ddsop.db:strategies/ddsop" \
+                 "strategies/jongsa/jongsa.db:strategies/jongsa" \
+                 "strategies/vr/vr.db:strategies/vr"; do
+        _src="${_pair%%:*}"; _dst="${_pair##*:}"
+        cp "$BAK/$_src"      "$APP/$_dst/" 2>/dev/null || true
+        cp "$BAK/$_src-wal"  "$APP/$_dst/" 2>/dev/null || true
+        cp "$BAK/$_src-shm"  "$APP/$_dst/" 2>/dev/null || true
+    done
     cp "$BAK/core/_strategy_budget.json"          "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_equity.jsonl"                  "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_cashflow.json"                 "$APP/core/"                2>/dev/null || true
