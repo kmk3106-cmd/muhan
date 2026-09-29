@@ -61,6 +61,7 @@ def get(strategy: str) -> dict:
         "last_cycles": st.get("last_cycles"),
         "capped": bool(st.get("capped")),
         "cap_note": st.get("cap_note", ""),
+        "tickers": st.get("tickers") or {},        # 종목별 기준시드·증액 (순차 반영용)
     }
 
 
@@ -95,6 +96,59 @@ def _cur_cycles(strategy: str) -> int:
         return 0
 
 
+def ticker_stats(strategy: str) -> dict:
+    """종목별 {seed, realized(완료 싸이클 Σprofit), cycles}.
+
+    증액을 **싸이클이 끝난 종목에만** 적용하려면 종목 단위 실적이 필요하다.
+    떨사오팔·종사종팔은 cycle_history.ticker, 무한매수법은 portfolio_id → ticker 로 묶는다.
+    """
+    out: dict[str, dict] = {}
+    try:
+        from .strategy_adapters import active_rows
+        for tk, seed in active_rows(strategy):
+            out[tk] = {"seed": float(seed or 0), "realized": 0.0, "cycles": 0}
+    except Exception as e:
+        logger.warning(f"[compound] {strategy} 활성종목 조회 실패: {e}")
+        return out
+    try:
+        import importlib
+        from sqlalchemy import create_engine, select
+        from sqlalchemy.orm import Session
+        cfg = importlib.import_module(f"strategies.{strategy}.config")
+        models = importlib.import_module(f"strategies.{strategy}.models")
+        CH = models.CycleHistory
+        eng = create_engine(cfg.DATABASE_URL, connect_args={"timeout": 15})
+        with Session(eng) as s:
+            if hasattr(CH, "ticker"):                      # 떨사오팔·종사종팔
+                rows = s.execute(select(CH.ticker, CH.profit)).all()
+            else:                                          # 무한매수법 (portfolio_id → ticker)
+                P = models.Portfolio
+                rows = s.execute(select(P.ticker, CH.profit)
+                                 .join(CH, CH.portfolio_id == P.id)).all()
+        for tk, profit in rows:
+            k = str(tk or "").upper()
+            if k not in out:                                # 비활성 종목의 과거 싸이클은 무시
+                continue
+            out[k]["realized"] = round(out[k]["realized"] + float(profit or 0), 2)
+            out[k]["cycles"] += 1
+    except Exception as e:
+        logger.warning(f"[compound] {strategy} 종목별 싸이클 조회 실패: {e}")
+    return out
+
+
+def _ticker_state(st: dict, strategy: str) -> dict:
+    """복리 상태의 종목별 칸. 없으면 현재 시점 기준으로 초기화(소급 없음)."""
+    tk_state = st.get("tickers")
+    if isinstance(tk_state, dict) and tk_state:
+        return tk_state
+    tk_state = {}
+    for tk, s in ticker_stats(strategy).items():
+        tk_state[tk] = {"base_seed": s["seed"], "baseline_realized": s["realized"],
+                        "last_cycles": s["cycles"], "added": 0.0}
+    st["tickers"] = tk_state
+    return tk_state
+
+
 def set_mode(strategy: str, mode: str) -> dict:
     """단리/복리 전환. 복리 켤 때 기준선(baseline) 고정 — 과거 실현손익은 소급 안 함."""
     if mode not in ("simple", "compound"):
@@ -110,9 +164,14 @@ def set_mode(strategy: str, mode: str) -> dict:
             "added": 0.0,
             "last_cycles": _cur_cycles(strategy),
             "capped": False, "cap_note": "",
+            # 종목별 기준선 — 증액은 '싸이클이 끝난 종목'에만 순차 반영한다
+            "tickers": {tk: {"base_seed": s["seed"], "baseline_realized": s["realized"],
+                             "last_cycles": s["cycles"], "added": 0.0}
+                        for tk, s in ticker_stats(strategy).items()},
         })
         logger.info(f"[compound] {strategy} 복리 ON (기준시드 ${st['base_seed']:,.0f}, "
-                    f"기준실현 ${st['baseline_realized']:,.2f}, 싸이클 {st['last_cycles']})")
+                    f"기준실현 ${st['baseline_realized']:,.2f}, 싸이클 {st['last_cycles']}, "
+                    f"종목 {list((st.get('tickers') or {}).keys())})")
     else:
         st.update({"mode": "simple"})
         logger.info(f"[compound] {strategy} 단리 전환 — 시드는 할당 총액 기준으로 복원 필요")
@@ -145,8 +204,24 @@ def target_seed(strategy: str) -> dict:
     base = float(st.get("base_seed") or _cur_seed_total(strategy))
     if st["mode"] != "compound":
         return {"mode": "simple", "base_seed": base, "gain": 0.0,
-                "raw_target": base, "capped_target": base, "capped": False, "note": ""}
-    gain = round(max(0.0, _cur_realized(strategy) - float(st.get("baseline_realized") or 0)), 2)
+                "raw_target": base, "capped_target": base, "capped": False, "note": "",
+                "per_ticker": {}}
+    tk_state = st.get("tickers") or {}
+    per_ticker = {}
+    if tk_state:
+        # 종목별: 그 종목이 복리 켠 뒤 낸 실현손익만큼 (싸이클 종료 시 반영 예정)
+        stats = ticker_stats(strategy)
+        base = round(sum(float(v.get("base_seed") or 0) for v in tk_state.values()), 2)
+        gain = 0.0
+        for tk, v in tk_state.items():
+            s = stats.get(tk) or {"realized": 0.0, "seed": 0.0}
+            g = round(max(0.0, s["realized"] - float(v.get("baseline_realized") or 0)), 2)
+            per_ticker[tk] = {"base_seed": float(v.get("base_seed") or 0), "gain": g,
+                              "added": float(v.get("added") or 0), "seed_now": s.get("seed", 0.0),
+                              "next_seed": round(float(v.get("base_seed") or 0) + g, 2)}
+            gain = round(gain + g, 2)
+    else:
+        gain = round(max(0.0, _cur_realized(strategy) - float(st.get("baseline_realized") or 0)), 2)
     raw = round(base + gain, 2)
     # 현금 여력 상한: 이미 반영된 증액분(added)은 현금에서 빠져나간 게 아니므로 함께 고려
     cash = _account_cash()
@@ -156,44 +231,101 @@ def target_seed(strategy: str) -> dict:
     note = (f"현금 여력 상한 적용 (증액 {gain:,.0f} → {capped_gain:,.0f}, 예수금 {cash:,.0f})"
             if capped else "")
     return {"mode": "compound", "base_seed": base, "gain": gain, "raw_target": raw,
-            "capped_target": round(base + capped_gain, 2), "capped": capped, "note": note}
+            "capped_target": round(base + capped_gain, 2), "capped": capped, "note": note,
+            "per_ticker": per_ticker}
 
 
 def apply_if_cycle_ended(strategy: str) -> dict | None:
-    """싸이클이 새로 종료됐으면 시드를 증액 적용. 아니면 None.
+    """싸이클이 끝난 **종목만** 시드를 증액. 없으면 None.
 
-    각 전략 워커가 싸이클을 기록한 뒤(= CycleHistory 증가) 호출된다.
-    손절(MOC)은 워커가 싸이클로 기록하지 않으므로 여기 트리거되지 않는다.
+    각 전략 워커가 싸이클을 기록한 뒤(= 그 종목 CycleHistory 증가) 호출한다.
+    - 증액분 = 복리 켠 뒤 그 종목이 낸 실현손익 (음수면 0 — 손실로 원금을 깎지 않는다)
+    - 진행 중인 다른 종목의 시드는 건드리지 않는다 (2026-09-29 수정, 이전에는 균등 재배분했다)
+    - 현금 여력 상한은 전략 전체 기준으로 남은 한도를 나눠 쓴다
     """
-    st = get(strategy)
-    if st["mode"] != "compound":
+    st_raw = _load().get(strategy) or {}
+    if st_raw.get("mode") != "compound":
         return None
-    now_cycles = _cur_cycles(strategy)
-    last = st.get("last_cycles")
-    if last is not None and now_cycles <= int(last):
-        return None                      # 새 싸이클 종료 없음
-    tgt = target_seed(strategy)
-    new_total = tgt["capped_target"]
-    cur_total = _cur_seed_total(strategy)
-    added = round(new_total - float(tgt["base_seed"]), 2)
-    changed = abs(new_total - cur_total) >= 0.01
-    if changed:
-        ok = _write_seed(strategy, new_total)
-        if not ok:
-            logger.warning(f"[compound] {strategy} 시드 반영 실패 — 다음 싸이클에 재시도")
-            return None
+    tk_state = _ticker_state(st_raw, strategy)
+    stats = ticker_stats(strategy)
+    cash = _account_cash()
+    added_all = sum(float(v.get("added") or 0) for v in tk_state.values())
+    room = max(0.0, added_all + cash * CASH_BUFFER_RATIO)      # 증액 총량 상한
+    changed = []
+    for tk, s in stats.items():
+        cur = tk_state.get(tk)
+        if not cur:                                            # 복리 켠 뒤 추가된 종목 → 지금부터 기준선
+            tk_state[tk] = {"base_seed": s["seed"], "baseline_realized": s["realized"],
+                            "last_cycles": s["cycles"], "added": 0.0}
+            continue
+        if s["cycles"] <= int(cur.get("last_cycles") or 0):     # 이 종목은 새 싸이클 종료 없음
+            continue
+        base = float(cur.get("base_seed") or s["seed"])
+        gain = round(max(0.0, s["realized"] - float(cur.get("baseline_realized") or 0)), 2)
+        other_added = round(added_all - float(cur.get("added") or 0), 2)
+        allow = max(0.0, round(room - other_added, 2))          # 이 종목이 쓸 수 있는 증액 한도
+        capped_gain = round(min(gain, allow), 2)
+        new_seed = round(base + capped_gain, 2)
+        before = s["seed"]
+        if abs(new_seed - before) >= 0.01:
+            if not _write_seed_one(strategy, tk, new_seed):
+                logger.warning(f"[compound] {strategy}:{tk} 시드 반영 실패 — 다음 싸이클에 재시도")
+                continue
+        cur.update({"last_cycles": s["cycles"], "added": capped_gain,
+                    "capped": capped_gain < gain,
+                    "cap_note": (f"현금 여력 상한 적용 (증액 {gain:,.0f} → {capped_gain:,.0f}, "
+                                 f"예수금 {cash:,.0f})" if capped_gain < gain else "")})
+        added_all = round(added_all - float(cur.get("added") or 0) + capped_gain, 2)
+        changed.append({"ticker": tk, "cycles": s["cycles"], "seed_before": before,
+                        "seed_after": new_seed, "added": capped_gain,
+                        "capped": capped_gain < gain})
+        logger.info(f"[compound] {strategy}:{tk} 싸이클 종료 감지({cur['last_cycles']}) "
+                    f"시드 ${before:,.0f} → ${new_seed:,.0f} (증액 ${capped_gain:,.0f})"
+                    + (" · 현금상한 적용" if capped_gain < gain else ""))
+    # 상태 저장 (집계값은 화면 표시용)
     d = _load()
-    s = d.get(strategy) or {}
-    s.update({"last_cycles": now_cycles, "added": added,
-              "capped": tgt["capped"], "cap_note": tgt["note"]})
-    d[strategy] = s
+    s0 = d.get(strategy) or {}
+    s0["tickers"] = tk_state
+    s0["added"] = round(sum(float(v.get("added") or 0) for v in tk_state.values()), 2)
+    s0["base_seed"] = round(sum(float(v.get("base_seed") or 0) for v in tk_state.values()), 2)
+    s0["last_cycles"] = _cur_cycles(strategy)
+    s0["capped"] = any(v.get("capped") for v in tk_state.values())
+    s0["cap_note"] = next((v.get("cap_note") for v in tk_state.values() if v.get("cap_note")), "")
+    d[strategy] = s0
     _save(d)
-    logger.info(f"[compound] {strategy} 싸이클 종료 감지({last}→{now_cycles}) "
-                f"시드 ${cur_total:,.0f} → ${new_total:,.0f} (증액 ${added:,.0f})"
-                + (f" · {tgt['note']}" if tgt["capped"] else ""))
-    return {"strategy": strategy, "cycles": now_cycles,
-            "seed_before": cur_total, "seed_after": new_total, "added": added,
-            "capped": tgt["capped"], "note": tgt["note"]}
+    if not changed:
+        return None
+    return {"strategy": strategy, "changed": changed,
+            "added_total": s0["added"], "capped": s0["capped"], "note": s0["cap_note"]}
+
+
+def _write_seed_one(strategy: str, ticker: str, seed: float) -> bool:
+    """그 종목 하나의 시드만 기록 (다른 종목은 건드리지 않는다)."""
+    import importlib
+    try:
+        from sqlalchemy import create_engine, select
+        from sqlalchemy.orm import Session
+        cfg = importlib.import_module(f"strategies.{strategy}.config")
+        models = importlib.import_module(f"strategies.{strategy}.models")
+        eng = create_engine(cfg.DATABASE_URL, connect_args={"timeout": 15})
+        with Session(eng) as s:
+            if hasattr(models, "Portfolio"):        # 무한매수법
+                P = models.Portfolio
+                row = s.scalar(select(P).where(P.is_active == True, P.ticker == ticker))  # noqa: E712
+                if not row:
+                    return False
+                row.seed = seed
+            else:                                   # 떨사오팔 / 종사종팔
+                Tk = models.Ticker
+                row = s.scalar(select(Tk).where(Tk.is_active == True, Tk.ticker == ticker))  # noqa: E712
+                if not row:
+                    return False
+                row.total_usd = seed
+            s.commit()
+        return True
+    except Exception as e:
+        logger.warning(f"[compound] _write_seed_one({strategy}:{ticker}) 실패: {e}")
+        return False
 
 
 def restore_simple(strategy: str) -> dict:
@@ -207,12 +339,25 @@ def restore_simple(strategy: str) -> dict:
                 break
     except Exception:
         pass
+    d = _load(); s = d.get(strategy) or {}
+    tk_state = s.get("tickers") or {}
+    # 복리 켤 때 기록해 둔 **종목별 기준시드**로 되돌린다 (균등 재배분 금지)
+    if tk_state:
+        restored = {}
+        for tk, v in tk_state.items():
+            base = float(v.get("base_seed") or 0)
+            if base > 0 and _write_seed_one(strategy, tk, base):
+                restored[tk] = base
+            v["added"] = 0.0
+        s.update({"mode": "simple", "added": 0.0, "capped": False, "cap_note": "", "tickers": tk_state})
+        d[strategy] = s; _save(d)
+        logger.info(f"[compound] {strategy} 단리 복원: 종목별 기준시드 {restored}")
+        return {"restored": bool(restored), "seeds": restored}
     st = get(strategy)
     target = assigned if assigned else st.get("base_seed")
     if not target:
         return {"restored": False, "reason": "시드 할당 총액 미설정"}
     ok = _write_seed(strategy, float(target))
-    d = _load(); s = d.get(strategy) or {}
     s.update({"mode": "simple", "added": 0.0, "capped": False, "cap_note": ""})
     d[strategy] = s; _save(d)
     logger.info(f"[compound] {strategy} 단리 복원: 시드 → ${float(target):,.0f} (할당 총액 기준)")

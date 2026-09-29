@@ -222,7 +222,8 @@ def api_compound_status():
         out.append({"strategy": k, **st,
                     "current_seed": t["base_seed"] + st["added"],
                     "gain": t["gain"], "target_seed": t["capped_target"],
-                    "raw_target": t["raw_target"], "cap_note": t["note"] or st.get("cap_note", "")})
+                    "raw_target": t["raw_target"], "cap_note": t["note"] or st.get("cap_note", ""),
+                    "per_ticker": t.get("per_ticker") or {}})
     return {"items": out}
 
 
@@ -1205,9 +1206,14 @@ function loadCompound(k){var el=$('sCmp'),info=$('sCmpInfo');if(!el)return;
   if(!it){info.textContent='';return;}
   el.value=it.mode;
   if(it.mode==='compound'){
+   var pt=it.per_ticker||{};var names=Object.keys(pt);
+   var rows=names.map(function(t){var p=pt[t];
+    return esc(t)+' 기준 '+money(p.base_seed)+(p.gain>0?(' + 증액예정 '+money(p.gain)+' → '+money(p.next_seed)):' (증액 대기)');});
    info.innerHTML='<span class="hl g" style="display:inline-block;padding:8px 12px">복리 운용중 · '+
     '기준원금 <b>'+money(it.base_seed)+'</b> + 증액 <b>'+money(it.added)+'</b> = 현재 <b>'+money(it.current_seed)+'</b>'+
-    (it.gain>it.added?(' <span style="color:var(--c2)">(다음 싸이클 종료 시 '+money(it.target_seed)+' 예정)</span>'):'')+
+    (it.gain>it.added?(' <span style="color:var(--c2)">(싸이클 종료 시 '+money(it.target_seed)+' 예정)</span>'):'')+
+    (rows.length?('<br><span style="font-size:11.5px;color:var(--c1)">종목별 — '+rows.join(' · ')+
+      '<br>증액은 <b>싸이클이 끝난 종목만</b> 그 종목 실현손익만큼, 다음 싸이클부터 적용됩니다</span>'):'')+
     (it.cap_note?('<br><span class="dn">'+esc(it.cap_note)+'</span>'):'')+'</span>';
   }else{
    info.innerHTML='단리 운용중 — 실현손익은 원금에 반영되지 않습니다. '+
