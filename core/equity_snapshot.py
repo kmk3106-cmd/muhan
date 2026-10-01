@@ -17,7 +17,14 @@ try:
 except Exception:
     _KST = None
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 _FILE = Path(__file__).resolve().parent / "_equity.jsonl"
+
+#: 마지막 스냅샷 실패 사유 (진단용 — diagnose() 가 노출)
+_LAST_ERR: dict = {"msg": "", "at": ""}
 
 
 def _now_kst() -> datetime:
@@ -51,8 +58,13 @@ def snapshot() -> dict | None:
         }
         with _FILE.open("a", encoding="utf-8") as f:
             f.write(json.dumps(pt, ensure_ascii=False) + "\n")
+        _LAST_ERR["msg"] = ""
         return pt
-    except Exception:
+    except Exception as e:
+        # 예전에는 조용히 None 이었다 → 스냅샷이 몇 주째 안 쌓여도 아무도 몰랐다.
+        _LAST_ERR["msg"] = f"{type(e).__name__}: {e}"
+        _LAST_ERR["at"] = _now_kst().isoformat(timespec="seconds")
+        logger.warning(f"[equity_snapshot] 스냅샷 적재 실패: {e}")
         return None
 
 
@@ -283,3 +295,68 @@ def account_mdd() -> float | None:
     pts = _despike(_load())
     ser = [float(p.get("total_assets") or 0) for p in pts if float(p.get("total_assets") or 0) > 0]
     return _mdd(ser)
+
+
+def diagnose(recent_days: int = 14) -> dict:
+    """자산추이 차트가 직선/빈 화면으로 보일 때 원인을 바로 가르는 진단.
+
+    차트는 '하루 1포인트(그날 마지막 스냅샷)'로 그린다. 그래서 직선은 셋 중 하나다.
+      (a) 날짜가 2~3일치뿐  → 점을 이을 게 없어 직선으로 보인다
+      (b) 날짜별 값이 전부 같다 → 계좌요약(tot_asst_amt)이 갱신되지 않고 있다
+      (c) 값이 0  → tot_evlu 를 못 읽고 있다
+    읽기 전용이며 매매·주문에 전혀 관여하지 않는다.
+    """
+    raw = _load()
+    pts = _despike(raw)
+    by_day: dict = {}
+    for p in pts:
+        d = str(p.get("ts") or "")[:10]
+        if not d:
+            continue
+        try:
+            v = float(p.get("total_assets") or 0)
+        except (TypeError, ValueError):
+            v = 0.0
+        e = by_day.setdefault(d, {"n": 0, "min": v, "max": v, "last": v})
+        e["n"] += 1
+        e["min"] = min(e["min"], v)
+        e["max"] = max(e["max"], v)
+        e["last"] = v
+    days = sorted(by_day)
+    lasts = [by_day[d]["last"] for d in days]
+    distinct = len({round(v, 2) for v in lasts})
+    zeros = sum(1 for v in lasts if v == 0)
+
+    if not days:
+        verdict = "스냅샷이 한 건도 없음 — 적재 자체가 안 되고 있다"
+    elif len(days) < 2:
+        verdict = f"날짜가 {len(days)}일치뿐 — 이을 점이 없다 (차트는 하루 1포인트)"
+    elif zeros == len(days):
+        verdict = "총자산이 전부 0 — 계좌요약(tot_asst_amt)을 못 읽고 있다"
+    elif distinct == 1:
+        verdict = (f"{len(days)}일 전부 같은 값(${lasts[-1]:,.2f}) — "
+                   "계좌요약이 갱신되지 않아 같은 숫자가 반복 적재되고 있다")
+    elif len(days) < 4:
+        verdict = f"날짜 {len(days)}일치 — 점이 적어 직선처럼 보일 수 있다"
+    else:
+        rng = max(lasts) - min(lasts)
+        base = max(lasts) or 1
+        verdict = (f"{len(days)}일 / 서로 다른 값 {distinct}개 / 최대-최소 ${rng:,.2f} "
+                   f"({rng / base * 100:.2f}%) — 데이터는 변하고 있다")
+
+    return {
+        "verdict": verdict,
+        "file": str(_FILE),
+        "exists": _FILE.exists(),
+        "bytes": _FILE.stat().st_size if _FILE.exists() else 0,
+        "raw_points": len(raw),
+        "after_despike": len(pts),
+        "days": len(days),
+        "first_ts": (raw[0].get("ts") if raw else None),
+        "last_ts": (raw[-1].get("ts") if raw else None),
+        "daily_distinct_values": distinct,
+        "zero_days": zeros,
+        "last_snapshot_error": _LAST_ERR.get("msg") or None,
+        "last_snapshot_error_at": _LAST_ERR.get("at") or None,
+        "recent": [{"date": d, **by_day[d]} for d in days[-recent_days:]],
+    }

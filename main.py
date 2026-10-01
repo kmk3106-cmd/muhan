@@ -265,6 +265,16 @@ def suite_series():
     return series()
 
 
+@app.get("/api/suite/series_debug")
+def suite_series_debug():
+    """자산추이 차트가 직선/빈 화면일 때 원인 진단 (읽기 전용, 매매 무관).
+
+    브라우저에서 /api/suite/series_debug 로 열면 verdict 한 줄로 원인이 나온다.
+    """
+    from core.equity_snapshot import diagnose
+    return diagnose()
+
+
 class CashflowBody(BaseModel):
     date: str
     kind: str           # 'deposit' | 'withdraw'
