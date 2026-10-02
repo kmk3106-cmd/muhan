@@ -1092,8 +1092,8 @@ function drawLine(){var w=$('cw1');if(!w)return;
  var spanD=Math.max(0,(last-new Date(p[0].ts))/864e5);
  if($('sg'))[].forEach.call($('sg').children,function(b){
   var need=dDays(b.textContent),over=(need<9999&&need>spanD+1);
-  b.disabled=over;b.style.opacity=over?'.38':'';b.style.cursor=over?'not-allowed':'';
-  b.title=over?('기록 '+(spanD<1?'1일 미만':(Math.round(spanD)+'일')) + ' — 이 구간은 전체와 같습니다'):'';});
+  b.disabled=false;b.style.opacity='';b.style.cursor='';   /* 버튼은 항상 누를 수 있게 둔다 */
+  b.title=over?('기록 '+(spanD<1?'1일 미만':(Math.round(spanD)+'일'))+' — 이 구간은 전체와 같은 그림입니다'):'';});
  var f=p.map(function(x,i){return {x:x,i:i};}).filter(function(o){return new Date(o.x.ts)>=cut;});
  // 일(日) 단위 집계: 날짜별 마지막 스냅샷 1포인트 = 그날의 자산/수익률
  var bym={},order=[];
