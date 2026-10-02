@@ -849,7 +849,10 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
   :('<div class="seg" id="sg">'+['1주','1개월','3M','6M','전체'].map(function(r){
    return '<button class="sgb'+(r===R1?' on':'')+'">'+r+'</button>';}).join('')+'</div>');
  h+='<div class="grid g-3-1">'+
-  card(isTS?'토스 자산 추이':(isNH?'VR 주차별 추이':(isAll?'전체 자산 추이 (KIS+NH+토스)':'KIS 자산 추이')),
+  card(isTS?'토스 자산 추이':(isNH?'VR 주차별 추이':(isAll?('전체 자산 추이 (KIS+NH+토스)'+
+   (SER&&SER.points?(function(){var c=SER.points.filter(function(x){return x.combined_assets!=null;});
+     if(!c.length)return '';var dd=Math.max(1,Math.round((new Date(c[c.length-1].ts)-new Date(c[0].ts))/864e5));
+     return ' <span style="font-size:10.5px;color:var(--c2)">· 기록 '+dd+'일</span>';})():'')):'KIS 자산 추이')),
    isTS?'fa-building-columns':(isNH?'fa-scale-balanced':'fa-chart-area'),
    '<div class="cw" id="cw1"><canvas id="c1"></canvas></div>',seg)+
   '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-list"></i>전략 리스트</span></div>'+
@@ -1085,6 +1088,12 @@ function drawLine(){var w=$('cw1');if(!w)return;
  if(C1){C1.destroy();C1=null;}w.innerHTML='<canvas id="c1"></canvas>';
  var n=dDays(R1),p=(useComb?SER.points.filter(function(x){return x.combined_assets!=null;}):SER.points);
  var last=new Date(p[p.length-1].ts),cut=new Date(last-n*864e5);
+ /* 기록 기간이 짧으면 긴 구간 버튼을 눌러도 같은 그림이 나온다 → 어떤 버튼이 의미 있는지 표시 */
+ var spanD=Math.max(0,(last-new Date(p[0].ts))/864e5);
+ if($('sg'))[].forEach.call($('sg').children,function(b){
+  var need=dDays(b.textContent),over=(need<9999&&need>spanD+1);
+  b.disabled=over;b.style.opacity=over?'.38':'';b.style.cursor=over?'not-allowed':'';
+  b.title=over?('기록 '+(spanD<1?'1일 미만':(Math.round(spanD)+'일')) + ' — 이 구간은 전체와 같습니다'):'';});
  var f=p.map(function(x,i){return {x:x,i:i};}).filter(function(o){return new Date(o.x.ts)>=cut;});
  // 일(日) 단위 집계: 날짜별 마지막 스냅샷 1포인트 = 그날의 자산/수익률
  var bym={},order=[];
