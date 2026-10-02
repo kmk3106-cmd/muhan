@@ -1090,14 +1090,16 @@ function drawLine(){var w=$('cw1');if(!w)return;
  var bym={},order=[];
  f.forEach(function(o){var d=String(o.x.ts).slice(0,10);if(!(d in bym))order.push(d);bym[d]=o;});
  var dp=order.map(function(d){return bym[d];});
- /* 합산 추이는 오늘부터 쌓이므로, 하루치뿐일 땐 시각 단위로 그린다 (일자 2일 이상이면 일별) */
+ /* 일자가 적게 쌓였을 땐 일별(하루 1점)로 묶으면 직선처럼 보인다 → 스냅샷 시각 단위로 그린다.
+    (합산 추이는 2026-09-30 부터 기록 시작) 일자가 10일 이상 쌓이면 일별로 전환 */
  var byTime=false;
- if(dp.length<2){
-  if(useComb&&f.length>=2){dp=f;byTime=true;}
-  else{w.innerHTML='<div class="empty"><i class="fa-solid fa-calendar-day"></i>'+
-   '<div class="t">일별 추이 누적 중</div><div class="s">거래일이 2일 이상 쌓이면 일자별 추이가 표시됩니다 (현재 '+
-   dp.length+'일치)</div></div>';return;}}
- var L=dp.map(function(o){return byTime?String(o.x.ts).slice(11,16):String(o.x.ts).slice(5,10);});
+ if(dp.length<10&&f.length>dp.length&&f.length>=2){dp=f;byTime=true;}
+ if(dp.length<2){w.innerHTML='<div class="empty"><i class="fa-solid fa-calendar-day"></i>'+
+   '<div class="t">추이 누적 중</div><div class="s">스냅샷이 2개 이상 쌓이면 표시됩니다 (현재 '+
+   dp.length+'개)</div></div>';return;}
+ var multiDay=byTime&&(String(dp[0].x.ts).slice(0,10)!==String(dp[dp.length-1].x.ts).slice(0,10));
+ var L=dp.map(function(o){var t=String(o.x.ts);
+  return byTime?(multiDay?(t.slice(5,10)+' '+t.slice(11,16)):t.slice(11,16)):t.slice(5,10);});
  var vals=dp.map(function(o){return useComb?o.x.combined_assets:o.x.total_assets;});
  // ── 세로축 다이내믹 레인지: 데이터 min~max에 15% 패딩만 → 변화가 드라마틱하게 보이도록
  var vmin=Math.min.apply(null,vals),vmax=Math.max.apply(null,vals);
