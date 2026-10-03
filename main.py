@@ -763,7 +763,9 @@ function krw(n){var fx=Number((window.MET||{}).fx||0);
    .kpi .v 는 큰 숫자용 letter-spacing:-1.5px 라 작은 글자가 겹친다 → 자간을 정상으로 되돌린다 */
 function krwParen(n){var fx=Number((window.MET||{}).fx||0);
  if(!(fx>0)||n==null||n==='')return '';
- return '<small style="margin-left:7px;font-weight:600;letter-spacing:normal;white-space:nowrap">('
+ /* 크기는 큰 숫자의 70% — .kpi .v 가 데스크톱 25px / 모바일 21px 라 화면에 맞춰 같이 줄어든다 */
+ return '<small style="margin-left:7px;font-size:70%;font-weight:600;letter-spacing:normal;'
+  +'white-space:nowrap">('
   +krw(n)+')</small>';}
 /* 기준환율 문구 — 보조줄에 쓴다 */
 function fxNote(){var fx=Number((window.MET||{}).fx||0);
