@@ -1167,8 +1167,12 @@ function drawLine(){var w=$('cw1');if(!w)return;
   for(var mi=0;mi<dp.length;mi++){
    var hs=String(dp[mi].x.has||''),pv2=mi>0?String(dp[mi-1].x.has||''):'';
    var add=hs.split('').filter(function(ch){return pv2.indexOf(ch)<0;});
-   if(add.length)incl.push({i:mi,t:add.map(function(ch){return NM[ch]||ch;}).join('+')+
-     (mi===0?' 합산 시작':' 포함 시작')});}
+   /* 첫 점은 '구간 가장자리'일 뿐이라 시계열 자체의 시작일 때만 '시작'으로 쓴다
+      (1주 버튼을 눌렀다고 그날 합산이 시작된 건 아니다) */
+   var nm=function(a){return a.map(function(ch){return NM[ch]||ch;}).join('+');};
+   if(add.length)incl.push({i:mi,t:(mi===0
+     ?(nm(hs.split(''))+(dp[0].i===0?' 합산 시작':' 합산 중'))
+     :nm(add)+' 포함 시작')});}
  }
  var inclPlug={id:'inclMark',afterDatasetsDraw:function(ch){
   if(!incl.length)return;var a=ch.chartArea,xs=ch.scales.x,g=ch.ctx;
