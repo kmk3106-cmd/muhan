@@ -755,6 +755,15 @@ risk:'리스크 관리',perf:'성과 분석',vr:'VR (NH)',blog:'매매일지',mo
 function $(i){return document.getElementById(i);}
 function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(m){
  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];});}
+/* 달러 금액을 원화로 환산해 표시 (기준환율은 MET.fx — KIS 체결기준잔고 기준) */
+function krw(n){var fx=Number((window.MET||{}).fx||0);
+ if(n==null||n===''||!(fx>0))return '';
+ return '₩'+Math.round(Number(n)*fx).toLocaleString();}
+function krwLine(n){var fx=Number((window.MET||{}).fx||0);
+ if(!(fx>0)||n==null||n==='')return '';
+ return '<small style="display:block;margin-top:3px;font-weight:600">≈ '+krw(n)+
+  '<span style="opacity:.62;font-weight:500"> · 환율 '+Number(fx).toLocaleString(undefined,
+   {minimumFractionDigits:2,maximumFractionDigits:2})+'원</span></small>';}
 function money(n,d){return (n==null||n==='')?'—':'$'+Number(n).toLocaleString(undefined,
  {maximumFractionDigits:d==null?0:d});}
 function sM(n){if(n==null)return '<span style="color:#9aa3b2">—</span>';
@@ -816,8 +825,13 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
    return '<button class="sgb'+(ACCT===x[0]?' on':'')+'" onclick="setAcct(\''+x[0]+'\')">'+x[1]+'</button>';
   }).join('')+'</div></div>';
  h+='<div class="kpis">'+
-  kpi('총 자산'+(isAll?'':' · '+V.tag),'fa-coins','b',money(a.total_assets),'',
-   (isAll&&MET.nh&&MET.nh.eval_total?('KIS '+money((MET.account||{}).total_assets)+' + NH '+money(MET.nh.account?MET.nh.account.total_assets:MET.nh.eval_total))
+  kpi('총 자산'+(isAll?'':' · '+V.tag),'fa-coins','b',
+   money(a.total_assets)+krwLine(a.total_assets),'',
+   /* 합산 내역은 총자산에 들어간 3개 계좌를 모두 적는다 (토스가 빠져 있어 합이 안 맞았다) */
+   (isAll&&MET.nh&&MET.nh.eval_total
+    ?('KIS '+money((MET.account||{}).total_assets)+
+      ' + NH '+money(MET.nh.account?MET.nh.account.total_assets:MET.nh.eval_total)+
+      (MET.toss&&MET.toss.account?(' + 토스 '+money(MET.toss.account.total_assets)):''))
     :('순투입 '+money(a.net_invested))),true)+
   (isTS
    ? kpi('보유 종목','fa-briefcase','n',(tsb.items||[]).length+' 종목','',

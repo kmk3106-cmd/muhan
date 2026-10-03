@@ -223,9 +223,11 @@ def _nh_vr() -> dict:
         # [2026-10-03 수정] 총자산에 '모델 Pool × 배수'를 쓰면 실제 예수금과 어긋난다
         # (5기 기준 모델 $58,819 vs 실제 $48,419 — 약 1만 달러 과대). 총자산은 실값으로 잡는다.
         cash_real = 0.0
+        fx_last = 0.0
         for s in VM.snapshots():
             g = gisu.get(s.get("gisu_id")) or {}
             fx = float(s.get("fx") or 0)
+            fx_last = fx or fx_last
             ext_krw = float(g.get("ext_assets_krw") or 0)
             cash_real += (float(s.get("cash_usd") or 0) + float(g.get("ext_assets") or 0)
                           + (ext_krw / fx if fx > 0 and ext_krw else 0.0))
@@ -272,6 +274,7 @@ def _nh_vr() -> dict:
             "eval_total": round(total, 2),
             "pool_total": round(pool_total, 2),      # 모델 Pool×배수 (VR 화면 비교용)
             "cash_real": cash_real,                  # 실제 예수금 + 기타자산
+            "fx": round(fx_last, 2),                 # NH 기준환율 (원화 환산용)
             "v_total": round(v_total, 2),
             "strategies": strategies,
             "account": {
@@ -489,8 +492,13 @@ def build_metrics() -> dict:
         "snapshot_at": canon.get("updated_at"),
     }
 
+    # 원화 환산용 기준환율. KIS 체결기준잔고의 기준환율을 1순위로 쓰고, 없으면 NH·토스 순.
+    # 계좌마다 조금씩 다르지만(토스는 자체 환율) 화면에는 하나로 통일해 표시하고 값도 같이 보여준다.
+    fx_rate = round(float(canon.get("exrt") or 0) or float(nh.get("fx") or 0)
+                    or float(toss.get("fx") or 0), 2)
     return {
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+        "fx": fx_rate,                                 # 원/달러 기준환율
         "account": {                                   # 공용계좌(중복합산X)
             "total_assets": tot,                       # 1 총평가자산 (KIS)
             "nh_eval": nh["eval_total"],               # NH(VR) 평가합 (캐시)
