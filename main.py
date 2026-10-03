@@ -759,12 +759,16 @@ function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(m){
 function krw(n){var fx=Number((window.MET||{}).fx||0);
  if(n==null||n===''||!(fx>0))return '';
  return '₩'+Math.round(Number(n)*fx).toLocaleString();}
-function krwLine(n){var fx=Number((window.MET||{}).fx||0);
+/* 큰 달러 숫자 옆에 괄호로 원화 환산.
+   .kpi .v 는 큰 숫자용 letter-spacing:-1.5px 라 작은 글자가 겹친다 → 자간을 정상으로 되돌린다 */
+function krwParen(n){var fx=Number((window.MET||{}).fx||0);
  if(!(fx>0)||n==null||n==='')return '';
- /* .kpi .v 가 큰 숫자용으로 letter-spacing:-1.5px 를 쓴다 → 13px 글자에선 글자가 겹친다 */
- return '<small style="display:block;margin-top:3px;font-weight:600;letter-spacing:normal">≈ '+krw(n)+
-  '<span style="opacity:.62;font-weight:500"> · 환율 '+Number(fx).toLocaleString(undefined,
-   {minimumFractionDigits:2,maximumFractionDigits:2})+'원</span></small>';}
+ return '<small style="margin-left:7px;font-weight:600;letter-spacing:normal;white-space:nowrap">('
+  +krw(n)+')</small>';}
+/* 기준환율 문구 — 보조줄에 쓴다 */
+function fxNote(){var fx=Number((window.MET||{}).fx||0);
+ return fx>0?('환율 '+Number(fx).toLocaleString(undefined,
+  {minimumFractionDigits:2,maximumFractionDigits:2})+'원'):'';}
 function money(n,d){return (n==null||n==='')?'—':'$'+Number(n).toLocaleString(undefined,
  {maximumFractionDigits:d==null?0:d});}
 function sM(n){if(n==null)return '<span style="color:#9aa3b2">—</span>';
@@ -827,13 +831,13 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
   }).join('')+'</div></div>';
  h+='<div class="kpis">'+
   kpi('총 자산'+(isAll?'':' · '+V.tag),'fa-coins','b',
-   money(a.total_assets)+krwLine(a.total_assets),'',
+   money(a.total_assets)+krwParen(a.total_assets),'',
    /* 합산 내역은 총자산에 들어간 3개 계좌를 모두 적는다 (토스가 빠져 있어 합이 안 맞았다) */
    (isAll&&MET.nh&&MET.nh.eval_total
-    ?('KIS '+money((MET.account||{}).total_assets)+
+    ?(fxNote()+' · KIS '+money((MET.account||{}).total_assets)+
       ' + NH '+money(MET.nh.account?MET.nh.account.total_assets:MET.nh.eval_total)+
       (MET.toss&&MET.toss.account?(' + 토스 '+money(MET.toss.account.total_assets)):''))
-    :('순투입 '+money(a.net_invested))),true)+
+    :((fxNote()?fxNote()+' · ':'')+'순투입 '+money(a.net_invested))),true)+
   (isTS
    ? kpi('보유 종목','fa-briefcase','n',(tsb.items||[]).length+' 종목','',
       (tsb.items||[]).map(function(x){return esc(x.ticker)+' '+x.qty+'주';}).join(' · ')||'조회 대기')
