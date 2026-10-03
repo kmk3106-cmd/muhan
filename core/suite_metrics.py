@@ -494,7 +494,11 @@ def build_metrics() -> dict:
         "account": {                                   # 공용계좌(중복합산X)
             "total_assets": tot,                       # 1 총평가자산 (KIS)
             "nh_eval": nh["eval_total"],               # NH(VR) 평가합 (캐시)
-            "combined_assets": round(tot + nh["eval_total"], 2),  # KIS+NH 통합
+            # KIS+NH+토스 통합 (아래 combined.total_assets 와 같은 값).
+            # 예전엔 'KIS + NH 평가금'만 더해 예수금·토스가 빠져 있었다 — 화면은 쓰지 않지만
+            # API 에 서로 다른 '합산' 값이 두 개 있는 셈이라 혼동을 없애려 맞췄다.
+            "combined_assets": round(tot + nh["eval_total"] + nh.get("cash_real", 0)
+                                     + float((toss.get("account") or {}).get("total_assets") or 0), 2),
             "net_invested": canon.get("buy_amt", 0),   # 2 순투입(매입원금)
             "total_pnl": pnl,                          # 3 총손익(평가)
             "total_return_pct": canon.get("pnl_rt", 0),# 4 총수익률
