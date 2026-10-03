@@ -1142,15 +1142,6 @@ function drawLine(){var w=$('cw1');if(!w)return;
  var L=dp.map(function(o){var t=String(o.x.ts);
   return byTime?(multiDay?(t.slice(5,10)+' '+t.slice(11,16)):t.slice(11,16)):t.slice(5,10);});
  var vals=dp.map(function(o){return useComb?o.x.combined_assets:o.x.total_assets;});
- /* 합산 구간은 '증권사 기록 역산(복원)'과 '우리가 직접 기록한 실측'이 섞여 있다 → 선을 나눈다 */
- var estVals=null,realVals=null;
- if(useComb){
-  estVals=dp.map(function(o,i){return o.x.combined_est?o.x.combined_assets:null;});
-  realVals=dp.map(function(o,i){return o.x.combined_est?null:o.x.combined_assets;});
-  for(var i=1;i<dp.length;i++){            /* 경계에서 선이 끊기지 않게 이음점 공유 */
-   if(dp[i-1].x.combined_est&&!dp[i].x.combined_est)estVals[i]=dp[i].x.combined_assets;
-  }
- }
  // ── 세로축 다이내믹 레인지: 데이터 min~max에 15% 패딩만 → 변화가 드라마틱하게 보이도록
  var vmin=Math.min.apply(null,vals),vmax=Math.max.apply(null,vals);
  var span=Math.max(vmax-vmin,vmax*0.01,1),pad=span*0.15;
@@ -1167,13 +1158,9 @@ function drawLine(){var w=$('cw1');if(!w)return;
  var grad=gctx.createLinearGradient(0,0,0,264);
  grad.addColorStop(0,'rgba(47,107,255,.22)');grad.addColorStop(.65,'rgba(47,107,255,.05)');
  grad.addColorStop(1,'rgba(47,107,255,0)');
- var ds=useComb
-  ?[{label:'총자산 (복원·증권사기록)',type:'line',data:estVals,borderColor:'#8aa6e8',
-     borderDash:[6,4],borderWidth:2,pointRadius:0,pointHoverRadius:4,fill:false,tension:.3,yAxisID:'y',order:2,spanGaps:false},
-    {label:'총자산 (실측)',type:'line',data:realVals,borderColor:'#2f6bff',
-     backgroundColor:grad,borderWidth:2.6,pointRadius:0,pointHoverRadius:4,
-     pointHoverBackgroundColor:'#2f6bff',fill:true,tension:.3,yAxisID:'y',order:1,spanGaps:false}]
-  :[{label:'KIS 자산',type:'line',data:vals,borderColor:'#2f6bff',
+ /* 복원분/실측분을 점선·실선으로 나누던 걸 한 줄 실선으로 합쳤다 (읽기 어려웠다).
+    복원 구간이라는 정보는 아래 안내 문구와 툴팁으로 남는다 */
+ var ds=[{label:useComb?'총자산':'KIS 자산',type:'line',data:vals,borderColor:'#2f6bff',
   backgroundColor:grad,borderWidth:2.6,pointRadius:0,pointHoverRadius:4,
   pointHoverBackgroundColor:'#2f6bff',fill:true,tension:.3,yAxisID:'y',order:1}];
  if(maxBar>0){
@@ -1215,6 +1202,7 @@ function drawLine(){var w=$('cw1');if(!w)return;
      var ls=[' KIS '+fm(o.x.total_assets)];
      if(o.x.nh_assets)ls.push(' NH '+fm(o.x.nh_assets));
      if(o.x.toss_assets)ls.push(' 토스 '+fm(o.x.toss_assets));
+     if(o.x.combined_est)ls.push(' (증권사 기록에서 역산한 값)');
      return ls.join('\n');}}}},
   scales:{x:{grid:{display:false},title:{display:true,text:'일자',color:'#9aa3b2',font:{size:10}},
    ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:10}},
@@ -2214,7 +2202,7 @@ setInterval(function(){if(PAGE==='dash'||PAGE==='mon')loadAll();},60000);
   var heading=el('section','ws-heading');var intro=el('div');intro.append(el('span','ws-overline','PORTFOLIO WORKSPACE'),el('h1','','투자 현황'),el('p','','자산의 흐름과 전략의 상태를 한눈에 확인하세요.'));heading.append(intro);accountRow.classList.add('ws-account');heading.append(accountRow);shell.append(heading);
   var main=el('div','ws-main');var wealth=el('section','ws-wealth');
   var wealthTop=el('div','ws-wealth-top');ks[0].classList.add('ws-main-asset');ks[2].classList.add('ws-main-return');wealthTop.append(ks[0],ks[2]);wealth.append(wealthTop);
-  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='all'?'KIS + NH + 토스 합산 · 점선은 증권사 기록에서 역산한 과거분 · 세로선은 계좌가 합산에 들어온 시점':window.ACCT==='toss'?'토스 계좌 잔고 · 매매는 토스 앱 자동모으기 (조회 전용)':window.ACCT==='nh'?'VR 기수별 평가금과 밴드(라오어식) · 위 버튼으로 기수 선택':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
+  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='all'?'KIS + NH + 토스 합산 · 과거분은 증권사 기록에서 역산 · 세로선은 계좌가 합산에 들어온 시점':window.ACCT==='toss'?'토스 계좌 잔고 · 매매는 토스 앱 자동모으기 (조회 전용)':window.ACCT==='nh'?'VR 기수별 평가금과 밴드(라오어식) · 위 버튼으로 기수 선택':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
   cards.cw1.classList.add('ws-wealth-chart');wealth.append(cards.cw1);
   var supporting=el('div','ws-supporting');[ks[3],ks[4],ks[5]].forEach(k=>supporting.append(k));wealth.append(supporting);main.append(wealth);
   var rail=el('aside','ws-rail');var state=el('section','ws-operation');
