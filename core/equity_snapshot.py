@@ -266,6 +266,8 @@ def series(max_points: int = 400) -> dict:
         "toss_assets": (float(p["toss_assets"]) if p.get("toss_assets") else None),
         "net_invested": float(p.get("net_invested") or 0),
         "cum_pnl": float(p.get("pnl") or 0),
+        # 합산에 들어간 계좌 (K=KIS, N=NH, T=토스) — 화면에서 '합산 시작 지점'을 표시하는 데 쓴다
+        "has": "K" + ("N" if p.get("nh_assets") else "") + ("T" if p.get("toss_assets") else ""),
         "est": False,
     } for p in pts]
     keys = set(est_sret.keys())
@@ -295,6 +297,8 @@ def series(max_points: int = 400) -> dict:
                 "combined_assets": float(r["combined"]),
                 "combined_est": True,                     # 복원 구간 표시
                 "has": r.get("has", ""),
+                "nh_assets": (float(r["nh"]) if r.get("nh") else None),
+                "toss_assets": (float(r["toss"]) if r.get("toss") else None),
                 "net_invested": 0.0, "cum_pnl": 0.0, "est": False,
             } for r in bf]
             points = sorted(points + merged, key=lambda p: str(p.get("ts") or ""))

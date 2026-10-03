@@ -31,6 +31,11 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 OUT_FILE = os.path.join(ROOT, "core", "_equity_backfill.jsonl")
+
+# 복원 시작일. 이보다 앞 구간은 계좌 간 입·출고가 있어 '합산 자산'이 왜곡된다.
+# (NH 5기: 2026-05-29 주식 출고 → 2026-07-21 입고. 그 사이 계좌 잔고가 0 이라 자산이
+#  사라졌다 돌아온 것처럼 보인다. 돈이 없어진 게 아니라 추적 밖 계좌에 있었다.)
+BACKFILL_START = "20260801"
 EQUITY_FILE = os.path.join(ROOT, "core", "_equity.jsonl")
 
 
@@ -105,6 +110,33 @@ def nh_daily_state(gid: str) -> tuple[dict, str]:
         if qty is not None:
             state[dt] = {"qty": qty, "cash": cash or 0.0}
             first = first or dt
+
+    # ── 실측 기준점 보정
+    # 거래내역의 '거래 후 예수금'을 앞에서부터 쌓으면 내역에 행이 남지 않는 현금 이동
+    # (실제: vr0 에서 $2,954 — 9/30 배당 이후 거래행이 없는데 예수금이 줄었다)이 그대로
+    # 누적된다. 발생 시점을 알 수 없으므로 **현재 증권사 잔고를 기준점으로 잡고** 그 차이를
+    # 전 구간에 같은 값으로 되돌린다. 이러면 복원선이 실측선과 이어지는 지점에서 어긋나지 않고,
+    # 오차는 과거쪽으로만 남는다.
+    if state:
+        try:
+            bal = nh.balance(acct) or {}
+            o0 = bal.get("Output_0") or {}
+            real_cash = _f(o0.get("fc_dca"))
+            real_qty = 0
+            for h in (bal.get("Output_1") or []):
+                if nh.norm_ticker(h.get("iem_cd")) == nh.norm_ticker(ticker):
+                    real_qty = int(_f(h.get("cns_bse_bnc_qty")))
+            last = state[max(state)]
+            d_cash = real_cash - last["cash"]
+            d_qty = real_qty - last["qty"]
+            if abs(d_cash) > 0.01 or d_qty:
+                print(f"  [보정] {gid} 실측 기준점: 예수금 {d_cash:+,.2f} / 수량 {d_qty:+d} "
+                      f"(복원 ${last['cash']:,.2f}·{last['qty']}주 → 실측 ${real_cash:,.2f}·{real_qty}주)")
+                for v in state.values():
+                    v["cash"] = round(v["cash"] + d_cash, 2)
+                    v["qty"] = max(0, v["qty"] + d_qty)
+        except Exception as e:
+            print(f"  [경고] {gid} 실측 잔고 조회 실패 — 보정 생략: {e}")
     return state, first
 
 
@@ -171,7 +203,8 @@ def main() -> int:
     print(f"    {len(px_tqqq)}일 · {min(px_tqqq)}~{max(px_tqqq)}")
 
     # ── 합성
-    days = sorted(kis)
+    days = [d for d in sorted(kis) if d >= BACKFILL_START]
+    print(f"    복원 시작일 {BACKFILL_START} (그 전은 계좌 간 입·출고로 합산 왜곡 — 제외)")
     mults = {}
     try:
         from strategies.vr import models as M
@@ -181,8 +214,15 @@ def main() -> int:
         mults = {"vr0": 1, "vr5": 6}
 
     out_rows = []
-    cur_nh = {g: None for g in nh_state}
-    last_tqqq = None
+    # 복원 시작일 '이전'의 마지막 상태를 이어받는다. NH 는 거래 없는 날이 길게 이어져
+    # (8월 이후 거래일 드묾) 시작일부터 훑으면 보유·예수금이 0 으로 비어 버린다.
+    cur_nh = {}
+    for gid, st in nh_state.items():
+        prev = [d for d in st if d < BACKFILL_START]
+        cur_nh[gid] = st[max(prev)] if prev else None
+    # 시작일이 주말이면 그날 종가가 없다 → 직전 거래일 종가로 시작
+    _pxp = [d for d in px_tqqq if d < BACKFILL_START]
+    last_tqqq = px_tqqq[max(_pxp)] if _pxp else None
     for d in days:
         last_tqqq = px_tqqq.get(d, last_tqqq)
         nh_total, nh_ok = 0.0, False

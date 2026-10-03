@@ -1160,12 +1160,37 @@ function drawLine(){var w=$('cw1');if(!w)return;
    borderColor:'#16a34a',borderWidth:1,borderRadius:5,maxBarThickness:16,yAxisID:'y2',order:2});
   ds.push({label:'출금',type:'bar',data:wdrB,backgroundColor:'rgba(229,72,77,.55)',
    borderColor:'#e5484d',borderWidth:1,borderRadius:5,maxBarThickness:16,yAxisID:'y2',order:2});}
- C1=new Chart($('c1'),{type:'line',data:{labels:L,datasets:ds},options:{responsive:true,
+ /* 합산 대상 계좌가 늘어난 지점을 세로선으로 표시 (has: K=KIS·N=NH·T=토스).
+    계좌가 추가되면 총액이 계단처럼 뛰는데, 그게 수익이 아니라 '추적 범위 확대'임을 알 수 있게 한다 */
+ var incl=[];
+ if(useComb){var NM={K:'KIS',N:'NH',T:'토스'};
+  for(var mi=0;mi<dp.length;mi++){
+   var hs=String(dp[mi].x.has||''),pv2=mi>0?String(dp[mi-1].x.has||''):'';
+   var add=hs.split('').filter(function(ch){return pv2.indexOf(ch)<0;});
+   if(add.length)incl.push({i:mi,t:add.map(function(ch){return NM[ch]||ch;}).join('+')+
+     (mi===0?' 합산 시작':' 포함 시작')});}
+ }
+ var inclPlug={id:'inclMark',afterDatasetsDraw:function(ch){
+  if(!incl.length)return;var a=ch.chartArea,xs=ch.scales.x,g=ch.ctx;
+  incl.forEach(function(m){var x=xs.getPixelForValue(m.i);if(!(x>=a.left&&x<=a.right))return;
+   g.save();g.setLineDash([4,4]);g.lineWidth=1;g.strokeStyle='#b4bdcc';
+   g.beginPath();g.moveTo(x,a.top);g.lineTo(x,a.bottom);g.stroke();
+   g.setLineDash([]);g.font='10px -apple-system,system-ui,sans-serif';g.fillStyle='#7b8494';
+   g.textAlign=(x>a.right-70)?'right':'left';
+   g.fillText(m.t,(x>a.right-70)?x-4:x+4,a.top+10);g.restore();});}};
+ C1=new Chart($('c1'),{type:'line',plugins:[inclPlug],data:{labels:L,datasets:ds},options:{responsive:true,
   maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',boxWidth:7,
    padding:14,font:{size:11}}},tooltip:{backgroundColor:'#1a2233',padding:11,cornerRadius:9,
    callbacks:{label:function(c){return ' '+c.dataset.label+': $'+
-    Number(c.parsed.y).toLocaleString(undefined,{maximumFractionDigits:0});}}}},
+    Number(c.parsed.y).toLocaleString(undefined,{maximumFractionDigits:0});},
+    afterBody:function(cs){                 /* 합산 그래프는 계좌별 내역을 함께 보여준다 */
+     if(!useComb||!cs.length)return '';var o=dp[cs[0].dataIndex];if(!o)return '';
+     var fm=function(v){return '$'+Number(v||0).toLocaleString(undefined,{maximumFractionDigits:0});};
+     var ls=[' KIS '+fm(o.x.total_assets)];
+     if(o.x.nh_assets)ls.push(' NH '+fm(o.x.nh_assets));
+     if(o.x.toss_assets)ls.push(' 토스 '+fm(o.x.toss_assets));
+     return ls.join('\n');}}}},
   scales:{x:{grid:{display:false},title:{display:true,text:'일자',color:'#9aa3b2',font:{size:10}},
    ticks:{color:'#9aa3b2',font:{size:10},maxTicksLimit:10}},
   y:{position:'left',min:yMin,max:yMax,grid:{color:'#eef1f6'},
@@ -2164,7 +2189,7 @@ setInterval(function(){if(PAGE==='dash'||PAGE==='mon')loadAll();},60000);
   var heading=el('section','ws-heading');var intro=el('div');intro.append(el('span','ws-overline','PORTFOLIO WORKSPACE'),el('h1','','투자 현황'),el('p','','자산의 흐름과 전략의 상태를 한눈에 확인하세요.'));heading.append(intro);accountRow.classList.add('ws-account');heading.append(accountRow);shell.append(heading);
   var main=el('div','ws-main');var wealth=el('section','ws-wealth');
   var wealthTop=el('div','ws-wealth-top');ks[0].classList.add('ws-main-asset');ks[2].classList.add('ws-main-return');wealthTop.append(ks[0],ks[2]);wealth.append(wealthTop);
-  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='all'?'KIS + NH + 토스 합산 · 점선은 증권사 기록에서 역산한 과거분':window.ACCT==='toss'?'토스 계좌 잔고 · 매매는 토스 앱 자동모으기 (조회 전용)':window.ACCT==='nh'?'VR 기수별 평가금과 밴드(라오어식) · 위 버튼으로 기수 선택':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
+  var context=el('p','ws-chart-context');context.textContent=window.ACCT==='all'?'KIS + NH + 토스 합산 · 점선은 증권사 기록에서 역산한 과거분 · 세로선은 계좌가 합산에 들어온 시점':window.ACCT==='toss'?'토스 계좌 잔고 · 매매는 토스 앱 자동모으기 (조회 전용)':window.ACCT==='nh'?'VR 기수별 평가금과 밴드(라오어식) · 위 버튼으로 기수 선택':'일별 마지막 자산 기록 · 입출금 발생일 함께 표시';wealth.append(context);
   cards.cw1.classList.add('ws-wealth-chart');wealth.append(cards.cw1);
   var supporting=el('div','ws-supporting');[ks[3],ks[4],ks[5]].forEach(k=>supporting.append(k));wealth.append(supporting);main.append(wealth);
   var rail=el('aside','ws-rail');var state=el('section','ws-operation');
