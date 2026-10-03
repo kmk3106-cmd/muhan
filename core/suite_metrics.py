@@ -219,7 +219,18 @@ def _nh_vr() -> dict:
                 "updated_at": s.get("updated_at"),
             })
             total += ev
-        # 기수를 '전략 카드' 형태로 (모델 Pool ×배수 = 계좌 환산 현금)
+        # 실제 현금성 자산: 계좌 예수금(달러) + 수동입력 기타자산(RP·원화 등)
+        # [2026-10-03 수정] 총자산에 '모델 Pool × 배수'를 쓰면 실제 예수금과 어긋난다
+        # (5기 기준 모델 $58,819 vs 실제 $48,419 — 약 1만 달러 과대). 총자산은 실값으로 잡는다.
+        cash_real = 0.0
+        for s in VM.snapshots():
+            g = gisu.get(s.get("gisu_id")) or {}
+            fx = float(s.get("fx") or 0)
+            ext_krw = float(g.get("ext_assets_krw") or 0)
+            cash_real += (float(s.get("cash_usd") or 0) + float(g.get("ext_assets") or 0)
+                          + (ext_krw / fx if fx > 0 and ext_krw else 0.0))
+        cash_real = round(cash_real, 2)
+        # 기수를 '전략 카드' 형태로 (모델 Pool ×배수 = 계좌 환산 현금 — 모델 기준 표시용)
         strategies = []
         pool_total = 0.0
         v_total = 0.0
@@ -254,12 +265,13 @@ def _nh_vr() -> dict:
                              if snap and snap["qty"] else []),
                 "errors": [], "mdd_pct": None,
             })
-        tot_assets = round(total + pool_total, 2)
+        tot_assets = round(total + cash_real, 2)      # 평가금 + 실제 현금성 자산
         pnl_all = round(total - buy_total, 2)
         return {
             "accounts": accs,
             "eval_total": round(total, 2),
-            "pool_total": round(pool_total, 2),
+            "pool_total": round(pool_total, 2),      # 모델 Pool×배수 (VR 화면 비교용)
+            "cash_real": cash_real,                  # 실제 예수금 + 기타자산
             "v_total": round(v_total, 2),
             "strategies": strategies,
             "account": {
@@ -269,8 +281,8 @@ def _nh_vr() -> dict:
                 "total_return_pct": round(pnl_all / buy_total * 100, 2) if buy_total > 0 else None,
                 "realized_pnl": None,
                 "unrealized_pnl": pnl_all,
-                "cash": round(pool_total, 2),
-                "cash_ratio": round(pool_total / tot_assets * 100, 2) if tot_assets > 0 else None,
+                "cash": cash_real,
+                "cash_ratio": round(cash_real / tot_assets * 100, 2) if tot_assets > 0 else None,
                 "mdd_pct": None,
                 "snapshot_at": (accs[0].get("updated_at") if accs else None),
             },

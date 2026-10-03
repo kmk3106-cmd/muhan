@@ -207,6 +207,26 @@ def _estimated_daily(first_real_date):
     return pts, sret_est
 
 
+_BACKFILL_FILE = Path(__file__).resolve().parent / "_equity_backfill.jsonl"
+
+
+def backfill_rows() -> list[dict]:
+    """증권사 기록에서 역산한 과거 일별 합산 (scripts/equity_backfill.py 산출물)."""
+    out = []
+    try:
+        if _BACKFILL_FILE.exists():
+            for line in _BACKFILL_FILE.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line:
+                    try:
+                        out.append(json.loads(line))
+                    except Exception:
+                        pass
+    except Exception as e:
+        pass
+    return out
+
+
 def series(max_points: int = 400) -> dict:
     """차트용 시계열: 실측 스냅샷만 표시 (실측 시작일부터, 사용자 요청 2026-06).
 
@@ -260,6 +280,26 @@ def series(max_points: int = 400) -> dict:
             arr.append(round(rv / b * 100, 2) if b > 0 else 0.0)
         sret[k] = arr
     points = est_pts + real_pts
+    # ── 과거 합산(KIS+NH+토스) 복원분 병합: 오늘 이전 날짜는 복원 일별값을 쓰고,
+    #    오늘은 실측 스냅샷(30분)을 그대로 둔다. 복원분은 est=True 로 표시해 화면에서 구분한다.
+    try:
+        today = _now_kst().strftime("%Y%m%d")
+        bf = [r for r in backfill_rows() if str(r.get("date") or "") < today and r.get("combined")]
+        if bf:
+            for p in points:
+                if str(p.get("ts") or "")[:10].replace("-", "") < today:
+                    p["combined_assets"] = None          # 과거는 복원값으로 대체
+            merged = [{
+                "ts": f"{r['date'][:4]}-{r['date'][4:6]}-{r['date'][6:]}T23:59:59",
+                "total_assets": float(r.get("kis") or 0),
+                "combined_assets": float(r["combined"]),
+                "combined_est": True,                     # 복원 구간 표시
+                "has": r.get("has", ""),
+                "net_invested": 0.0, "cum_pnl": 0.0, "est": False,
+            } for r in bf]
+            points = sorted(points + merged, key=lambda p: str(p.get("ts") or ""))
+    except Exception as e:
+        pass
     # 실제 현금 입출금 원장(사용자 기록)의 일자별 누적값 부착
     try:
         from .cashflow_ledger import cumulative_by_date

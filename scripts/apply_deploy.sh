@@ -73,6 +73,7 @@ PYCKPT
     cp "$BAK/core/_compound.json"                 "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_toss.json"                     "$APP/core/"                2>/dev/null || true
     cp "$BAK/core/_toss_series.jsonl"              "$APP/core/"                2>/dev/null || true
+    cp "$BAK/core/_equity_backfill.jsonl"         "$APP/core/"                2>/dev/null || true
 else
     cp /root/infinite/infinite_buy.db "$APP/strategies/infinite/" 2>/dev/null || true
     cp /root/ddsop/ddsop.db           "$APP/strategies/ddsop/"    2>/dev/null || true

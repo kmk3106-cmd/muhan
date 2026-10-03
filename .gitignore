@@ -33,6 +33,7 @@ core/_holdings.json
 core/_compound.json
 core/_toss.json
 core/_toss_series.jsonl
+core/_equity_backfill.jsonl
 
 # Build / archive
 *.zip
