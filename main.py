@@ -761,7 +761,8 @@ function krw(n){var fx=Number((window.MET||{}).fx||0);
  return '₩'+Math.round(Number(n)*fx).toLocaleString();}
 function krwLine(n){var fx=Number((window.MET||{}).fx||0);
  if(!(fx>0)||n==null||n==='')return '';
- return '<small style="display:block;margin-top:3px;font-weight:600">≈ '+krw(n)+
+ /* .kpi .v 가 큰 숫자용으로 letter-spacing:-1.5px 를 쓴다 → 13px 글자에선 글자가 겹친다 */
+ return '<small style="display:block;margin-top:3px;font-weight:600;letter-spacing:normal">≈ '+krw(n)+
   '<span style="opacity:.62;font-weight:500"> · 환율 '+Number(fx).toLocaleString(undefined,
    {minimumFractionDigits:2,maximumFractionDigits:2})+'원</span></small>';}
 function money(n,d){return (n==null||n==='')?'—':'$'+Number(n).toLocaleString(undefined,
