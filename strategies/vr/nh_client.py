@@ -48,9 +48,27 @@ def auth_ok() -> bool:
         return False
 
 
+def _call_ro(path: str, body: dict, tries: int = 4) -> dict:
+    """조회 전용 호출 — NH 호출 한도(IGW42902)에 걸리면 쉬었다 재시도.
+
+    [2026-10-07] 기수 2개의 잔고를 연달아 부르면 **두 번째가 매번 한도에 걸린다**.
+    그 탓에 vr5 스냅샷이 10/4부터 사흘 내리 갱신 실패해 화면 수량·평가금이 멈춰 있었다
+    (vr0 은 먼저 호출돼 늘 성공). dailyTransaction 은 이미 같은 재시도를 하고 있어
+    영향을 받지 않았다. **주문(reservedSubmit/Cancel)에는 적용하지 않는다** — 조회만.
+    """
+    for attempt in range(tries):
+        try:
+            return call(path, body)
+        except NhplugError as ex:
+            if getattr(ex, "category", "") != "rate_limit" or attempt == tries - 1:
+                raise
+            time.sleep(2.0 * (attempt + 1))
+    return {}
+
+
 def balance(act_no: str) -> dict:
     """미국주식 잔고: Output_0(요약) + Output_1(보유종목)."""
-    return call("/gbstock/inquiry/v1/balance", {
+    return _call_ro("/gbstock/inquiry/v1/balance", {
         "act_no": act_no, "qut_iqr_dit_cd": "9",
         "fc_sec_trd_nat_cd": NAT_US, "cur_cd": "USD", "xns_dit_cd": "1",
     })
@@ -197,7 +215,7 @@ def daily_closes(ticker: str, count: int = 10) -> list[tuple[str, float]]:
     (칸 이름 부분일치로 찾다가 open_prc(시가)를 종가로 읽은 적 있음 — 2026-08-22)
     """
     import datetime as _dt
-    r = call("/gbstock/quote/v1/period", {
+    r = _call_ro("/gbstock/quote/v1/period", {     # 한도 초과 시 재시도 (조회 전용)
         "iem_cd": ticker, "end_dt": _dt.datetime.now().strftime("%Y%m%d"),
         "count": str(count), "maxavg": "0", "gubun": "3", "xtick": "0001",
         "today_cls": "1", "market_cls": "1",
