@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 from .config import load_nh_env
@@ -48,21 +49,34 @@ def auth_ok() -> bool:
         return False
 
 
-def _call_ro(path: str, body: dict, tries: int = 4) -> dict:
-    """조회 전용 호출 — NH 호출 한도(IGW42902)에 걸리면 쉬었다 재시도.
+# 조회 호출 사이 최소 간격(초). NH 는 짧은 순간에 몰린 호출을 IGW42902 로 거절한다.
+# 한도에 '걸린 뒤 기다리는' 것보다 애초에 안 걸리게 띄우는 쪽이 훨씬 빠르다
+# (걸리면 재시도 대기가 붙어 수 초, 띄우면 0.6초로 끝난다).
+_RO_MIN_GAP = 0.6
+_ro_last_at = 0.0
+_ro_lock = threading.Lock()
 
-    [2026-10-07] 기수 2개의 잔고를 연달아 부르면 **두 번째가 매번 한도에 걸린다**.
+
+def _call_ro(path: str, body: dict, tries: int = 4) -> dict:
+    """조회 전용 호출 — 호출 간격을 띄우고, 그래도 한도에 걸리면 짧게 재시도.
+
+    [2026-10-07] 기수 2개의 잔고를 연달아 부르면 **두 번째가 매번 한도에 걸렸다**.
     그 탓에 vr5 스냅샷이 10/4부터 사흘 내리 갱신 실패해 화면 수량·평가금이 멈춰 있었다
-    (vr0 은 먼저 호출돼 늘 성공). dailyTransaction 은 이미 같은 재시도를 하고 있어
-    영향을 받지 않았다. **주문(reservedSubmit/Cancel)에는 적용하지 않는다** — 조회만.
+    (vr0 은 먼저 호출돼 늘 성공). **주문(reservedSubmit/Cancel)에는 쓰지 않는다** — 조회만.
     """
+    global _ro_last_at
     for attempt in range(tries):
+        with _ro_lock:                      # 호출 간격 확보 (스케줄러·요청 스레드 동시 진입 대비)
+            wait = _RO_MIN_GAP - (time.monotonic() - _ro_last_at)
+            if wait > 0:
+                time.sleep(wait)
+            _ro_last_at = time.monotonic()
         try:
             return call(path, body)
         except NhplugError as ex:
             if getattr(ex, "category", "") != "rate_limit" or attempt == tries - 1:
                 raise
-            time.sleep(2.0 * (attempt + 1))
+            time.sleep(0.5 * (2 ** attempt))        # 0.5 → 1 → 2초 (예전 2/4/6초)
     return {}
 
 
@@ -89,27 +103,19 @@ def daily_transactions(act_no: str, start_dt: str, end_dt: str, ticker: str = ""
     seen: set = set()
 
     def fetch(s: str, e: str, depth: int = 0) -> None:
-        # 기간을 쪼개 재조회하면 호출이 몰려 NH 호출 한도(IGW42902, rate_limit)에 걸릴 수 있다.
-        # 한도 초과면 잠시 쉬고 재시도 — 한 번 실패로 동기화 전체가 날아가지 않게.
-        for attempt in range(4):
-            try:
-                r = call("/gbstock/inquiry/v1/dailyTransaction", {
-                    "act_no": act_no, "iqr_sta_dt": s, "iqr_end_dt": e,
-                    "act_trd_cfc_cd": "00", "iem_mlf_cd": "00001", "iem_cd": "",
-                })
-                break
-            except NhplugError as ex:
-                if getattr(ex, "category", "") != "rate_limit" or attempt == 3:
-                    raise
-                time.sleep(2.0 * (attempt + 1))
+        # 기간을 쪼개 재조회하면 호출이 몰린다 → _call_ro 가 간격을 띄워 한도(IGW42902)를 피하고,
+        # 그래도 걸리면 짧게 재시도한다. (잔고 조회와 같은 간격 제어를 공유해야 서로 안 밀어낸다)
+        r = _call_ro("/gbstock/inquiry/v1/dailyTransaction", {
+            "act_no": act_no, "iqr_sta_dt": s, "iqr_end_dt": e,
+            "act_trd_cfc_cd": "00", "iem_mlf_cd": "00001", "iem_cd": "",
+        })
         truncated = str(r.get("rsp_cd")) == "00218"
         if truncated and s < e and depth < 12:
             ds, de = datetime.strptime(s, "%Y%m%d"), datetime.strptime(e, "%Y%m%d")
             mid = (ds + (de - ds) / 2).strftime("%Y%m%d")
             nxt = (datetime.strptime(mid, "%Y%m%d") + timedelta(days=1)).strftime("%Y%m%d")
             fetch(s, mid, depth + 1)
-            time.sleep(1.0)
-            fetch(nxt, e, depth + 1)
+            fetch(nxt, e, depth + 1)      # 간격은 _call_ro 가 알아서 띄운다 (고정 1초 대기 제거)
             return
         if truncated:
             logger.warning("[VR] 거래내역 %s 하루치가 20건을 넘어 일부 누락 가능 (계좌 %s)", s, act_no[-4:])
