@@ -34,6 +34,10 @@ class Ticker(Base):
     trading_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     current_cycle: Mapped[int] = mapped_column(Integer, default=1)
     seed_reflect_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # ON: 추가입금분을 잔여트렌치에 반영
+    # [종사종팔4] 익절 복리 누적액(트렌치당). 익절 체결마다 '수익 ÷ 트렌치수' 를 더해 간다.
+    # 트렌치 1회 매수금액 = total_usd / num_tranches + compound_add.
+    # 손절 손실로는 깎지 않는다(원문 e: "손실이 난 경우에도 목표투자금을 줄이지 않는다").
+    compound_add: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     tranches = relationship("Tranche", back_populates="ticker_rel", cascade="all, delete-orphan")
@@ -161,6 +165,15 @@ def init_db(database_url: str | None = None):
         with engine.connect() as conn:
             conn.execute(text(
                 "ALTER TABLE tickers ADD COLUMN seed_reflect_enabled INTEGER DEFAULT 0"
+            ))
+            conn.commit()
+    except Exception:
+        pass
+    # [종사종팔4] tickers.compound_add 컬럼 마이그레이션 (익절 복리 누적액)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE tickers ADD COLUMN compound_add FLOAT DEFAULT 0"
             ))
             conn.commit()
     except Exception:

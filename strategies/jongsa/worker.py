@@ -490,6 +490,21 @@ def _sync_executions(session: Session, client: KISClient, ticker_obj: Ticker,
             _log_structured(session, "INFO", ticker_obj.ticker, "주문체결",
                             f"T{tranche.tranche_num} 매도 체결: ${ccld_prc:.2f} x {ccld_qty}주 (손익 ${profit:.2f})")
 
+            # [종사종팔4] 익절 복리 — 수익이 난 매도만 '수익 ÷ 트렌치수'를 1회 매수금액에 누적.
+            # 손실로는 깎지 않는다(원문 e). 손절이라도 이익으로 끝났으면 포함한다.
+            if profit > 0:
+                _n = max(1, int(ticker_obj.num_tranches or 1))
+                _inc = round(profit / _n, 2)
+                ticker_obj.compound_add = round(
+                    float(ticker_obj.compound_add or 0.0) + _inc, 2)
+                _base = (ticker_obj.total_usd or 0.0) / _n
+                logger.info(f"  [{ticker_obj.ticker}] 복리 +${_inc:.2f} → 1회 매수금액 "
+                            f"${_base + ticker_obj.compound_add:.2f}")
+                _log_structured(session, "INFO", ticker_obj.ticker, "복리",
+                                f"익절 ${profit:.2f} / {_n} = +${_inc:.2f} → 1회 매수금액 "
+                                f"${_base + ticker_obj.compound_add:.2f} "
+                                f"(기본 ${_base:.2f} + 누적 ${ticker_obj.compound_add:.2f})")
+
             tranche.status = TrancheStatus.IDLE.value
             tranche.avg_price = 0.0
             tranche.qty = 0
@@ -604,6 +619,9 @@ def _check_and_record_cycle(session: Session, ticker_obj: Ticker, tranches: list
     ))
     ticker_obj.current_cycle = cycle_that_ended + 1
 
+    # [종사종팔4] 표시용 트렌치 금액에도 익절 복리 누적액을 더한다
+    # (실제 주문 수량은 generate_orders 가 total_usd/num + compound_add 로 직접 계산한다).
+    _cadd = float(getattr(ticker_obj, "compound_add", 0.0) or 0.0)
     seed_reflect = getattr(ticker_obj, "seed_reflect_enabled", False) or False
     if seed_reflect and actual_cash is not None and actual_cash > 0:
         ticker_obj.total_usd = actual_cash
@@ -613,7 +631,7 @@ def _check_and_record_cycle(session: Session, ticker_obj: Ticker, tranches: list
             t.amount_per_tranche = amt_per
         logger.info(f"  [{ticker_obj.ticker}] 다음 싸이클 트렌치 할당: ${amt_per:.2f}/회 (씨드반영 ON, 보유현금 ${actual_cash:.2f})")
     else:
-        amt_per = round(ticker_obj.total_usd / len(tranches), 2)
+        amt_per = round(ticker_obj.total_usd / len(tranches) + _cadd, 2)
         for t in tranches:
             t.cycle_number = ticker_obj.current_cycle
             t.amount_per_tranche = amt_per
@@ -627,13 +645,10 @@ def _check_and_record_cycle(session: Session, ticker_obj: Ticker, tranches: list
 
     session.commit()
 
-    # [복리 모드 2026-08] 싸이클 종료 시점에만 시드 증액 (다음 싸이클부터 적용).
-    # 손절(MOC)은 위에서 return 되어 여기 도달하지 않음 → 트리거 안 됨. 단리면 무동작.
-    try:
-        from core.compound_mode import apply_if_cycle_ended
-        apply_if_cycle_ended("jongsa")
-    except Exception as _e:
-        logger.warning(f"[복리] 시드 증액 처리 실패(무시): {_e}")
+    # [종사종팔4 2026-10-07] 싸이클 단위 복리(core.compound_mode)는 쓰지 않는다.
+    # v4 복리는 '익절 체결마다 수익÷트렌치수 를 1회 매수금액에 누적'이라 체결 시점에 이미
+    # 반영된다(Ticker.compound_add). 여기서 또 시드를 올리면 이중 반영된다.
+    # ddsop/infinite 는 기존대로 싸이클 복리를 쓴다 — 영향 없음.
 
 
 def _extract_account_summary(balance_df1, balance_df2) -> dict:
@@ -910,16 +925,21 @@ def _run_worker_once_impl(submit_orders: bool = True):
                             _log_structured(session, "INFO", ticker_obj.ticker, "미체결",
                                             f"KIS 미체결 {before_kis - len(orders)}건과 동일 → 제외 (신규 {len(orders)}건만 제출)")
                             logger.info(f"  [{ticker_obj.ticker}] KIS 미체결과 동일 {before_kis - len(orders)}건 제외")
-                        # [종사종팔 옵션A 2026-06] 자전거래 회피 + 종가매수 유지:
+                        # [종사종팔 옵션A 2026-06 / 간격 축소 2026-10-07] 자전거래 회피 + 종가매수 유지:
                         # LOC매수 한도가 최저 익절매도가와 겹치면(>=) 매수를 '생략'하지 않고
-                        # 한도를 '최저 익절가 바로 아래(×0.995)'로 낮춘다(캡).
+                        # 한도를 '최저 익절가 바로 아래'로 낮춘다(캡).
                         # → 종가가 익절가 아래면 종가에 매수 체결, 익절가 위로 마감하면 익절이 체결.
                         #   둘이 같은 종가에 동시 체결될 일이 없어 자전거래 없음. (떨사오팔은 매수가<매도가라 캡 미발동)
+                        # 간격은 trading_logic 과 **같은 상수**를 쓴다. 예전 0.995(0.5%)를 여기에 두면
+                        # trading_logic 이 좁혀 놓은 한도를 다시 넓혀버려 '매도도 매수도 없는 날'이 생긴다.
+                        # 주의: MOC(price=0)는 이 목록에서 빠진다 — MOC 가 있는 날은 generate_orders 가
+                        # 매수 주문 자체를 만들지 않으므로 여기 올 일이 없다.
+                        from .trading_logic import BUY_CAP_GAP_USD
                         sell_prices = [o.price for o in existing_orders if o.side == "sell" and o.price > 0]
                         sell_prices += [o.price for o in orders if o.side == "sell" and o.price > 0]
                         min_sell = min(sell_prices) if sell_prices else None
                         if min_sell is not None:
-                            cap = round(min_sell * 0.995, 2)
+                            cap = round(min_sell - BUY_CAP_GAP_USD, 2)
                             for o in orders:
                                 if o.side == "buy" and o.price > cap:
                                     logger.warning(f"  [{ticker_obj.ticker}] 자전거래 회피: LOC매수 한도 "
