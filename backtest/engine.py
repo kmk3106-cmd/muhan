@@ -360,7 +360,7 @@ def _run_tranche(p: Params, rows: list[dict]) -> Result:
     cyc_buy = cyc_sell = cyc_pnl = 0.0
     cyc_start = None
     prev_close = None
-    blocked = 0
+    blocked: list[float] = []      # 거부된 매수의 부족액
     losscuts = 0
     max_bought = 0
 
@@ -384,7 +384,10 @@ def _run_tranche(p: Params, rows: list[dict]) -> Result:
             if o.side == "buy":
                 need = round(gross * (1 + fee), 2)
                 if need > cash:
-                    blocked += 1
+                    # 수량은 전일종가로 계산되고 체결은 당일종가로 된다. 그날 주가가
+                    # 오르면 몇 달러 모자라 거부된다. 예수금이 1주 값도 안 될 때도
+                    # 규칙이 최소 1주를 주문하므로(max(1, ...)) 같은 일이 생긴다.
+                    blocked.append(round(need - cash, 2))
                     continue
                 cash -= need
                 cyc_buy += need
@@ -451,7 +454,10 @@ def _run_tranche(p: Params, rows: list[dict]) -> Result:
     held = sum(t.qty for t in trs)
     res.meta.update({
         "loss_cuts": losscuts, "max_tranches_held": max_bought,
-        "cash_blocked_days": blocked, "open_qty": held,
+        "cash_blocked_days": len(blocked), "open_qty": held,
+        "cash_blocked_median": (round(sorted(blocked)[len(blocked) // 2], 2)
+                                if blocked else 0.0),
+        "cash_blocked_max": round(max(blocked), 2) if blocked else 0.0,
         "open_tranches": [{"n": t.tranche_num, "qty": t.qty,
                            "price": round(t.buy_price, 4), "days": t.days_held}
                           for t in trs if t.status == "BOUGHT"],
@@ -459,7 +465,15 @@ def _run_tranche(p: Params, rows: list[dict]) -> Result:
         "amt_per_tranche": round(p.seed / max(1, p.num_tranches) + tk.compound_add, 2),
     })
     if blocked:
-        res.warnings.append(f"예수금 부족으로 거부된 매수 {blocked}건 — 시드가 트렌치 설정에 비해 작습니다.")
+        med = sorted(blocked)[len(blocked) // 2]
+        res.warnings.append(
+            f"예수금이 모자라 못 산 날 {len(blocked)}일 (부족액 중앙값 ${med:,.2f}, "
+            f"최대 ${max(blocked):,.2f}). 매수 수량은 전일종가로 계산하고 체결은 당일종가로 "
+            f"되기 때문에, 그날 주가가 오르면 몇 달러가 모자라 주문이 거부됩니다. "
+            f"1회 매수금액이 예수금 전부에 가까울 때 자주 생기고"
+            + (" — 익절복리를 켜면 매수금액이 계속 커져 그 상태가 됩니다." if p.v4_compound
+               else "(시드를 올리거나 트렌치를 늘리면 줄어듭니다).")
+            + " 실계좌에서도 KIS가 거부하는 상황이라 그대로 반영했습니다.")
     return res
 
 
