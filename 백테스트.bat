@@ -8,7 +8,7 @@ set "URL=http://127.0.0.1:%PORT%"
 
 echo.
 echo   백테스트 UI   %URL%
-echo   무한매수법 V2.2 / 떨사오팔 / 종사종팔4
+echo   무한매수법 V2.2 / 떨사오팔 / 종사종팔4 / VR 5.0
 echo.
 echo   이 창을 닫으면 서버가 꺼집니다.
 echo.

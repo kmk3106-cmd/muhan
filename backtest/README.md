@@ -1,6 +1,6 @@
 # 백테스트
 
-무한매수법 V2.2 · 떨사오팔 · 종사종팔4 를 과거 실데이터로 돌려본다.
+무한매수법 V2.2 · 떨사오팔 · 종사종팔4 · VR 밸류리밸런싱 5.0 을 과거 실데이터로 돌려본다.
 **조회 전용**이다. 운영 매매 코드는 `import` 만 하고 한 줄도 바꾸지 않는다.
 
 ## 핵심 원칙 — 규칙을 다시 쓰지 않는다
@@ -37,6 +37,7 @@ python -m backtest.cli -s infinite -t TQQQ --seed 5000 --start 2020-01-01
 python -m backtest.cli -s infinite -t SOXL --preset --compound
 python -m backtest.cli -s ddsop    -t TECL --preset
 python -m backtest.cli -s jongsa   -t UPRO --preset --v4-compound
+python -m backtest.cli -s vr       -t TQQQ --seed 30000 --vr-g 16 --vr-limit 25 --vr-sell-steps 11
 python -m backtest.cli --cost SOXS          # 다운로드 비용 견적만
 python -m backtest.cli --list               # 받아둔 티커
 ```
@@ -45,7 +46,7 @@ python -m backtest.cli --list               # 받아둔 티커
 
 | 공통 | 설명 |
 |---|---|
-| `-s/--strategy` | `infinite` · `ddsop` · `jongsa` |
+| `-s/--strategy` | `infinite` · `ddsop` · `jongsa` · `vr` |
 | `-t/--ticker` | 티커. 없으면 자동으로 받는다(과금) |
 | `--start/--end` | 기간 (YYYY-MM-DD) |
 | `--seed` | 시드 ($) |
@@ -59,6 +60,29 @@ python -m backtest.cli --list               # 받아둔 티커
 | `--compound` | 복리모드 | `--losscut` | 손절 거래일 |
 | | | `--seed-reflect` | 씨드반영 |
 | | | `--v4-compound` | [종사] 익절복리 |
+
+| VR | |
+|---|---|
+| `--vr-unit` | 모델 단위 수량 (0기 4, 5기 2) |
+| `--vr-g` | G — 클수록 V 성장 완만·현금 비중↑ |
+| `--vr-limit` | 주기당 Pool 사용 한도 % (적립75/거치50·25/인출10~25) |
+| `--vr-sell-steps` | 매도 사다리 단수 (기수별 설정값) |
+| `--vr-cashflow` | 2주 주기당 적립(+)/인출(−) |
+| `--vr-pool-pct` | 초기 Pool 비율 % (기본: G 기준 자동) |
+| `--vr-g-step` | G 를 몇 주마다 +1 할지 (0=고정, 기본 26) |
+
+### VR 은 구조가 다르다
+
+- **2주 주기** 전략이다. 주기 시작에 V·밴드·매수/매도 사다리를 산출하고 2주치를
+  예약주문으로 걸어둔다. 일 단위로 주문을 내는 앞의 셋과 다르다.
+- **전량청산(싸이클)이 없다.** 그래서 승률·실현손익 대신 주기 수와 매수/매도 횟수를 센다.
+- 가격·수량은 전부 **모델 기준**이다. 배수(mult)는 주문 수량에만 곱하므로 수익률은 같다.
+- 적립·인출이 있으면 수익률을 **투입(시드+적립) 대비 회수(최종자산+인출)** 로 잰다.
+  단순보유 벤치마크도 같은 시점에 같은 금액을 적립·인출한다.
+- 체결은 2주 예약주문이 살아 있는 동안 **저가가 매수점에 닿으면 매수**,
+  **고가가 매도점에 닿으면 매도**로 본다 (체결가 = 지정가).
+- 공식은 운영 `strategies/vr/vr_logic.py` 를 그대로 호출한다
+  (`next_v` · `bands` · `buy_ladder` · `sell_ladder`, 사양서 §6.9 검증본).
 
 ## 가격 데이터
 

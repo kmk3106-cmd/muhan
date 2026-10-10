@@ -24,7 +24,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backtest import data as D                                  # noqa: E402
-from backtest.engine import Params, PRESETS, STRATEGIES, run    # noqa: E402
+from backtest.engine import (Params, PRESETS, VR_PRESETS, STRATEGIES,  # noqa: E402
+                             run, vr_default_pool_pct)
 
 app = FastAPI(title="trading_suite backtest", docs_url=None, redoc_url=None)
 
@@ -44,6 +45,13 @@ class RunReq(BaseModel):
     loss_cut_days: int = 40
     seed_reflect: bool = False
     v4_compound: bool = False
+    vr_unit: int = 4
+    vr_g: float = 16.0
+    vr_buy_limit_pct: float = 25.0
+    vr_sell_steps: int = 11
+    vr_cashflow: float = 0.0
+    vr_pool_pct: float = -1.0
+    vr_g_step_weeks: int = 26
 
 
 class DlReq(BaseModel):
@@ -80,7 +88,8 @@ def meta():
         {"label": "2020 코로나", "start": "2020-02-01", "end": "2020-06-30"},
         {"label": "2018 Q4", "start": "2018-09-01", "end": "2019-03-31"},
     ]
-    return {"strategies": STRATEGIES, "presets": PRESETS, "cached": cached,
+    return {"strategies": STRATEGIES, "presets": PRESETS,
+            "vr_presets": VR_PRESETS, "cached": cached,
             "data_start": D.DATA_START, "data_end": end, "quick": quick}
 
 
