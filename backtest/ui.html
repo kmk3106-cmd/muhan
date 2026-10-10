@@ -158,7 +158,10 @@ td.pos{color:var(--good)} td.neg{color:var(--crit)}
           <div><label for="A">분할수 A</label><input id="A" class="mono" value="40"></div>
           <div><label for="R">목표수익률 R(%)</label><input id="R" class="mono" value="10"></div>
         </div>
-        <label class="chk"><input type="checkbox" id="compound">복리모드 (싸이클 종료 시 증액시드 = 최초시드 + 누적 실현손익)</label>
+        <label class="chk"><input type="checkbox" id="compound">복리모드</label>
+        <div class="hint" style="margin:-5px 0 10px 24px">싸이클이 끝날 때마다 시드를
+          <b>최초시드 + 누적 실현손익</b>으로 올린다. 다음 싸이클부터 적용(소급 없음).
+          B(1회 매수금)도 같이 커진다.</div>
       </div>
 
       <div id="p-tranche" class="sp" hidden>
@@ -167,8 +170,16 @@ td.pos{color:var(--good)} td.neg{color:var(--crit)}
           <div><label for="x">x (%)</label><input id="x" class="mono" value="2.7"></div>
           <div><label for="losscut">손절(일)</label><input id="losscut" class="mono" value="40"></div>
         </div>
-        <label class="chk"><input type="checkbox" id="seedreflect">씨드반영 (추가입금분을 잔여 트렌치에 반영)</label>
-        <label class="chk" id="v4wrap"><input type="checkbox" id="v4compound">익절복리 (익절 ÷ 트렌치수를 1회 매수금액에 누적)</label>
+        <label class="chk"><input type="checkbox" id="seedreflect">씨드반영</label>
+        <div class="hint" style="margin:-5px 0 10px 24px">1회 매수금액을 <b>예수금 ÷ 남은 빈
+          트렌치</b>로 잡는다. 끄면 <span id="hint-base">시드÷트렌치수</span> 고정.
+          계좌에 실제 있는 돈에 맞추는 것이라 입금하면 늘고 줄면 같이 준다.
+          트렌치가 다 차 있으면 고정값으로 돌아간다.</div>
+        <label class="chk" id="v4wrap"><input type="checkbox" id="v4compound">익절복리</label>
+        <div class="hint" id="v4hint" style="margin:-5px 0 10px 24px">이익 난 매도마다
+          <b>수익 ÷ 트렌치수</b>를 1회 매수금액에 영구 누적한다. 손실로는 깎이지 않아
+          한 방향으로만 커지고, 목표금액이 예수금을 넘으면 예수금만큼만 산다.
+          <b>씨드반영과 같이 켜면 번 돈이 두 번 반영된다.</b></div>
       </div>
 
       <div class="fld"><button class="alt" id="preset" style="width:100%">운영 설정값 불러오기</button></div>
@@ -214,10 +225,19 @@ let META = null, STRAT = "infinite";
   syncStrategy(); tkInfo();
 })();
 
+function baseAmt() {
+  const seed = parseFloat($("seed").value || "0");
+  const n = parseInt($("tranches").value || "0");
+  $("hint-base").textContent = (seed > 0 && n > 0)
+    ? `시드÷트렌치수 = ${money2(seed / n)}` : "시드÷트렌치수";
+}
+["seed", "tranches"].forEach(id => $(id).addEventListener("input", baseAmt));
+
 function syncStrategy() {
   $("p-infinite").hidden = STRAT !== "infinite";
   $("p-tranche").hidden = STRAT === "infinite";
-  $("v4wrap").hidden = STRAT !== "jongsa";
+  $("v4wrap").hidden = $("v4hint").hidden = STRAT !== "jongsa";
+  baseAmt();
   if (STRAT === "ddsop") { $("x").value = "0.5"; $("losscut").value = "40"; }
   if (STRAT === "jongsa") { $("x").value = "2.7"; $("losscut").value = "7"; }
   const p = (META.presets[STRAT] || {});
