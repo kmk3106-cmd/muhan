@@ -91,6 +91,10 @@ button.alt:hover{border-color:var(--axis)}
 /* 셀이 nowrap 이라 좁은 폭에서 표가 카드를 밀어낸다 — 카드 안에서만 가로스크롤 */
 .card > table{display:block;overflow-x:auto;white-space:nowrap}
 .card > table > tbody,.card > table > thead{display:table;width:100%}
+/* 2열 '항목 — 값' 표는 스크롤보다 줄바꿈이 읽기 좋다 */
+.card > table.kv{display:table;overflow:visible;white-space:normal;table-layout:fixed}
+.kv td{white-space:normal;word-break:break-word}
+.kv td:first-child{width:34%;color:var(--ink-2)}
 .card h3{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 10px;display:flex;justify-content:space-between;
   align-items:center;gap:10px}
@@ -336,7 +340,7 @@ function render(r, body) {
       + (P.strategy === "jongsa" && P.v4_compound ? " · 익절복리 ON" : "")
       + (P.seed_reflect ? " · 씨드반영 ON" : "");
   html += `<div class="card"><h3>조건</h3>
-    <table><tbody>
+    <table class="kv"><tbody>
     <tr><td>전략 / 티커</td><td class="mono">${esc(meta.strategy_name)} · ${esc(P.ticker)}</td></tr>
     <tr><td>기간</td><td class="mono">${meta.range_used[0]} ~ ${meta.range_used[1]} (${meta.days}거래일)</td></tr>
     <tr><td>시드 / 수수료</td><td class="mono">${money2(P.seed)}${P.fee_pct ? ` · 편도 ${P.fee_pct}%` : " · 수수료 없음"}</td></tr>
@@ -379,7 +383,7 @@ function render(r, body) {
        ["1회 매수금액", money2(meta.amt_per_tranche ?? 0)
           + (meta.compound_add ? ` (복리 +${money2(meta.compound_add)})` : "")],
        ["매수 거부", (meta.cash_blocked_days ?? 0) + "일"]];
-  html += `<div class="card"><h3>전략 상태</h3><table><tbody>`
+  html += `<div class="card"><h3>전략 상태</h3><table class="kv"><tbody>`
     + st.map(([k, v]) => `<tr><td>${k}</td><td class="mono">${esc(v)}</td></tr>`).join("")
     + `</tbody></table></div>`;
 
