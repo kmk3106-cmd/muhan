@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>백테스트 — 무한매수법 · 떨사오팔 · 종사종팔4</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --plane:#f9f9f7; --surface:#fcfcfb; --sunk:#f2f1ed;
+  --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.12);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --good:#0ca30c; --crit:#d03b3b; --warn:#fab219;
+  --font:"IBM Plex Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --plane:#0d0d0d; --surface:#1a1a19; --sunk:#232321;
+  --ink:#fff; --ink-2:#c3c2b7; --ink-3:#898781;
+  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.14);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  color-scheme:dark;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);font-family:var(--font);
+  font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:22px 16px 60px}
+h1{font-size:21px;font-weight:700;letter-spacing:-.01em;margin:0 0 3px}
+.sub{color:var(--ink-3);font-size:12.5px;margin:0 0 20px;font-family:var(--mono)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.cols{display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+
+/* 패널 */
+.panel{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:16px}
+.panel h2{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 12px}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px;font-weight:500}
+.fld .hint{font-size:11px;color:var(--ink-3);margin-top:3px;line-height:1.4}
+input,select{width:100%;padding:7px 9px;font:inherit;font-size:13px;
+  background:var(--sunk);color:var(--ink);border:1px solid var(--ring);border-radius:6px}
+input.mono,select.mono{font-family:var(--mono)}
+input:focus,select:focus{outline:2px solid var(--s1);outline-offset:-1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2);
+  margin-bottom:9px;cursor:pointer}
+.chk input{width:auto;flex:none}
+
+/* 전략 탭 */
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ring);
+  border:1px solid var(--ring);border-radius:7px;overflow:hidden;margin-bottom:14px}
+.tabs button{background:var(--sunk);border:0;padding:9px 4px;font:inherit;font-size:12px;
+  font-weight:500;color:var(--ink-2);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--s1);color:#fff;font-weight:600}
+
+/* 버튼 */
+button.go{width:100%;padding:11px;font:inherit;font-size:14px;font-weight:600;
+  background:var(--s1);color:#fff;border:0;border-radius:7px;cursor:pointer}
+button.go:disabled{opacity:.55;cursor:default}
+button.alt{padding:6px 10px;font:inherit;font-size:12px;background:var(--sunk);
+  color:var(--ink-2);border:1px solid var(--ring);border-radius:6px;cursor:pointer}
+button.alt:hover{border-color:var(--axis)}
+.quick{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.quick button{padding:3px 8px;font-size:11px}
+
+/* 결과 */
+.msg{padding:11px 13px;border-radius:8px;font-size:12.5px;margin-bottom:14px;
+  border:1px solid currentColor;line-height:1.5}
+.msg.err{color:var(--crit)} .msg.warn{color:var(--warn)} .msg.ok{color:var(--good)}
+.msg b{font-weight:600}
+.msg + .msg{margin-top:-6px}
+
+/* 타일 6개 — 3×2 로 항상 꽉 채운다 (auto-fit 은 폭에 따라 한 칸이 혼자 남는다) */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+  background:var(--ring);border:1px solid var(--ring);border-radius:9px;overflow:hidden;
+  margin-bottom:16px}
+@media(max-width:620px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{background:var(--surface);padding:12px 14px}
+.tile .k{font-size:10.5px;color:var(--ink-3);font-weight:600;letter-spacing:.05em;
+  text-transform:uppercase;margin-bottom:4px;white-space:nowrap}
+.tile .v{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:-.02em;
+  line-height:1.15}
+.tile .s{font-size:11px;color:var(--ink-3);margin-top:3px;font-family:var(--mono)}
+
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;
+  padding:14px 16px;margin-bottom:16px;min-width:0}
+/* 셀이 nowrap 이라 좁은 폭에서 표가 카드를 밀어낸다 — 카드 안에서만 가로스크롤 */
+.card > table{display:block;overflow-x:auto;white-space:nowrap}
+.card > table > tbody,.card > table > thead{display:table;width:100%}
+.card h3{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 10px;display:flex;justify-content:space-between;
+  align-items:center;gap:10px}
+.legend{display:flex;gap:16px;font-size:11.5px;color:var(--ink-2);font-weight:400;
+  text-transform:none;letter-spacing:0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:18px;height:0;border-top:2px solid currentColor}
+svg{display:block;width:100%;height:auto;overflow:visible}
+
+.tw{overflow:auto;max-height:340px;border:1px solid var(--ring);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:6px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--grid)}
+th{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink-3);background:var(--surface);position:sticky;top:0;z-index:1}
+th:first-child,td:first-child{text-align:left}
+td.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:none}
+td.pos{color:var(--good)} td.neg{color:var(--crit)}
+.note{font-size:11.5px;color:var(--ink-3);margin-top:8px;line-height:1.5}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;
+  border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;
+  vertical-align:-2px;margin-right:7px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.empty{color:var(--ink-3);font-size:13px;text-align:center;padding:60px 20px;
+  border:1px dashed var(--ring);border-radius:10px;line-height:1.7}
+</style></head><body>
+<div class="wrap">
+  <h1>백테스트</h1>
+  <p class="sub" id="hdr">무한매수법 V2.2 · 떨사오팔 · 종사종팔4 — 운영 로직 직접 호출</p>
+
+  <div class="cols">
+    <form class="panel" id="f" onsubmit="return false">
+      <h2>설정</h2>
+      <div class="tabs" id="tabs" role="tablist"></div>
+
+      <div class="fld">
+        <label for="ticker">티커</label>
+        <div class="row2">
+          <input id="ticker" class="mono" value="TQQQ" autocomplete="off">
+          <select id="cached" class="mono"><option value="">받아둔 티커</option></select>
+        </div>
+        <div class="hint" id="tkhint"></div>
+      </div>
+
+      <div class="fld">
+        <label>기간</label>
+        <div class="row2">
+          <input id="start" type="date" class="mono">
+          <input id="end" type="date" class="mono">
+        </div>
+        <div class="quick" id="quick"></div>
+      </div>
+
+      <div class="fld row2">
+        <div><label for="seed">시드 ($)</label><input id="seed" class="mono" value="5000"></div>
+        <div><label for="fee">수수료 편도(%)</label><input id="fee" class="mono" value="0"></div>
+      </div>
+
+      <div id="p-infinite" class="sp">
+        <div class="fld row2">
+          <div><label for="A">분할수 A</label><input id="A" class="mono" value="40"></div>
+          <div><label for="R">목표수익률 R(%)</label><input id="R" class="mono" value="10"></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="compound">복리모드 (싸이클 종료 시 증액시드 = 최초시드 + 누적 실현손익)</label>
+      </div>
+
+      <div id="p-tranche" class="sp" hidden>
+        <div class="fld row3">
+          <div><label for="tranches">트렌치수</label><input id="tranches" class="mono" value="7"></div>
+          <div><label for="x">x (%)</label><input id="x" class="mono" value="2.7"></div>
+          <div><label for="losscut">손절(일)</label><input id="losscut" class="mono" value="40"></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="seedreflect">씨드반영 (추가입금분을 잔여 트렌치에 반영)</label>
+        <label class="chk" id="v4wrap"><input type="checkbox" id="v4compound">익절복리 (익절 ÷ 트렌치수를 1회 매수금액에 누적)</label>
+      </div>
+
+      <div class="fld"><button class="alt" id="preset" style="width:100%">운영 설정값 불러오기</button></div>
+      <button class="go" id="run">백테스트 실행</button>
+      <div class="note" id="pnote"></div>
+    </form>
+
+    <div id="out"><div class="empty">왼쪽에서 전략·티커·기간·시드를 정하고<br><b>백테스트 실행</b>을 누르세요.</div></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const F = new Intl.NumberFormat("en-US");
+const money = v => (v < 0 ? "-$" : "$") + F.format(Math.round(Math.abs(v)));
+const money2 = v => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+const pc = (v, d=2) => (v > 0 ? "+" : "") + Number(v).toFixed(d) + "%";
+let META = null, STRAT = "infinite";
+
+/* ───── 초기화 ───── */
+(async () => {
+  META = await (await fetch("api/meta")).json();
+  $("tabs").innerHTML = Object.entries(META.strategies).map(([k, n]) =>
+    `<button type="button" role="tab" data-s="${k}" aria-selected="${k === STRAT}">${n}</button>`).join("");
+  $("tabs").onclick = e => {
+    const b = e.target.closest("button[data-s]"); if (!b) return;
+    STRAT = b.dataset.s;
+    [...$("tabs").children].forEach(x => x.setAttribute("aria-selected", x === b));
+    syncStrategy();
+  };
+  $("cached").innerHTML = '<option value="">받아둔 티커</option>' +
+    META.cached.map(t => `<option>${t}</option>`).join("");
+  $("cached").onchange = e => { if (e.target.value) { $("ticker").value = e.target.value; tkInfo(); } };
+  $("start").value = META.data_start;
+  $("end").value = META.data_end;
+  $("quick").innerHTML = META.quick.map(q =>
+    `<button type="button" class="alt" data-s="${q.start}" data-e="${q.end || ''}">${q.label}</button>`).join("");
+  $("quick").onclick = e => {
+    const b = e.target.closest("button[data-s]"); if (!b) return;
+    $("start").value = b.dataset.s; $("end").value = b.dataset.e || META.data_end;
+  };
+  $("pnote").textContent = `데이터 보유 범위 ${META.data_start} ~ ${META.data_end} (Databento 일봉)`;
+  syncStrategy(); tkInfo();
+})();
+
+function syncStrategy() {
+  $("p-infinite").hidden = STRAT !== "infinite";
+  $("p-tranche").hidden = STRAT === "infinite";
+  $("v4wrap").hidden = STRAT !== "jongsa";
+  if (STRAT === "ddsop") { $("x").value = "0.5"; $("losscut").value = "40"; }
+  if (STRAT === "jongsa") { $("x").value = "2.7"; $("losscut").value = "7"; }
+  const p = (META.presets[STRAT] || {});
+  $("preset").textContent = Object.keys(p).length
+    ? `운영 설정값 불러오기 (${Object.keys(p).join(", ")})` : "운영 설정값 없음";
+  $("preset").disabled = !Object.keys(p).length;
+}
+
+function tkInfo() {
+  const t = $("ticker").value.trim().toUpperCase();
+  const has = META.cached.includes(t);
+  $("tkhint").innerHTML = has
+    ? `<span style="color:var(--good)">받아둔 데이터 있음</span>`
+    : `데이터 없음 — 실행하면 비용을 먼저 보여줍니다`;
+}
+$("ticker").oninput = tkInfo;
+
+$("preset").onclick = () => {
+  const t = $("ticker").value.trim().toUpperCase();
+  const all = META.presets[STRAT] || {};
+  const pre = all[t];
+  if (!pre) {
+    const ks = Object.keys(all);
+    alert(`${META.strategies[STRAT]} 운영 설정이 있는 티커: ${ks.join(", ") || "없음"}`);
+    return;
+  }
+  if (pre.seed != null) $("seed").value = pre.seed;
+  for (const [k, id] of [["A","A"],["R","R"],["num_tranches","tranches"],
+                         ["x_pct","x"],["loss_cut_days","losscut"]])
+    if (pre[k] != null) $(id).value = pre[k];
+};
+
+/* ───── 실행 ───── */
+$("run").onclick = async () => {
+  const body = {
+    strategy: STRAT,
+    ticker: $("ticker").value.trim().toUpperCase(),
+    start: $("start").value, end: $("end").value,
+    seed: parseFloat($("seed").value || "0"),
+    fee_pct: parseFloat($("fee").value || "0"),
+    A: parseInt($("A").value || "40"), R: parseFloat($("R").value || "10"),
+    compound: $("compound").checked,
+    num_tranches: parseInt($("tranches").value || "7"),
+    x_pct: parseFloat($("x").value || "2.7"),
+    loss_cut_days: parseInt($("losscut").value || "40"),
+    seed_reflect: $("seedreflect").checked,
+    v4_compound: $("v4compound").checked,
+  };
+  if (!body.ticker) return alert("티커를 입력하세요.");
+  if (!(body.seed > 0)) return alert("시드를 입력하세요.");
+
+  $("run").disabled = true;
+  $("out").innerHTML = `<div class="msg ok"><span class="spin"></span>계산 중…</div>`;
+  try {
+    let r = await (await fetch("api/run", {method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)})).json();
+    if (r.need_download) { await askDownload(r, body); return; }
+    if (r.error) { $("out").innerHTML = `<div class="msg err"><b>오류</b><br>${esc(r.error)}</div>`; return; }
+    render(r, body);
+  } catch (e) {
+    $("out").innerHTML = `<div class="msg err"><b>요청 실패</b><br>${esc(String(e))}</div>`;
+  } finally { $("run").disabled = false; }
+};
+
+async function askDownload(r, body) {
+  const c = r.cost;
+  $("out").innerHTML = `<div class="msg warn">
+    <b>${esc(body.ticker)} 가격 데이터가 없습니다 — 받을까요?</b><br>
+    거래소 <span class="mono">${esc(c.dataset)}</span> · 일봉 <span class="mono">${F.format(c.records)}건</span>
+    · 예상비용 <span class="mono">$${c.cost_usd.toFixed(4)}</span> (Databento 과금)<br>
+    <button class="alt" id="dl" style="margin-top:9px">받고 실행</button>
+    <button class="alt" id="nodl" style="margin-top:9px">취소</button></div>`;
+  $("nodl").onclick = () => { $("out").innerHTML =
+    `<div class="empty">취소했습니다. 다른 티커를 고르거나 다시 실행하세요.</div>`; };
+  $("dl").onclick = async () => {
+    $("out").innerHTML = `<div class="msg ok"><span class="spin"></span>${esc(body.ticker)} 받는 중…</div>`;
+    const d = await (await fetch("api/download", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ticker: body.ticker})})).json();
+    if (d.error) { $("out").innerHTML = `<div class="msg err"><b>다운로드 실패</b><br>${esc(d.error)}</div>`; return; }
+    META.cached = d.cached;
+    $("cached").innerHTML = '<option value="">받아둔 티커</option>' +
+      d.cached.map(t => `<option>${t}</option>`).join("");
+    tkInfo();
+    $("run").click();
+  };
+  $("run").disabled = false;
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ───── 결과 렌더 ───── */
+function render(r, body) {
+  const m = r.metrics, meta = r.meta, P = r.params;
+  const better = (a, b) => a != null && b != null && a >= b;
+  const sp = meta.splits || [];
+
+  const tiles = [
+    {k:"최종자산", v:money(m.final_equity), s:pc(m.total_return_pct, 1) + " · " + m.years + "년"},
+    {k:"CAGR", v:pc(m.cagr_pct, 1), s:"연평균"},
+    {k:"최대낙폭", v:m.mdd_pct.toFixed(1) + "%", s:"MDD"},
+    {k:"위험조정", v:(m.rr ?? "—"), s:"CAGR / |MDD|"},
+    {k:"싸이클", v:m.cycles, s:m.win_rate != null
+        ? `승 ${m.wins} / 패 ${m.losses} · ${m.win_rate}%` : "완료 0건"},
+    {k:"실현손익", v:money(m.realized), s:`체결 ${F.format(m.trades)}건`},
+  ];
+
+  let html = "";
+  for (const w of (r.warnings || []))
+    html += `<div class="msg warn">${esc(w)}</div>`;
+
+  html += `<div class="tiles">` + tiles.map(t =>
+    `<div class="tile"><div class="k">${t.k}</div><div class="v">${t.v}</div>
+     <div class="s">${t.s}</div></div>`).join("") + `</div>`;
+
+  /* 조건 요약 */
+  const cond = P.strategy === "infinite"
+    ? `A=${P.A}분할 · B=${money2(P.seed / P.A)} · R=${P.R}% · 복리 ${P.compound ? "ON" : "OFF"}`
+    : `트렌치 ${P.num_tranches}개 · 1회 ${money2(P.seed / P.num_tranches)} · x=${P.x_pct}% · 손절 ${P.loss_cut_days}일`
+      + (P.strategy === "jongsa" && P.v4_compound ? " · 익절복리 ON" : "")
+      + (P.seed_reflect ? " · 씨드반영 ON" : "");
+  html += `<div class="card"><h3>조건</h3>
+    <table><tbody>
+    <tr><td>전략 / 티커</td><td class="mono">${esc(meta.strategy_name)} · ${esc(P.ticker)}</td></tr>
+    <tr><td>기간</td><td class="mono">${meta.range_used[0]} ~ ${meta.range_used[1]} (${meta.days}거래일)</td></tr>
+    <tr><td>시드 / 수수료</td><td class="mono">${money2(P.seed)}${P.fee_pct ? ` · 편도 ${P.fee_pct}%` : " · 수수료 없음"}</td></tr>
+    <tr><td>파라미터</td><td class="mono">${esc(cond)}</td></tr>
+    <tr><td>분할조정</td><td class="mono">${sp.length ? sp.map(s => `${s.date} ${s.ratio}:1`).join(", ") : "없음"} <span style="color:var(--ink-3)">(${esc(meta.splits_source || "")})</span></td></tr>
+    </tbody></table></div>`;
+
+  /* 자산곡선 */
+  html += `<div class="card"><h3>자산곡선
+    <span class="legend">
+      <span style="color:var(--s1)"><i></i><span style="color:var(--ink-2)">${esc(meta.strategy_name)}</span></span>
+      <span style="color:var(--s3)"><i style="border-top-style:dashed"></i><span style="color:var(--ink-2)">단순보유</span></span>
+    </span></h3>${chart(r)}
+    <div class="note">세로축 로그. 단순보유는 첫날 종가에 시드 전액을 넣고 끝까지 들고 있는 경우다.</div>
+    </div>`;
+
+  /* 비교 */
+  html += `<div class="card"><h3>단순보유 비교</h3>
+    <table><thead><tr><th></th><th>최종자산</th><th>수익률</th><th>CAGR</th><th>MDD</th><th>CAGR/|MDD|</th></tr></thead>
+    <tbody>
+    <tr><td>${esc(meta.strategy_name)}</td><td class="mono">${money(m.final_equity)}</td>
+      <td class="mono">${pc(m.total_return_pct,1)}</td><td class="mono">${pc(m.cagr_pct,1)}</td>
+      <td class="mono">${m.mdd_pct.toFixed(1)}%</td>
+      <td class="mono"${better(m.rr,m.bh_rr)?' style="font-weight:600"':''}>${m.rr ?? "—"}</td></tr>
+    <tr><td>단순보유</td><td class="mono">${money(m.bh_final)}</td>
+      <td class="mono">${pc(m.bh_return_pct,1)}</td><td class="mono">${pc(m.bh_cagr_pct,1)}</td>
+      <td class="mono">${m.bh_mdd_pct.toFixed(1)}%</td>
+      <td class="mono"${better(m.bh_rr,m.rr)?' style="font-weight:600"':''}>${m.bh_rr ?? "—"}</td></tr>
+    </tbody></table></div>`;
+
+  /* 전략 상태 */
+  const st = P.strategy === "infinite"
+    ? [["최대 T", meta.max_T], ["QUARTER 진입", (meta.quarter_entries ?? 0) + "회"],
+       ["미청산", `${meta.open_qty}주 (T=${meta.open_T}, ${meta.open_mode})`],
+       ["매수 거부", (meta.cash_blocked_days ?? 0) + "일"]]
+    : [["손절", (meta.loss_cuts ?? 0) + "회"],
+       ["최대 동시보유", `${meta.max_tranches_held}/${P.num_tranches} 트렌치`],
+       ["미청산", `${meta.open_qty}주` + (meta.open_tranches?.length
+          ? ` (${meta.open_tranches.map(t => "T" + t.n).join(",")})` : "")],
+       ["1회 매수금액", money2(meta.amt_per_tranche ?? 0)
+          + (meta.compound_add ? ` (복리 +${money2(meta.compound_add)})` : "")],
+       ["매수 거부", (meta.cash_blocked_days ?? 0) + "일"]];
+  html += `<div class="card"><h3>전략 상태</h3><table><tbody>`
+    + st.map(([k, v]) => `<tr><td>${k}</td><td class="mono">${esc(v)}</td></tr>`).join("")
+    + `</tbody></table></div>`;
+
+  /* 싸이클 */
+  if (r.cycles.length) {
+    html += `<div class="card"><h3>싸이클 ${r.cycles.length}건</h3><div class="tw"><table>
+      <thead><tr><th>#</th><th>시작</th><th>종료</th><th>일</th><th>누적매수</th>
+      <th>누적매도</th><th>손익</th><th>손익률</th></tr></thead><tbody>`
+      + r.cycles.slice().reverse().map(c => `<tr>
+        <td class="mono">${c.n}</td><td class="mono">${c.start}</td><td class="mono">${c.end}</td>
+        <td class="mono">${c.days}</td><td class="mono">${money(c.buy)}</td>
+        <td class="mono">${money(c.sell)}</td>
+        <td class="mono ${c.profit >= 0 ? "pos" : "neg"}">${money2(c.profit)}</td>
+        <td class="mono ${c.profit >= 0 ? "pos" : "neg"}">${pc(c.profit_pct)}</td></tr>`).join("")
+      + `</tbody></table></div><div class="note">최신순. 누적매수가 시드보다 큰 건 싸이클 중 부분매도로 회수한 현금을 다시 쓰기 때문이다.</div></div>`;
+  }
+
+  /* 체결 */
+  if (r.trades.length) {
+    const t = r.trades.slice(-300).reverse();
+    html += `<div class="card"><h3>체결 ${F.format(r.trades.length)}건 <span class="legend"><span style="color:var(--ink-3)">최근 ${t.length}건</span></span></h3>
+      <div class="tw"><table><thead><tr><th>날짜</th><th>구분</th><th>주문</th>
+      <th>가격</th><th>수량</th><th>금액</th><th>비고</th></tr></thead><tbody>`
+      + t.map(x => `<tr><td class="mono">${x.date}</td>
+        <td class="${x.side === "buy" ? "" : "pos"}">${x.side === "buy" ? "매수" : "매도"}</td>
+        <td class="mono">${esc(x.type)}</td><td class="mono">$${x.price.toFixed(2)}</td>
+        <td class="mono">${x.qty}</td><td class="mono">${money2(x.amount)}</td>
+        <td style="text-align:left;color:var(--ink-3)">${esc(x.note || "")}</td></tr>`).join("")
+      + `</tbody></table></div></div>`;
+  }
+
+  $("out").innerHTML = html;
+}
+
+/* 자산곡선 SVG (로그축) */
+function chart(r) {
+  const A = r.equity, B = r.meta.buyhold_equity || [];
+  if (A.length < 2) return `<div class="note">그릴 데이터가 부족합니다.</div>`;
+  const W = 900, H = 300, PL = 56, PR = 14, PT = 12, PB = 28;
+  const vals = A.map(p => p[1]).concat(B.map(p => p[1])).filter(v => v > 0);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  lo = Math.max(lo * 0.92, 1); hi = hi * 1.08;
+  const ly = v => Math.log(Math.min(Math.max(v, lo), hi));
+  const X = (i, n) => PL + (W - PL - PR) * (n < 2 ? 0 : i / (n - 1));
+  const Y = v => PT + (H - PT - PB) * (1 - (ly(v) - ly(lo)) / (ly(hi) - ly(lo)));
+
+  // 눈금: 1-2-5 로그 스텝
+  const ticks = [];
+  for (let e = 1; e <= 8; e++) for (const b of [1, 2, 5]) {
+    const v = b * Math.pow(10, e);
+    if (v >= lo && v <= hi) ticks.push(v);
+  }
+  const kf = v => v >= 1000 ? (v / 1000).toLocaleString("en-US", {maximumFractionDigits:1}) + "k" : String(v);
+  const line = (pts, color, dash) => `<polyline fill="none" stroke="${color}" stroke-width="2"
+    stroke-linejoin="round" vector-effect="non-scaling-stroke" ${dash ? `stroke-dasharray="${dash}"` : ""}
+    points="${pts.map((p, i) => `${X(i, pts.length).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" ")}"/>`;
+
+  // 연도 라벨
+  const xs = [];
+  let lastY = "";
+  A.forEach((p, i) => {
+    const y = p[0].slice(0, 4);
+    if (y !== lastY) { xs.push([i, y]); lastY = y; }
+  });
+  const step = Math.ceil(xs.length / 9);
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img"
+    aria-label="자산곡선: 전략 최종 ${Math.round(A[A.length-1][1])}달러, 단순보유 ${B.length?Math.round(B[B.length-1][1]):0}달러">
+    ${ticks.map(v => `<line x1="${PL}" y1="${Y(v).toFixed(1)}" x2="${W-PR}" y2="${Y(v).toFixed(1)}"
+      stroke="var(--grid)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <text x="${PL-8}" y="${(Y(v)+3.5).toFixed(1)}" text-anchor="end" font-size="10"
+      font-family="var(--mono)" fill="var(--ink-3)">${kf(v)}</text>`).join("")}
+    <line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="var(--axis)"
+      stroke-width="1" vector-effect="non-scaling-stroke"/>
+    ${xs.filter((_, j) => j % step === 0).map(([i, y]) =>
+      `<text x="${X(i, A.length).toFixed(1)}" y="${H-PB+15}" text-anchor="middle" font-size="10"
+       font-family="var(--mono)" fill="var(--ink-3)">${y}</text>`).join("")}
+    ${B.length ? line(B, "var(--s3)", "5 3") : ""}
+    ${line(A, "var(--s1)")}
+  </svg>`;
+}
+</script></body></html>

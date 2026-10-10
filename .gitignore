@@ -37,3 +37,7 @@ core/_equity_backfill.jsonl
 
 # Build / archive
 *.zip
+
+# 백테스트 (가격 캐시 · API 키)
+backtest/_cache/
+backtest/_dbn_key.txt
