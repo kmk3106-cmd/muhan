@@ -108,9 +108,10 @@ def main(argv=None):
         print(f"            초기 Pool {meta['pool_pct_used']}%  "
               f"2주 주기 {meta['vr_cycles']}회 ({meta['weeks']}주)")
         if m["deposited"] or m["withdrawn"]:
-            print(f"            투입 {_fmt(m['invested'])} (시드 + 적립 {m['deposited']:,.0f})"
-                  f"   회수 {_fmt(m['final_equity'] + m['withdrawn'])} "
-                  f"(최종자산 + 인출 {m['withdrawn']:,.0f})")
+            print(f"            투입 {_fmt(m['invested'])} = 시드 {_fmt(p.seed, 8)}"
+                  f" + 적립 {_fmt(m['deposited'], 8)}")
+            print(f"            회수 {_fmt(m['final_equity'] + m['withdrawn'])} "
+                  f"= 최종자산 {_fmt(m['final_equity'], 8)} + 인출 {_fmt(m['withdrawn'], 8)}")
     else:
         print(f" 시드 {_fmt(p.seed)}   트렌치 {p.num_tranches}개  "
               f"1회 {_fmt(p.seed/p.num_tranches, 8)}  x={p.x_pct}%  "

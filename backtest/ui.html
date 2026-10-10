@@ -420,9 +420,12 @@ function render(r, body) {
     <tr><td>전략 / 티커</td><td class="mono">${esc(meta.strategy_name)} · ${esc(P.ticker)}</td></tr>
     <tr><td>기간</td><td class="mono">${meta.range_used[0]} ~ ${meta.range_used[1]} (${meta.days}거래일)</td></tr>
     <tr><td>시드 / 수수료</td><td class="mono">${money2(P.seed)}${P.fee_pct ? ` · 편도 ${P.fee_pct}%` : " · 수수료 없음"}</td></tr>
-    ${(m.deposited || m.withdrawn) ? `<tr><td>투입 / 회수</td><td class="mono">
-      ${money2(m.invested)} (시드+적립 ${money(m.deposited)}) →
-      ${money2(m.final_equity + m.withdrawn)} (최종자산+인출 ${money(m.withdrawn)})</td></tr>` : ""}
+    ${(m.deposited || m.withdrawn) ? `<tr><td>투입</td><td class="mono">
+      ${money2(m.invested)} &nbsp;=&nbsp; 시드 ${money2(P.seed)}
+      ${m.deposited ? `+ 적립 ${money2(m.deposited)}` : ""}</td></tr>
+    <tr><td>회수</td><td class="mono">
+      ${money2(m.final_equity + m.withdrawn)} &nbsp;=&nbsp; 최종자산 ${money2(m.final_equity)}
+      ${m.withdrawn ? `+ 인출 ${money2(m.withdrawn)}` : ""}</td></tr>` : ""}
     <tr><td>파라미터</td><td class="mono">${esc(cond)}</td></tr>
     <tr><td>분할조정</td><td class="mono">${sp.length ? sp.map(s => `${s.date} ${s.ratio}:1`).join(", ") : "없음"} <span style="color:var(--ink-3)">(${esc(meta.splits_source || "")})</span></td></tr>
     </tbody></table></div>`;
