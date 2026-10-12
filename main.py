@@ -102,6 +102,14 @@ app.mount("/ddsop", ddsop_app)
 app.mount("/jongsa", jongsa_app)
 app.mount("/vr", vr_app)
 
+# 백테스트 (조회 전용, /backtest). 매매와 무관한 부가기능이므로 import·마운트가
+# 실패해도 앱 기동과 매매 스케줄러가 멈추지 않도록 격리한다.
+try:
+    from backtest.server import app as backtest_app
+    app.mount("/backtest", backtest_app)
+except Exception as _e:
+    logger.warning(f"[suite] 백테스트 마운트 실패(계속 진행): {type(_e).__name__}: {_e}")
+
 
 class BudgetBody(BaseModel):
     total_usd: float
