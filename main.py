@@ -278,6 +278,35 @@ def api_toss_series():
     return series()
 
 
+@app.get("/api/suite/nh_key")
+def api_nh_key():
+    """NH PLUG 인증키 상태 — 만료일·남은 일수·현재 인증 가능 여부 (조회 전용).
+
+    NH 는 토큰에 만료일을 실어주지 않는다. 포털의 '유효일자'를 env(NHPLUG_KEY_EXPIRES)에
+    적어두고 그 값으로 D-day 를 센다. 인증 실패는 실제 호출로 확인한다.
+    """
+    import os
+    out = {"expires": None, "days_left": None, "auth_ok": None, "error": ""}
+    try:
+        from strategies.vr.config import load_nh_env
+        load_nh_env()
+        exp = (os.getenv("NHPLUG_KEY_EXPIRES") or "").strip()[:10]
+        if exp:
+            from datetime import date
+            y, m, d = (int(x) for x in exp.replace("/", "-").split("-")[:3])
+            out["expires"] = f"{y:04d}-{m:02d}-{d:02d}"
+            out["days_left"] = (date(y, m, d) - date.today()).days
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}: {e}"
+    try:
+        from strategies.vr import nh_client as nh
+        out["auth_ok"] = bool(nh.auth_ok())
+    except Exception as e:
+        out["auth_ok"] = False
+        out["error"] = (out["error"] + " / " if out["error"] else "") + str(e)[:160]
+    return out
+
+
 @app.get("/api/suite/series")
 def suite_series():
     from core.equity_snapshot import series
@@ -879,8 +908,7 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
  /* NH 탭: 기간 대신 기수 선택 — 그래프도 VR 주차별(평가금·밴드)로 바뀐다 */
  var vrList=(isNH?((MET.nh&&MET.nh.accounts)||[]):[]);
  if(isNH&&vrList.length&&!vrList.some(function(x){return x.gisu===VRSEL;}))VRSEL=vrList[0].gisu;
- var seg=isTS?''
-  :isNH
+ var seg=isNH
   ?('<div class="seg" id="sg">'+vrList.map(function(x){
     var nm=(((MET.nh&&MET.nh.strategies)||[]).filter(function(s){return s.strategy==='vr:'+x.gisu;})[0]||{}).display_name||x.gisu;
     return '<button class="sgb'+(VRSEL===x.gisu?' on':'')+'" data-gid="'+esc(x.gisu)+'">'+
@@ -1005,14 +1033,33 @@ function renderHold(h){var its=(ACCT==='nh')?[]:((h&&h.items)||[]).slice();
   '<span>평가 <b>'+money(tEval)+'</b></span><span>손익 <b class="'+(tPnl>=0?'up':'dn')+'">'+
   (tPnl>=0?'+':'')+money(tPnl)+'</b></span><span>수익률 <b class="'+(tRt>=0?'up':'dn')+'">'+
   (tRt>=0?'+':'')+tRt.toFixed(2)+'%</b></span></div></div>';}
-function renderAlert(ss){var rows=[];ss.forEach(function(s){(s.errors||[]).forEach(function(l){
+/* NH 인증키 상태 — 끊기면 VR 이 조용히 멈추므로(2026-10-10 실제 4일 중단) 항상 보이게 둔다. */
+var NHKEY=null;
+function nhKeyLine(){
+ if(!NHKEY)return '';
+ var d=NHKEY.days_left,exp=NHKEY.expires,bad=(NHKEY.auth_ok===false),soon=(d!=null&&d<=30);
+ if(!bad&&!soon){
+  return '<div class="al"><span class="ad i"></span><span class="am">NH 인증키 정상'+
+   (exp?(' · 유효 '+esc(exp)+(d!=null?(' (D-'+d+')'):'')):'')+'</span></div>';}
+ var msg=bad
+  ?('<b style="color:#d13b32">NH 인증키 인증 실패 — VR 동기화·주문이 멈춥니다. 키를 재발급해 교체하세요.</b>'+
+    (exp?('<span class="at">포털 유효일자 '+esc(exp)+(d!=null?(' · D-'+d):'')+'</span>'):''))
+  :('<b style="color:#d13b32">NH 인증키 만료 D-'+d+' ('+esc(exp)+') — 갱신하세요.</b>'+
+    '<span class="at">만료되면 VR 동기화·예약주문 제출이 전부 실패합니다</span>');
+ return '<div class="al"><span class="ad e"></span><span class="am">'+msg+'</span></div>';}
+function loadNhKey(){fetch('/api/suite/nh_key').then(function(r){return r.json();})
+ .then(function(d){NHKEY=d;if($('palert'))renderAlert(LAST_SS||[]);}).catch(function(){});}
+var LAST_SS=null;
+function renderAlert(ss){LAST_SS=ss;var rows=[];ss.forEach(function(s){(s.errors||[]).forEach(function(l){
  rows.push({lv:l.level,m:'['+s.display_name+'] '+l.message,t:l.created_at});});});
  rows.sort(function(a,b){return (b.t||'').localeCompare(a.t||'');});
- $('palert').innerHTML=rows.length?rows.slice(0,7).map(function(r){
+ var body=rows.length?rows.slice(0,7).map(function(r){
  var c=r.lv==='ERROR'?'e':(r.lv==='WARNING'?'w':'i');
  return '<div class="al"><span class="ad '+c+'"></span><span class="am">'+esc(r.m)+
  '<span class="at">'+esc((r.t||'').replace('T',' ').slice(0,19))+'</span></span></div>';}).join(''):
- '<div class="al"><span class="ad i"></span><span class="am">자동매매 정상 운영 중 · 최근 오류 없음</span></div>';}
+ '<div class="al"><span class="ad i"></span><span class="am">자동매매 정상 운영 중 · 최근 오류 없음</span></div>';
+ $('palert').innerHTML=nhKeyLine()+body;
+ if(NHKEY===null)loadNhKey();}
 function drawDonut(ss){if(C2){C2.destroy();C2=null;}var L=[],V=[],T=0;
  var isNH=(ACCT==='nh');
  ss.forEach(function(s){
@@ -1050,6 +1097,17 @@ function drawTossLine(){var w=$('cw1');if(!w)return;
       (t.cash_krw?(' + '+Math.round(t.cash_krw).toLocaleString()+'원'+(t.fx?(' (≈'+money(t.cash_krw/t.fx)+')'):'')):'')+
       (t.ts?(' · 갱신 '+esc(t.ts)):'')));
    return;}
+  /* 기간 선택(R1) 적용 — 다른 탭과 같은 규칙. 토스 ts 는 'YYYY-MM-DD HH:MM:SS' 라 T 로 바꿔 파싱 */
+  var _d=function(x){return new Date(String(x||'').replace(' ','T'));};
+  var _n=dDays(R1),_last=_d(pts[pts.length-1].ts),_cut=new Date(_last-_n*864e5);
+  var _in=pts.filter(function(p){return _d(p.ts)>=_cut;});
+  if(_in.length>=2)pts=_in;
+  /* 기록보다 긴 구간을 고르면 전체와 같은 그림이 된다 — 버튼에 안내만 */
+  var _span=Math.max(0,(_last-_d((ser.points||[])[0].ts))/864e5);
+  if($('sg'))[].forEach.call($('sg').children,function(b){
+   var need=dDays(b.textContent);
+   b.title=(need<9999&&need>_span+1)
+    ?('기록 '+(_span<1?'1일 미만':(Math.round(_span)+'일'))+' — 이 구간은 전체와 같은 그림입니다'):'';});
   /* 일자별 마지막 점으로 묶기 — 2일 이상이면 일자 라벨, 아니면 시각 라벨 */
   var bym={},order=[];
   pts.forEach(function(p){var d=String(p.ts||'').slice(0,10);if(!(d in bym))order.push(d);bym[d]=p;});

@@ -208,7 +208,28 @@ def series(max_points: int = 400) -> dict:
                     continue
     except Exception as e:
         logger.warning(f"[toss] 시계열 읽기 실패: {e}")
-    pts = pts[-max_points:]
+    # [2026-10-14 수정] 뒤에서 max_points 개만 자르면 10분 주기라 최근 3일치만 남아
+    # 화면의 1개월·전체 버튼이 무의미했다(파일엔 21일치가 있는데 3일만 보였다).
+    # 오래된 구간은 일자별 마지막 1점으로 솎고, 최근 이틀은 원해상도를 유지한다.
+    if len(pts) > max_points:
+        days = sorted({str(p.get("ts") or "")[:10] for p in pts if p.get("ts")})
+        keep_from = days[-2] if len(days) >= 2 else (days[-1] if days else "")
+        daily: dict[str, dict] = {}
+        recent: list[dict] = []
+        for p in pts:
+            d = str(p.get("ts") or "")[:10]
+            if not d:
+                continue
+            if d >= keep_from:
+                recent.append(p)
+            else:
+                daily[d] = p                      # 그날의 마지막 점
+        pts = [daily[d] for d in sorted(daily)] + recent
+        if len(pts) > max_points:                 # 그래도 많으면 최근 구간을 솎는다
+            tail = pts[-(max_points // 2):]
+            head = pts[:-(max_points // 2)]
+            step = max(1, len(head) // max(1, max_points - len(tail)))
+            pts = head[::step] + tail
     return {"points": pts, "collecting": len(pts) < 2}
 
 
