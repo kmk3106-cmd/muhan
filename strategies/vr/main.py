@@ -272,7 +272,10 @@ def gisu_detail(gid: str):
         "gisu": g,
         "weekly": M.weekly_rows(gid),
         "reserved": M.reserved_rows(gid)[-40:],
-        "fills": M.fills_rows(gid, g["week_no"]),
+        "fills": M.fills_rows(gid, g["week_no"]),      # 이번 주차 (기존 호환)
+        # 화면 체결 내역용 — 전 주차 최근 60건. 예약 원장만 보이고 체결은 어디에도
+        # 노출되지 않아 "거래가 있었는지" 를 화면에서 알 수 없었다.
+        "fills_all": M.fills_rows(gid)[-60:],
     }
 
 

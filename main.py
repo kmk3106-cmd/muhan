@@ -2113,8 +2113,27 @@ function renderVr(d){var gs=(d&&d.gisu)||[];VRDATA=gs;
   renderVrLedger(g.id);});}
 function renderVrLedger(gid){fetch('/vr/api/gisu/'+gid).then(function(r){return r.json();})
  .then(function(d){var rows=(d.reserved||[]).slice(-24).reverse();var box=$('vrres_'+gid);if(!box)return;
-  if(!rows.length){box.innerHTML='';return;}
-  box.innerHTML='<div style="padding:0 18px 14px"><details><summary style="cursor:pointer;font-size:11.5px;'+
+  var fl=(d.fills_all||[]).slice().reverse();
+  /* 체결 내역 — 예약만 보이고 체결은 화면 어디에도 없었다.
+     VR 은 밴드 안이면 무거래라 '0건'도 정상이므로 0건일 때도 표시한다. */
+  var fh='<div style="padding:0 18px 14px"><details'+(fl.length?' open':'')+
+   '><summary style="cursor:pointer;font-size:11.5px;color:var(--blue);font-weight:600">'+
+   '체결 내역 ('+fl.length+'건)</summary>'+
+   (fl.length?('<div style="overflow-x:auto;margin-top:8px"><table class="tbl"><thead><tr>'+
+    '<th>체결일</th><th>주차</th><th>구분</th><th style="text-align:right">체결가</th>'+
+    '<th style="text-align:right">수량</th><th style="text-align:right">금액</th></tr></thead><tbody>'+
+    fl.map(function(f){var amt=(Number(f.price)||0)*(Number(f.qty_acct)||0);
+     return '<tr><td>'+vrFmtD(f.fill_dt)+'</td><td>'+(f.week_no==null?'-':f.week_no)+'</td>'+
+      '<td><span class="tag '+(f.side==='buy'?'buy">매수':'sell">매도')+'</span></td>'+
+      '<td style="text-align:right">'+money(f.price,2)+'</td>'+
+      '<td style="text-align:right">'+f.qty_acct+'</td>'+
+      '<td style="text-align:right">'+money(amt,2)+'</td></tr>';}).join('')+
+    '</tbody></table></div>')
+   :'<div class="muted" style="margin-top:8px;font-size:11px">아직 체결 없음 — '+
+    '평가금이 밴드(하단~상단) 안에 있으면 거래가 일어나지 않는 것이 정상입니다.</div>')+
+   '</details></div>';
+  if(!rows.length){box.innerHTML=fh;return;}
+  box.innerHTML=fh+'<div style="padding:0 18px 14px"><details><summary style="cursor:pointer;font-size:11.5px;'+
    'color:var(--blue);font-weight:600">예약 원장 ('+rows.length+'건)</summary>'+
    '<div style="overflow-x:auto;margin-top:8px"><table class="tbl"><thead><tr><th>주차</th><th>구분</th>'+
    '<th style="text-align:right">가격</th><th style="text-align:right">수량</th><th>기간</th><th>NH접수번호</th><th>상태</th></tr></thead><tbody>'+
