@@ -61,6 +61,7 @@ def refresh_snapshot(gid: str) -> dict | None:
         bal = nh.balance(g["acct_no"])
         qty = 0
         buy_usd = 0.0
+        pend_buy = pend_sell = 0
         # 잔고 보유종목은 Output_1. 수량 = cns_bse_bnc_qty(체결기준잔고수량), 매입금 = fc_abk_amt (명세 이름)
         for row in nh._rows(bal, "Output_1"):
             if nh.norm_ticker(row.get("iem_cd")) != nh.norm_ticker(g["ticker"]):
@@ -68,6 +69,11 @@ def refresh_snapshot(gid: str) -> dict | None:
             try:
                 qty = int(float(str(row.get("cns_bse_bnc_qty") or 0).replace(",", "")))
                 buy_usd = float(str(row.get("fc_abk_amt") or 0).replace(",", ""))
+                # 미결제 체결수량 — 체결은 됐지만 결제 전이라 일별거래내역(daily_transactions)에
+                # 아직 안 올라온다. 이 구간엔 실보유와 모델이 어긋나는데 누락이 아니므로
+                # 따로 담아 감시에서 구분한다. (2026-10-23 vr0 매수 1단 4주로 확인)
+                pend_buy = int(float(str(row.get("byn_cns_qty") or 0).replace(",", "")))
+                pend_sell = int(float(str(row.get("sll_cns_qty") or 0).replace(",", "")))
             except Exception as e:
                 logger.warning(f"[VR:{gid}] 잔고 행 해석 실패: {e} — {row}")
             break
@@ -107,10 +113,11 @@ def refresh_snapshot(gid: str) -> dict | None:
         close = lc[1] if lc else 0.0
         eval_usd = r2(qty * close) if close > 0 else 0.0
         M.upsert_snapshot(gid, qty, r2(buy_usd), close, eval_usd,
-                          r2(cash_usd), round(cash_krw, 2), fx, r2(cash_order))
+                          r2(cash_usd), round(cash_krw, 2), fx, r2(cash_order),
+                          pend_buy, pend_sell)
         return {"qty": qty, "buy_usd": buy_usd, "close": close, "eval_usd": eval_usd,
                 "cash_usd": cash_usd, "cash_krw": cash_krw, "fx": fx,
-                "cash_order": cash_order}
+                "cash_order": cash_order, "pend_buy": pend_buy, "pend_sell": pend_sell}
     except Exception as e:
         logger.warning(f"[VR:{gid}] 스냅샷 갱신 실패: {e}")
         return None

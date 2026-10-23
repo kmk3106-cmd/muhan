@@ -100,6 +100,11 @@ def db():
                 "ALTER TABLE gisu ADD COLUMN pending_since TEXT",
                 # 체결 중 모델에서 뺀 수량(배수 증액 매집분). 사다리 반영분 = qty_acct − ext_qty
                 "ALTER TABLE fills ADD COLUMN ext_qty INTEGER NOT NULL DEFAULT 0",
+                # 미결제 체결수량 (NH byn_cns_qty / sll_cns_qty).
+                # 체결은 됐지만 결제 전이라 일별거래내역에 아직 안 올라오는 물량.
+                # 이 구간 동안 '실보유 ≠ 모델' 이 되는데 누락이 아니므로 감시에서 구분해야 한다.
+                "ALTER TABLE acct_snapshot ADD COLUMN pend_buy INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE acct_snapshot ADD COLUMN pend_sell INTEGER NOT NULL DEFAULT 0",
             ):
                 try:
                     con.execute(_mig)
@@ -214,17 +219,19 @@ def reserved_rows(gid: str, week_no: int | None = None) -> list[dict]:
 
 def upsert_snapshot(gid: str, qty: int, buy_usd: float, close: float, eval_usd: float,
                     cash_usd: float = 0.0, cash_krw: float = 0.0, fx: float = 0.0,
-                    cash_order: float = 0.0):
+                    cash_order: float = 0.0, pend_buy: int = 0, pend_sell: int = 0):
     with db() as con:
         con.execute(
             "INSERT INTO acct_snapshot (gisu_id,qty,buy_usd,close,eval_usd,"
-            "cash_usd,cash_krw,fx,cash_order,updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime')) "
+            "cash_usd,cash_krw,fx,cash_order,pend_buy,pend_sell,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime')) "
             "ON CONFLICT(gisu_id) DO UPDATE SET qty=excluded.qty, buy_usd=excluded.buy_usd, "
             "close=excluded.close, eval_usd=excluded.eval_usd, cash_usd=excluded.cash_usd, "
             "cash_krw=excluded.cash_krw, fx=excluded.fx, cash_order=excluded.cash_order, "
+            "pend_buy=excluded.pend_buy, pend_sell=excluded.pend_sell, "
             "updated_at=excluded.updated_at",
-            (gid, qty, buy_usd, close, eval_usd, cash_usd, cash_krw, fx, cash_order))
+            (gid, qty, buy_usd, close, eval_usd, cash_usd, cash_krw, fx, cash_order,
+             int(pend_buy or 0), int(pend_sell or 0)))
 
 
 def snapshots() -> list[dict]:

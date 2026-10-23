@@ -1969,6 +1969,17 @@ function vrAlertBanner(g){var a=g&&g.alert;if(!a)return '';
    체결을 빠짐없이 반영하면 차이는 그대로다. 변했다 = 반영 못 한 체결 또는 앱 직접 매매.
    (2026-09: 체결 조회가 고장나 있었는데 '체결 0건'이 정상처럼 보여 몰랐다) */
 function vrQtyBanner(g){var q=g&&g.qty_audit;if(!q||q.state==='ok'||q.state==='no_snapshot')return '';
+ /* 결제 대기 — 체결은 됐는데 결제 전이라 거래내역에 안 올라와 모델에 못 들어간 상태.
+    누락이 아니라 며칠 내 자동으로 맞춰지므로 빨간 경보 대신 안내로 띄운다. */
+ if(q.state==='settling'){
+  var pb=q.pend_buy||0,ps=q.pend_sell||0;
+  return '<div style="margin:12px 18px 0;background:var(--blue-s,#eef4ff);border:1px solid var(--blue);'+
+   'border-radius:10px;padding:10px 15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">'+
+   '<i class="fa-solid fa-hourglass-half" style="color:var(--blue)"></i>'+
+   '<b>결제 대기</b><span style="color:var(--c1)">'+
+   (pb?('매수 '+pb+'주 '):'')+(ps?('매도 '+ps+'주 '):'')+
+   '체결됨 — 결제가 끝나면 거래내역에 올라오고 모델에 자동 반영됩니다. '+
+   '(NH 실보유 '+q.acct_qty+'주 · 모델 '+q.model_qty_acct+'주)</span></div>';}
  var gid=esc(g.id),n=function(v){return (v>0?'+':'')+v;};
  var btn=function(lbl){return '<button class="btn sm" style="margin-left:auto" onclick="vrQtyReset(\''+gid+'\','+
   q.offset_now+')">'+lbl+'</button>';};

@@ -130,14 +130,24 @@ def _qty_audit(g: dict, snap: dict | None) -> dict:
     accum = int(g.get("pending_accum") or 0) if pending_target(g) > 0 else 0
     now = acct - model - accum
     base = g.get("qty_offset")
+    # 미결제 체결분 — 체결은 됐지만 결제 전이라 일별거래내역에 안 올라와 모델에 못 들어간다.
+    # 그 사이 실보유만 먼저 움직이므로 차이가 벌어지는데 누락이 아니다. 결제되면 저절로 맞는다.
+    pend_buy = int(s.get("pend_buy") or 0)
+    pend_sell = int(s.get("pend_sell") or 0)
+    settled = now - pend_buy + pend_sell          # 미결제분을 걷어낸 차이
     out = {"acct_qty": acct, "model_qty_acct": model, "offset_now": now,
-           "offset_base": base, "snap_at": s.get("updated_at"), "pending_accum": accum}
+           "offset_base": base, "snap_at": s.get("updated_at"), "pending_accum": accum,
+           "pend_buy": pend_buy, "pend_sell": pend_sell, "offset_settled": settled}
     if not s.get("updated_at"):
         out["state"] = "no_snapshot"
     elif base is None:
         out["state"] = "unset"
     elif now == int(base):
         out["state"] = "ok"
+    elif settled == int(base):
+        # 차이가 전부 미결제 체결로 설명된다 → 경보 아님
+        out["state"] = "settling"
+        out["diff"] = now - int(base)
     else:
         out.update({"state": "mismatch", "diff": now - int(base)})
     return out
