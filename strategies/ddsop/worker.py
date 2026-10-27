@@ -496,6 +496,17 @@ def _sync_executions(session: Session, client: KISClient, ticker_obj: Ticker,
             tranche.buy_price = 0.0
             tranche.buy_date = ""
             tranche.days_held = 0
+            # 표시용 1회 매수금액도 현재 기준으로 되돌린다.
+            # 이걸 안 하면 시드 변경 전에 매수됐던 트렌치가 비워진 뒤에도 옛 금액을
+            # 들고 있어 화면이 서로 다른 값을 보여준다 (2026-10 SPXL: T1~T3 $714.29
+            # = 시드 $5,000 시절 값, T4~T7 $1,785.71 = 현재 시드 $12,500 기준).
+            # 주문 수량은 generate_orders 가 total_usd/num_tranches 로 직접 계산하므로
+            # 이 필드는 매매에 영향이 없다 — 표시만 바로잡는다.
+            try:
+                _n = max(1, int(ticker_obj.num_tranches or 1))
+                tranche.amount_per_tranche = round(float(ticker_obj.total_usd or 0) / _n, 2)
+            except Exception:
+                pass
 
     session.commit()
 
