@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
-import json, pathlib, sys, importlib
-sys.path.insert(0, "/home/user/muhan")
+import json, pathlib, sys, importlib, tempfile, os
+
+# 레포 루트를 경로에 넣는다 (작성 당시 클라우드 세션의 절대경로가 박혀 있어 다른 환경에서 안 돌았다)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import core.equity_snapshot as es
 
-tmp = pathlib.Path("/tmp/claude-0/-home-user/bd520bf5-bec5-5361-9b89-a418b8d461f8/scratchpad/_eq_test.jsonl")
+# 임시파일도 환경에 맞게 — 하드코딩된 /tmp/claude-0/... 는 그 세션에서만 존재했다
+tmp = pathlib.Path(tempfile.gettempdir()) / "_eq_test.jsonl"
 es._FILE = tmp
 fails = []
 def run(name, rows, expect_sub):
