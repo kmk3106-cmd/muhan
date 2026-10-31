@@ -38,19 +38,89 @@ def is_kill_switch_on() -> bool:
     return Path(KILL_SWITCH_FILE).exists()
 
 
+def _easter(year: int):
+    """Anonymous Gregorian Easter algorithm (Good Friday 산출용)"""
+    from datetime import date
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return date(year, month, day)
+
+
+def _us_market_holidays(year: int) -> set:
+    """해당 연도의 NYSE 휴장일 집합 반환. (떨사오팔·종사종팔 worker 와 동일 구현)
+
+    조기폐장일(추수감사절 다음날·크리스마스 이브 13:00 ET)은 휴장이 아니므로 제외한다.
+    """
+    from datetime import date
+    holidays = set()
+
+    def _observed(d: date) -> date:
+        if d.weekday() == 5:      # 토 → 전날 금
+            return d - timedelta(days=1)
+        if d.weekday() == 6:      # 일 → 다음날 월
+            return d + timedelta(days=1)
+        return d
+
+    def _nth_weekday(y, m, n, wd):
+        d = date(y, m, 1)
+        count = 0
+        while True:
+            if d.weekday() == wd:
+                count += 1
+                if count == n:
+                    return d
+            d += timedelta(days=1)
+
+    def _last_weekday(y, m, wd):
+        d = (date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)) - timedelta(days=1)
+        while d.weekday() != wd:
+            d -= timedelta(days=1)
+        return d
+
+    holidays.add(_observed(date(year, 1, 1)))        # New Year's Day
+    holidays.add(_nth_weekday(year, 1, 3, 0))        # MLK Day (1월 3번째 월)
+    holidays.add(_nth_weekday(year, 2, 3, 0))        # Presidents' Day (2월 3번째 월)
+    holidays.add(_easter(year) - timedelta(days=2))  # Good Friday
+    holidays.add(_last_weekday(year, 5, 0))          # Memorial Day (5월 마지막 월)
+    holidays.add(_observed(date(year, 6, 19)))       # Juneteenth
+    holidays.add(_observed(date(year, 7, 4)))        # Independence Day
+    holidays.add(_nth_weekday(year, 9, 1, 0))        # Labor Day (9월 1번째 월)
+    holidays.add(_nth_weekday(year, 11, 4, 3))       # Thanksgiving (11월 4번째 목)
+    holidays.add(_observed(date(year, 12, 25)))      # Christmas
+    return holidays
+
+
 def is_us_trading_day() -> bool:
-    """미국 거래일 여부 - 미국 동부(ET) 시간 기준 월~금"""
+    """미국 거래일 여부 — 미국 동부(ET) 기준 월~금 **이면서 NYSE 휴장일이 아닐 것**.
+
+    [2026-10-31] 예전에는 요일만 봐서 추수감사절·크리스마스 등 휴장일에도 워커가 돌며
+    주문을 시도했다(거부되고 끝이지만 에러 알림이 남았다). 떨사오팔·종사종팔은 이미
+    휴장일 표를 쓰고 있어 무한매수법만 어긋나 있었다 → 동일하게 맞춘다.
+    """
     try:
         from zoneinfo import ZoneInfo
         et = datetime.now(ZoneInfo("America/New_York"))
-        return et.weekday() < 5
     except Exception:
         try:
             import pytz
             et = datetime.now(pytz.timezone("America/New_York"))
-            return et.weekday() < 5
         except Exception:
-            return datetime.utcnow().weekday() < 5
+            et = datetime.utcnow()
+    if et.weekday() >= 5:
+        return False
+    try:
+        return et.date() not in _us_market_holidays(et.year)
+    except Exception:
+        return True          # 휴장일 계산 실패 시에는 기존대로 거래일로 본다
 
 
 def get_us_market_run_time_kst() -> tuple:

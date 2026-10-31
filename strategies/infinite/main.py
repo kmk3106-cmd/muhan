@@ -105,6 +105,37 @@ async def lifespan(app: FastAPI):
         "cron", minute=sync_minutes, second=20, id="sync_only",
         max_instances=1,
     )
+    # 써머타임 전환 자동 반영 (떨사오팔·종사종팔과 동일 방식)
+    # [2026-10-31 추가] 예전에는 기동 시 한 번만 계산해서, 서버를 재시작하지 않으면
+    # EDT↔EST 전환 후에도 여름/겨울 스케줄을 그대로 들고 갔다. 11/2 EST 전환 기준으로
+    # 1회차가 개장 30분 전(프리마켓)에 나가고 마지막 회차가 마감 2시간 전에 끝난다.
+    # → 매일 09:00 KST 에 ET 기준으로 다시 계산해 잡을 옮긴다.
+    # sync_only 는 run_m 파생이지만 ET·KST 모두 정시 오프셋이라 run_m 은 항상 0 → 재계산 불필요.
+    def _reschedule_worker_for_dst():
+        try:
+            new_h, new_m = get_us_market_run_time_kst()
+        except Exception as e:
+            logger.warning(f"[스케줄 갱신] 실행시각 계산 실패, 기존 유지: {e}")
+            return
+        p_m, p_h = new_m - 5, new_h
+        if p_m < 0:
+            p_m += 60
+            p_h = (p_h - 1) % 24
+        try:
+            scheduler.reschedule_job("pre_auth", trigger="cron", hour=p_h, minute=p_m)
+        except Exception as e:
+            logger.warning(f"[스케줄 갱신] pre_auth 실패: {e}")
+        for i in range(6):
+            try:
+                scheduler.reschedule_job(f"worker_{i}", trigger="cron",
+                                         hour=(new_h + i) % 24, minute=new_m)
+            except Exception as e:
+                logger.warning(f"[스케줄 갱신] worker_{i} 실패: {e}")
+        logger.info(f"[스케줄 갱신] 워커 {new_h:02d}:{new_m:02d}~{(new_h+5)%24:02d}:{new_m:02d} KST "
+                    f"(사전인증 {p_h:02d}:{p_m:02d}, 써머타임 반영)")
+
+    scheduler.add_job(_reschedule_worker_for_dst, "cron", hour=9, minute=0, id="reschedule_dst")
+
     scheduler.start()
     logger.info(f"스케줄러 시작: 사전인증 {pre_h:02d}:{pre_m:02d} → 워커 {run_h:02d}:{run_m:02d}~{(run_h+5)%24:02d}:{run_m:02d} KST (매시)")
     try:
