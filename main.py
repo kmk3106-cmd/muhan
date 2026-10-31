@@ -749,7 +749,10 @@ body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun G
    모든 font-size 는 calc(원본px * var(--ts-fs,1)) 로 걸려 있다.
    아래 숫자 하나만 바꾸면 화면 전체 글자 배율이 바뀐다 (1 = 원본).
    이 블록을 통째로 지우면 fallback 1 이 적용돼 원본 크기로 정확히 복귀한다. */
-:root{--ts-fs:1.3}</style>
+:root{--ts-fs:1.3}
+/* 배율 보정 — 글자와 함께 커져야 하는 고정폭.
+   .ni .i 는 아이콘 글리프를 담는 19px 고정폭인데 글자만 키우면 글리프가 넘친다. */
+.ni .i{width:calc(19px*var(--ts-fs,1))}</style>
 <script id="ts-type-scale-js">/* 캔버스(Chart.js) 글자는 CSS 변수가 닿지 않아 JS 로 같은 배율을 적용한다. */
 var TSFS=(function(){try{
   var v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts-fs'));
