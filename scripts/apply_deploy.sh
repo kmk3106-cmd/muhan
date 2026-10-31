@@ -35,9 +35,97 @@ for s in infinite ddsop jongsa vr; do
         rm -f "$STATE/$s.killed"
     fi
 done
+# ── 가드: 서버에만 있고 git 에 없는 코드 변경을 덮지 않는다 ─────────────────
+# 2026-10 사고: 종사종팔 v4 가 커밋 없이 서버에서만 돌고 있었다. 이 스크립트는 폴더를
+# 통째로 바꾸고 DB·상태파일만 되살리므로, 그대로 배포했으면 v4 가 조용히 사라졌다.
+#
+# 판정법: 배포할 때마다 $APP 에 .deploy_manifest(코드파일 md5)를 남긴다.
+#   현재 $APP 파일이 '직전 배포 당시 해시'와 다르고, '새 패키지 내용'과도 다르면
+#   → 배포 이후 서버에서 바뀌었고 git 에도 반영 안 된 것 = 덮으면 소실.
+#   (서버에서 고친 뒤 커밋까지 했으면 새 패키지와 같아지므로 통과한다)
+# 우회: FORCE_DEPLOY=1 bash scripts/apply_deploy.sh
+_mf="$APP/.deploy_manifest"
+if [ -d "$APP" ] && [ -f "$_mf" ] && [ "${FORCE_DEPLOY:-0}" != "1" ]; then
+    _lost=$("$VENV/bin/python" - "$APP" "$NEW" "$_mf" <<'PYGUARD'
+import hashlib, os, sys
+app, new, mf = sys.argv[1], sys.argv[2], sys.argv[3]
+EXT = (".py", ".html", ".sh", ".md", ".txt", ".yaml")
+SKIPDIR = (".venv", "__pycache__", ".git")
+
+def md5(path):
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.md5(fh.read()).hexdigest()
+    except Exception:
+        return None
+
+old = {}
+for raw in open(mf, encoding="utf-8", errors="replace"):
+    line = raw.strip()
+    if not line or " " not in line:
+        continue
+    h, rel = line.split(" ", 1)
+    old[rel] = h
+
+lost = []
+for root, dirs, files in os.walk(app):
+    dirs[:] = [d for d in dirs if d not in SKIPDIR]
+    for fn in files:
+        if not fn.endswith(EXT):
+            continue
+        full = os.path.join(root, fn)
+        rel = os.path.relpath(full, app).replace(os.sep, "/")
+        cur = md5(full)
+        if cur is None or cur == old.get(rel):
+            continue
+        if md5(os.path.join(new, rel)) == cur:
+            continue
+        lost.append(rel)
+
+for rel in sorted(lost):
+    print(rel)
+PYGUARD
+)
+    if [ -n "$_lost" ]; then
+        echo ""
+        echo "[중단] 서버에만 있고 git 에 없는 변경 $(echo "$_lost" | grep -c .)건:"
+        echo "$_lost" | sed 's/^/  /'
+        echo ""
+        echo "먼저 커밋·푸시한 뒤 다시 배포하거나, 의도한 폐기면"
+        echo "  FORCE_DEPLOY=1 bash scripts/apply_deploy.sh"
+        echo "로 실행하세요. 현재 운영 상태는 그대로 두고 종료합니다."
+        exit 2
+    fi
+    echo "  가드 통과 — 서버 코드가 전부 git 에 있습니다"
+elif [ "${FORCE_DEPLOY:-0}" = "1" ]; then
+    echo "  [경고] FORCE_DEPLOY=1 — 가드를 건너뜁니다"
+else
+    echo "  가드 생략 (직전 배포 기록 없음 — 이번 배포부터 기록합니다)"
+fi
+
 rm -rf "$BAK"
 [ -d "$APP" ] && mv "$APP" "$BAK"
 mv "$NEW" "$APP"
+
+# 이번에 배포한 코드 해시를 남긴다 (다음 배포의 가드 기준)
+"$VENV/bin/python" - "$APP" <<'PYMANIFEST' > "$APP/.deploy_manifest" 2>/dev/null || true
+import hashlib, os, sys
+app = sys.argv[1]
+EXT = (".py", ".html", ".sh", ".md", ".txt", ".yaml")
+SKIPDIR = (".venv", "__pycache__", ".git")
+for root, dirs, files in os.walk(app):
+    dirs[:] = [d for d in dirs if d not in SKIPDIR]
+    for fn in sorted(files):
+        if not fn.endswith(EXT):
+            continue
+        full = os.path.join(root, fn)
+        rel = os.path.relpath(full, app).replace(os.sep, "/")
+        try:
+            with open(full, "rb") as fh:
+                print(hashlib.md5(fh.read()).hexdigest(), rel)
+        except Exception:
+            pass
+PYMANIFEST
 
 echo "[3/7] DB/예산/Kill Switch 복원"
 # [2026-09-29 수정] DB 가 WAL 모드다. .db 만 복사하면 **마지막 체크포인트 이후 커밋이 통째로 유실**된다
