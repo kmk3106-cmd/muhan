@@ -105,6 +105,19 @@ def db():
                 # 이 구간 동안 '실보유 ≠ 모델' 이 되는데 누락이 아니므로 감시에서 구분해야 한다.
                 "ALTER TABLE acct_snapshot ADD COLUMN pend_buy INTEGER NOT NULL DEFAULT 0",
                 "ALTER TABLE acct_snapshot ADD COLUMN pend_sell INTEGER NOT NULL DEFAULT 0",
+                # NH 가 직접 주는 수익률·평가금·총자산. 우리가 재계산(qty×종가)하면 NH 앱과
+                # 숫자가 어긋나므로 원천값을 그대로 보관해 화면에 쓴다.
+                #  nh_eval  = fc_eal_amt   (외화 평가금)
+                #  nh_pft_rt     = pft_rt      (달러 기준 수익률 %)
+                #  nh_krw_pft_rt = krw_pft_rt  (원화 기준 수익률 % — 매입환율 반영분)
+                #  nh_assets= fc_aet_amt   (총자산 = 평가 + 예수금)
+                #  nh_xcg_rt= phs_xcg_rt   (매입환율) / nh_bse_xcg_rt = 당일 기준환율
+                "ALTER TABLE acct_snapshot ADD COLUMN nh_eval REAL DEFAULT 0",
+                "ALTER TABLE acct_snapshot ADD COLUMN nh_pft_rt REAL",
+                "ALTER TABLE acct_snapshot ADD COLUMN nh_krw_pft_rt REAL",
+                "ALTER TABLE acct_snapshot ADD COLUMN nh_assets REAL DEFAULT 0",
+                "ALTER TABLE acct_snapshot ADD COLUMN nh_xcg_rt REAL DEFAULT 0",
+                "ALTER TABLE acct_snapshot ADD COLUMN nh_bse_xcg_rt REAL DEFAULT 0",
             ):
                 try:
                     con.execute(_mig)
@@ -217,21 +230,31 @@ def reserved_rows(gid: str, week_no: int | None = None) -> list[dict]:
         return [dict(r) for r in con.execute(q + " ORDER BY id", args)]
 
 
+#: NH 원천 수익률·평가금 컬럼 (컬럼명 → 기본값). upsert_snapshot(nh=...) 로 함께 적재
+_NH_COLS = {"nh_eval": 0.0, "nh_pft_rt": None, "nh_krw_pft_rt": None,
+            "nh_assets": 0.0, "nh_xcg_rt": 0.0, "nh_bse_xcg_rt": 0.0}
+
+
 def upsert_snapshot(gid: str, qty: int, buy_usd: float, close: float, eval_usd: float,
                     cash_usd: float = 0.0, cash_krw: float = 0.0, fx: float = 0.0,
-                    cash_order: float = 0.0, pend_buy: int = 0, pend_sell: int = 0):
+                    cash_order: float = 0.0, pend_buy: int = 0, pend_sell: int = 0,
+                    nh: dict | None = None):
+    """nh = NH 원천값 dict (_NH_COLS 키). None 이면 해당 컬럼은 건드리지 않는다."""
+    cols = ["gisu_id", "qty", "buy_usd", "close", "eval_usd", "cash_usd", "cash_krw",
+            "fx", "cash_order", "pend_buy", "pend_sell"]
+    vals: list = [gid, qty, buy_usd, close, eval_usd, cash_usd, cash_krw, fx,
+                  cash_order, int(pend_buy or 0), int(pend_sell or 0)]
+    for k, dflt in _NH_COLS.items():
+        if nh is not None and k in nh:
+            cols.append(k)
+            vals.append(nh.get(k) if nh.get(k) is not None else dflt)
+    sets = ", ".join(f"{c}=excluded.{c}" for c in cols[1:])
     with db() as con:
         con.execute(
-            "INSERT INTO acct_snapshot (gisu_id,qty,buy_usd,close,eval_usd,"
-            "cash_usd,cash_krw,fx,cash_order,pend_buy,pend_sell,updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime')) "
-            "ON CONFLICT(gisu_id) DO UPDATE SET qty=excluded.qty, buy_usd=excluded.buy_usd, "
-            "close=excluded.close, eval_usd=excluded.eval_usd, cash_usd=excluded.cash_usd, "
-            "cash_krw=excluded.cash_krw, fx=excluded.fx, cash_order=excluded.cash_order, "
-            "pend_buy=excluded.pend_buy, pend_sell=excluded.pend_sell, "
-            "updated_at=excluded.updated_at",
-            (gid, qty, buy_usd, close, eval_usd, cash_usd, cash_krw, fx, cash_order,
-             int(pend_buy or 0), int(pend_sell or 0)))
+            f"INSERT INTO acct_snapshot ({','.join(cols)},updated_at) "
+            f"VALUES ({','.join('?' * len(cols))},datetime('now','localtime')) "
+            f"ON CONFLICT(gisu_id) DO UPDATE SET {sets}, updated_at=excluded.updated_at",
+            vals)
 
 
 def snapshots() -> list[dict]:

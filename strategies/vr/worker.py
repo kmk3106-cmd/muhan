@@ -62,6 +62,7 @@ def refresh_snapshot(gid: str) -> dict | None:
         qty = 0
         buy_usd = 0.0
         pend_buy = pend_sell = 0
+        xcg_rt = bse_xcg_rt = 0.0
         # 잔고 보유종목은 Output_1. 수량 = cns_bse_bnc_qty(체결기준잔고수량), 매입금 = fc_abk_amt (명세 이름)
         for row in nh._rows(bal, "Output_1"):
             if nh.norm_ticker(row.get("iem_cd")) != nh.norm_ticker(g["ticker"]):
@@ -69,6 +70,16 @@ def refresh_snapshot(gid: str) -> dict | None:
             try:
                 qty = int(float(str(row.get("cns_bse_bnc_qty") or 0).replace(",", "")))
                 buy_usd = float(str(row.get("fc_abk_amt") or 0).replace(",", ""))
+                # 매입환율·당일기준환율 — 달러 수익률과 원화 수익률이 갈리는 이유라서 함께 보관
+                for _k, _n in (("phs_xcg_rt", "x"), ("tdt_sby_bse_xcg_rt", "b")):
+                    try:
+                        _v = float(str(row.get(_k) or 0).replace(",", ""))
+                    except Exception:
+                        _v = 0.0
+                    if _n == "x":
+                        xcg_rt = _v
+                    else:
+                        bse_xcg_rt = _v
                 # 미결제 체결수량 — 체결은 됐지만 결제 전이라 일별거래내역(daily_transactions)에
                 # 아직 안 올라온다. 이 구간엔 실보유와 모델이 어긋나는데 누락이 아니므로
                 # 따로 담아 감시에서 구분한다. (2026-10-23 vr0 매수 1단 4주로 확인)
@@ -112,12 +123,23 @@ def refresh_snapshot(gid: str) -> dict | None:
         lc = nh.last_close(g["ticker"])
         close = lc[1] if lc else 0.0
         eval_usd = r2(qty * close) if close > 0 else 0.0
+        # NH 원천 수익률·평가금·총자산 — 우리가 qty×종가로 재계산한 값은 NH 앱과 시점이
+        # 어긋나므로, 화면에 쓸 "NH 기준" 숫자는 응답에 있는 걸 그대로 보관한다.
+        nh_src = {
+            "nh_eval": r2(_f("fc_eal_amt")),
+            "nh_pft_rt": (_f("pft_rt") if o0.get("pft_rt") not in (None, "") else None),
+            "nh_krw_pft_rt": (_f("krw_pft_rt") if o0.get("krw_pft_rt") not in (None, "") else None),
+            "nh_assets": r2(_f("fc_aet_amt")),
+            "nh_xcg_rt": round(xcg_rt, 4),
+            "nh_bse_xcg_rt": round(bse_xcg_rt, 4),
+        }
         M.upsert_snapshot(gid, qty, r2(buy_usd), close, eval_usd,
                           r2(cash_usd), round(cash_krw, 2), fx, r2(cash_order),
-                          pend_buy, pend_sell)
+                          pend_buy, pend_sell, nh=nh_src)
         return {"qty": qty, "buy_usd": buy_usd, "close": close, "eval_usd": eval_usd,
                 "cash_usd": cash_usd, "cash_krw": cash_krw, "fx": fx,
-                "cash_order": cash_order, "pend_buy": pend_buy, "pend_sell": pend_sell}
+                "cash_order": cash_order, "pend_buy": pend_buy, "pend_sell": pend_sell,
+                **nh_src}
     except Exception as e:
         logger.warning(f"[VR:{gid}] 스냅샷 갱신 실패: {e}")
         return None

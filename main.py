@@ -944,10 +944,15 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
       ss.map(function(s){return (s.week_no||'-')+'주차';}).join(' · '))
    : kpi('전략 수','fa-layer-group','n',(isAll?(au.total+(MET.nh&&MET.nh.strategies?MET.nh.strategies.length:0)):au.total)+' 개','',
       '운용중 '+au.active+' · 정지 '+(au.total-au.active)+(isAll?' (+VR)':'')))+
-  kpi('수익률'+(isAll?'':' · '+V.tag),'fa-chart-pie',(a.total_return_pct>=0?'g':'r'),
+  kpi((isNH?'평가수익률 · NH($)':'수익률'+(isAll?'':' · '+V.tag)),'fa-chart-pie',(a.total_return_pct>=0?'g':'r'),
    (a.total_return_pct==null?'—':(a.total_return_pct>=0?'+':'')+Number(a.total_return_pct).toFixed(2)+'%'),
    (a.total_return_pct>=0?'up':'down'),
-   (isNH?'평가손익 ':'누적손익 ')+((a.total_pnl||0)>=0?'+':'')+money(a.total_pnl))+
+   /* NH 는 달러 수익률만 보면 환차가 가려진다 (매입환율 대비 현재환율).
+      NH 응답의 krw_pft_rt 를 원화매입금 가중평균해 함께 적는다. */
+   (isNH&&a.total_return_pct_krw!=null
+    ? ('원화 '+(a.total_return_pct_krw>=0?'+':'')+Number(a.total_return_pct_krw).toFixed(2)+'%'+
+       ' · 평가손익 '+((a.total_pnl||0)>=0?'+':'')+money(a.total_pnl))
+    : (isNH?'평가손익 ':'누적손익 ')+((a.total_pnl||0)>=0?'+':'')+money(a.total_pnl)))+
   (isTS
    ? kpi('평가손익','fa-circle-check',((a.unrealized_pnl||0)>=0?'g':'r'),
       ((a.unrealized_pnl||0)>=0?'+':'')+money(a.unrealized_pnl),((a.unrealized_pnl||0)>=0?'up':'down'),
@@ -1086,7 +1091,8 @@ function renderHold(h){var its=(ACCT==='nh')?[]:((h&&h.items)||[]).slice();
    display_name:'자동모으기 (토스)'});});
  nh.forEach(function(s){if(!s.qty)return;its.push({ticker:s.ticker,name:'NH·'+(s.name||s.gisu),
   qty:s.qty,avg_price:s.avg_price,now_price:s.now_price,buy_amt:s.buy_amt,eval_amt:s.eval_amt,
-  pnl:s.pnl,pnl_rt:s.pnl_rt,display_name:(s.name||'VR')+' (NH)'});});
+  pnl:s.pnl,pnl_rt:s.pnl_rt,pnl_rt_krw:s.pnl_rt_krw,buy_fx:s.buy_fx,now_fx:s.now_fx,
+  display_name:(s.name||'VR')+' (NH)'});});
  if(!its.length){box.innerHTML='<div class="muted">보유 종목 없음 (또는 잔고 동기화 대기중)</div>';return;}
  var tEval=0,tPnl=0,tBuy=0;
  its.forEach(function(x){tEval+=x.eval_amt||0;tPnl+=x.pnl||0;tBuy+=x.buy_amt||0;});
@@ -1095,7 +1101,10 @@ function renderHold(h){var its=(ACCT==='nh')?[]:((h&&h.items)||[]).slice();
   '<th style="text-align:right">보유수량</th><th style="text-align:right">매입단가</th>'+
   '<th style="text-align:right">현재가</th><th style="text-align:right">매입금액</th>'+
   '<th style="text-align:right">평가금액</th><th style="text-align:right">평가손익</th>'+
-  '<th style="text-align:right">수익률</th></tr></thead><tbody>'+
+  '<th style="text-align:right">수익률($)</th>'+
+  /* NH 계좌는 원화 수익률이 환차 때문에 달러와 크게 다르다 → 따로 칸을 둔다 */
+  (its.some(function(x){return x.pnl_rt_krw!=null;})
+   ?'<th style="text-align:right">수익률(₩)</th>':'')+'</tr></thead><tbody>'+
   its.map(function(x){var up=(x.pnl||0)>=0;return '<tr><td><b>'+esc(x.ticker)+'</b>'+
    (x.name?'<br><span style="color:var(--c2);font-size:calc(10.5px*var(--ts-fs,1))">'+esc(x.name)+'</span>':'')+'</td>'+
    '<td>'+esc(x.display_name||'-')+'</td>'+
@@ -1105,7 +1114,12 @@ function renderHold(h){var its=(ACCT==='nh')?[]:((h&&h.items)||[]).slice();
    '<td style="text-align:right">'+money(x.buy_amt,2)+'</td>'+
    '<td style="text-align:right">'+money(x.eval_amt,2)+'</td>'+
    '<td style="text-align:right" class="'+(up?'up':'dn')+'">'+(up?'+':'')+money(x.pnl,2)+'</td>'+
-   '<td style="text-align:right" class="'+(up?'up':'dn')+'">'+(up?'+':'')+Number(x.pnl_rt||0).toFixed(2)+'%</td></tr>';}).join('')+
+   '<td style="text-align:right" class="'+(up?'up':'dn')+'">'+(up?'+':'')+Number(x.pnl_rt||0).toFixed(2)+'%</td>'+
+   (its.some(function(y){return y.pnl_rt_krw!=null;})
+    ?'<td style="text-align:right" class="'+((x.pnl_rt_krw||0)>=0?'up':'dn')+'" title="'+
+      (x.buy_fx?('매입환율 '+Number(x.buy_fx).toFixed(2)+' → 현재 '+Number(x.now_fx||0).toFixed(2)):'')+'">'+
+      (x.pnl_rt_krw==null?'—':((x.pnl_rt_krw>=0?'+':'')+Number(x.pnl_rt_krw).toFixed(2)+'%'))+'</td>'
+    :'')+'</tr>';}).join('')+
   '</tbody></table>'+
   '<div style="padding:12px 18px"><div class="hl '+(tPnl>=0?'g':'r')+'" style="display:flex;gap:18px;'+
   'flex-wrap:wrap;font-size:calc(14px*var(--ts-fs,1))">합계 <span>매입 <b>'+money(tBuy)+'</b></span>'+

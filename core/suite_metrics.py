@@ -204,18 +204,31 @@ def _nh_vr() -> dict:
         gisu = {g["id"]: g for g in VM.all_gisu()}
         accs = []
         total = 0.0
+        # [2026-11-04] 평가금·수익률은 NH 원천값(fc_eal_amt / pft_rt / krw_pft_rt)을 우선 쓴다.
+        # qty×종가로 재계산하면 NH 앱과 시점이 어긋나 "수익률이 이상하다"로 보인다.
+        # 달러 수익률과 원화 수익률은 매입환율 차이로 크게 벌어지므로 둘 다 내려준다.
         for s in VM.snapshots():
             qty = int(s.get("qty") or 0)
             buy = float(s.get("buy_usd") or 0)
-            ev = float(s.get("eval_usd") or 0)
+            ev_nh = float(s.get("nh_eval") or 0)
+            ev = ev_nh if ev_nh > 0 else float(s.get("eval_usd") or 0)
             pnl = round(ev - buy, 2)
+            rt_nh = s.get("nh_pft_rt")
+            rt = (round(float(rt_nh), 2) if rt_nh is not None
+                  else (round(pnl / buy * 100, 2) if buy > 0 else 0))
+            rt_krw = s.get("nh_krw_pft_rt")
             accs.append({
                 "gisu": s.get("gisu_id"), "name": s.get("name"),
                 "ticker": s.get("ticker", "TQQQ"), "qty": qty,
                 "avg_price": round(buy / qty, 4) if qty else 0,
                 "now_price": float(s.get("close") or 0),
                 "buy_amt": round(buy, 2), "eval_amt": round(ev, 2),
-                "pnl": pnl, "pnl_rt": round(pnl / buy * 100, 2) if buy > 0 else 0,
+                "pnl": pnl, "pnl_rt": rt,
+                "pnl_rt_krw": (round(float(rt_krw), 2) if rt_krw is not None else None),
+                "nh_assets": round(float(s.get("nh_assets") or 0), 2),
+                "buy_fx": round(float(s.get("nh_xcg_rt") or 0), 2),
+                "now_fx": round(float(s.get("nh_bse_xcg_rt") or 0), 2),
+                "nh_sourced": bool(rt_nh is not None),
                 "updated_at": s.get("updated_at"),
             })
             total += ev
@@ -254,7 +267,13 @@ def _nh_vr() -> dict:
                 "kill_switch": False,
                 "invested": buy,                      # 매입원가
                 "realized_pnl": None,                 # VR은 싸이클 실현 개념 없음 (평가 중심)
-                "return_pct": round(pnl / buy * 100, 2) if buy > 0 else 0.0,  # 평가수익률
+                # 수익률은 NH 가 주는 값 그대로 (달러/원화). NH 앱 숫자와 일치시키기 위함이고,
+                # 둘은 매입환율(phs_xcg_rt) 대비 현재환율 차이만큼 벌어진다.
+                "return_pct": (snap["pnl_rt"] if snap else 0.0),
+                "return_pct_krw": (snap.get("pnl_rt_krw") if snap else None),
+                "nh_sourced": bool(snap and snap.get("nh_sourced")),
+                "buy_fx": (snap.get("buy_fx") if snap else None),
+                "now_fx": (snap.get("now_fx") if snap else None),
                 "unrealized_pnl": pnl,
                 "eval_amt": ev, "pool": pool_acct, "v": v_acct,
                 "week_no": g.get("week_no"), "cyc_end": g.get("cyc_end"),
@@ -269,6 +288,19 @@ def _nh_vr() -> dict:
             })
         tot_assets = round(total + cash_real, 2)      # 평가금 + 실제 현금성 자산
         pnl_all = round(total - buy_total, 2)
+        # NH 가 직접 주는 총자산(fc_aet_amt = 평가 + 예수금) 합계 — 우리 합산값 검증용
+        nh_assets_sum = round(sum(float(a.get("nh_assets") or 0) for a in accs), 2)
+        # 원화 기준 수익률 — 기수별 krw_pft_rt 를 원화매입금(= 외화매입금 × 매입환율)으로 가중.
+        # 달러 수익률과 벌어지는 폭이 곧 환차손익이다.
+        _kw_num = _kw_den = 0.0
+        for a in accs:
+            rk, bfx, b = a.get("pnl_rt_krw"), float(a.get("buy_fx") or 0), float(a.get("buy_amt") or 0)
+            if rk is None or bfx <= 0 or b <= 0:
+                continue
+            w = b * bfx
+            _kw_num += float(rk) * w
+            _kw_den += w
+        ret_krw = round(_kw_num / _kw_den, 2) if _kw_den > 0 else None
         return {
             "accounts": accs,
             "eval_total": round(total, 2),
@@ -282,6 +314,8 @@ def _nh_vr() -> dict:
                 "net_invested": round(buy_total, 2),
                 "total_pnl": pnl_all,
                 "total_return_pct": round(pnl_all / buy_total * 100, 2) if buy_total > 0 else None,
+                "total_return_pct_krw": ret_krw,   # 원화 기준 (환차 반영)
+                "nh_assets_sum": nh_assets_sum,    # NH 원천 총자산 합 (기타자산 제외)
                 "realized_pnl": None,
                 "unrealized_pnl": pnl_all,
                 "cash": cash_real,
