@@ -212,7 +212,10 @@ def _nh_vr() -> dict:
             buy = float(s.get("buy_usd") or 0)
             ev_nh = float(s.get("nh_eval") or 0)
             ev = ev_nh if ev_nh > 0 else float(s.get("eval_usd") or 0)
-            pnl = round(ev - buy, 2)
+            # 평가손익도 NH 원천값(순액). (평가−매입)으로 직접 구하면 NH 가 뺀
+            # 예상 수수료·제세금만큼 커져서 NH 수익률과 분자가 안 맞는다.
+            pnl_nh = s.get("nh_pnl")
+            pnl = round(float(pnl_nh), 2) if pnl_nh is not None else round(ev - buy, 2)
             rt_nh = s.get("nh_pft_rt")
             rt = (round(float(rt_nh), 2) if rt_nh is not None
                   else (round(pnl / buy * 100, 2) if buy > 0 else 0))
@@ -260,7 +263,7 @@ def _nh_vr() -> dict:
             ev = snap["eval_amt"] if snap else 0.0
             buy = snap["buy_amt"] if snap else 0.0
             buy_total += buy
-            pnl = round(ev - buy, 2)
+            pnl = snap["pnl"] if snap else 0.0   # NH 순 평가손익
             strategies.append({
                 "strategy": f"vr:{gid}",
                 "display_name": f"{g.get('name', gid)} (NH)",
@@ -287,7 +290,8 @@ def _nh_vr() -> dict:
                 "errors": [], "mdd_pct": None,
             })
         tot_assets = round(total + cash_real, 2)      # 평가금 + 실제 현금성 자산
-        pnl_all = round(total - buy_total, 2)
+        # 손익은 기수별 NH 순액의 합 → 수익률(=Σ손익÷Σ매입)이 기수별 NH 수익률과 정합
+        pnl_all = round(sum(float(a.get("pnl") or 0) for a in accs), 2)
         # NH 가 직접 주는 총자산(fc_aet_amt = 평가 + 예수금) 합계 — 우리 합산값 검증용
         nh_assets_sum = round(sum(float(a.get("nh_assets") or 0) for a in accs), 2)
         # 원화 기준 수익률 — 기수별 krw_pft_rt 를 원화매입금(= 외화매입금 × 매입환율)으로 가중.

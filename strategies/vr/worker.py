@@ -127,6 +127,8 @@ def refresh_snapshot(gid: str) -> dict | None:
         # 어긋나므로, 화면에 쓸 "NH 기준" 숫자는 응답에 있는 걸 그대로 보관한다.
         nh_src = {
             "nh_eval": r2(_f("fc_eal_amt")),
+            # 평가손익은 NH 순액(수수료·제세금 차감) — 수익률과 분자를 맞추기 위함
+            "nh_pnl": (r2(_f("fc_eal_pls_amt")) if o0.get("fc_eal_pls_amt") not in (None, "") else None),
             "nh_pft_rt": (_f("pft_rt") if o0.get("pft_rt") not in (None, "") else None),
             "nh_krw_pft_rt": (_f("krw_pft_rt") if o0.get("krw_pft_rt") not in (None, "") else None),
             "nh_assets": r2(_f("fc_aet_amt")),

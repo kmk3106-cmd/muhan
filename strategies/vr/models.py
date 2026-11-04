@@ -113,6 +113,10 @@ def db():
                 #  nh_assets= fc_aet_amt   (총자산 = 평가 + 예수금)
                 #  nh_xcg_rt= phs_xcg_rt   (매입환율) / nh_bse_xcg_rt = 당일 기준환율
                 "ALTER TABLE acct_snapshot ADD COLUMN nh_eval REAL DEFAULT 0",
+                # nh_pnl = fc_eal_pls_amt. NH 평가손익은 (평가−매입)이 아니라 예상 수수료·
+                # 제세금을 뺀 순액이다. 그래서 pft_rt = nh_pnl ÷ 매입금 이고, 우리가 직접
+                # (평가−매입)으로 계산하면 NH 수익률과 합산값이 어긋난다 → 원천값을 쓴다.
+                "ALTER TABLE acct_snapshot ADD COLUMN nh_pnl REAL",
                 "ALTER TABLE acct_snapshot ADD COLUMN nh_pft_rt REAL",
                 "ALTER TABLE acct_snapshot ADD COLUMN nh_krw_pft_rt REAL",
                 "ALTER TABLE acct_snapshot ADD COLUMN nh_assets REAL DEFAULT 0",
@@ -231,7 +235,7 @@ def reserved_rows(gid: str, week_no: int | None = None) -> list[dict]:
 
 
 #: NH 원천 수익률·평가금 컬럼 (컬럼명 → 기본값). upsert_snapshot(nh=...) 로 함께 적재
-_NH_COLS = {"nh_eval": 0.0, "nh_pft_rt": None, "nh_krw_pft_rt": None,
+_NH_COLS = {"nh_eval": 0.0, "nh_pnl": None, "nh_pft_rt": None, "nh_krw_pft_rt": None,
             "nh_assets": 0.0, "nh_xcg_rt": 0.0, "nh_bse_xcg_rt": 0.0}
 
 
