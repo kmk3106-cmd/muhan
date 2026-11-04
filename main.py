@@ -935,6 +935,10 @@ function pgDash(){var V=acctView(),a=V.a,au=MET.automation||{},ss=V.ss;
     ?(fxNote()+' · KIS '+money((MET.account||{}).total_assets)+
       ' + NH '+money(MET.nh.account?MET.nh.account.total_assets:MET.nh.eval_total)+
       (MET.toss&&MET.toss.account?(' + 토스 '+money(MET.toss.account.total_assets)):''))
+    /* NH 는 총자산(fc_aet_amt)도 직접 준다 — 수수료 차감분만큼 우리 합산보다 작다.
+       NH 앱 숫자와 대조할 수 있게 함께 적는다. */
+    :isNH&&a.nh_assets_sum
+    ?('NH 앱 기준 '+money(a.nh_assets_sum)+' (수수료 차감) · 매입 '+money(a.net_invested))
     :((fxNote()?fxNote()+' · ':'')+'순투입 '+money(a.net_invested))),true)+
   (isTS
    ? kpi('보유 종목','fa-briefcase','n',(tsb.items||[]).length+' 종목','',
