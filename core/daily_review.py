@@ -168,10 +168,11 @@ def _tranche_section(name: str, db, sess: str) -> dict:
             rows = []
             for o in orders:
                 done = (o["T"], o["side"]) in filled_keys or o["status"] == "filled"
+                fp = next((f["price"] for f in fills
+                           if f["tranche_num"] == o["T"] and f["side"] == o["side"]), None)
                 if done:
-                    fp = next((f["price"] for f in fills
-                               if f["tranche_num"] == o["T"] and f["side"] == o["side"]), None)
-                    why = f"${fp:.2f} 에 체결" if fp else "체결"
+                    why = (f"종가가 한도에 닿아 {'매수' if o['side'] == 'buy' else '매도'} 성립"
+                           if o["order_type"] != "MOC" else "손절 MOC — 가격 조건 없이 종가 체결")
                 elif o["status"] == "cancelled":
                     why = "취소 — 다음 워커가 갱신가로 재제출 (정상)"
                 elif o["status"] in ("failed",):
@@ -181,14 +182,14 @@ def _tranche_section(name: str, db, sess: str) -> dict:
                 elif close is None:
                     why = "종가 미확정"
                 elif o["side"] == "buy":
-                    why = (f"종가 ${close:.2f} > 한도 ${o['price']:.2f} → 규칙대로 미체결"
+                    why = (f"종가 ${close:.2f} 가 매수 한도 ${o['price']:.2f} 보다 비쌈 (정상)"
                            if close > o["price"] else "한도 이하인데 미체결 — 확인 필요")
                 else:
-                    why = (f"종가 ${close:.2f} < 한도 ${o['price']:.2f} → 규칙대로 미체결"
+                    why = (f"종가 ${close:.2f} 가 매도 한도 ${o['price']:.2f} 에 못 미침 (정상)"
                            if close < o["price"] else "한도 이상인데 미체결 — 확인 필요")
-                rows.append({"T": o["T"], "side": "매수" if o["side"] == "buy" else "매도",
+                rows.append({"T": f"T{o['T']}", "side": "매수" if o["side"] == "buy" else "매도",
                              "type": o["order_type"], "price": o["price"], "qty": o["qty"],
-                             "done": done, "why": why})
+                             "done": done, "fill": fp, "why": why})
 
             notes = []
             if not any(o["side"] == "buy" for o in orders):
@@ -258,9 +259,11 @@ def _infinite_section(sess: str) -> dict:
             rows = []
             for o in orders:
                 done = (o.get("odno") in fodno) if fodno else ((o["side"], o["order_type"]) in fpair)
+                mf = next((f for f in fills if f.get("odno") == o.get("odno")), None)
+                fp = mf["price"] if mf else None
+                seq = mf.get("buy_seq") if mf else None
                 if done:
-                    fp = next((f["price"] for f in fills if f.get("odno") == o.get("odno")), None)
-                    why = f"${fp:.2f} 에 체결" if fp else "체결"
+                    why = f"종가가 한도에 닿아 {'매수' if o['side'] == 'buy' else '매도'} 성립"
                 elif o["status"] == "cancelled":
                     why = "취소 — 다음 워커가 갱신가로 재제출 (정상)"
                 elif o["status"] == "failed":
@@ -270,14 +273,15 @@ def _infinite_section(sess: str) -> dict:
                 elif close is None:
                     why = "종가 미확정"
                 elif o["side"] == "buy":
-                    why = (f"종가 ${close:.2f} > 한도 ${o['price']:.2f} → 규칙대로 미체결"
+                    why = (f"종가 ${close:.2f} 가 매수 한도 ${o['price']:.2f} 보다 비쌈 (정상)"
                            if close > (o["price"] or 0) else "한도 이하인데 미체결 — 확인 필요")
                 else:
-                    why = (f"종가 ${close:.2f} < 한도 ${o['price']:.2f} → 규칙대로 미체결"
+                    why = (f"종가 ${close:.2f} 가 매도 한도 ${o['price']:.2f} 에 못 미침 (정상)"
                            if close < (o["price"] or 0) else "한도 이상인데 미체결 — 확인 필요")
-                rows.append({"T": "-", "side": "매수" if o["side"] == "buy" else "매도",
+                rows.append({"T": (f"{seq}회차" if seq else "—"),
+                             "side": "매수" if o["side"] == "buy" else "매도",
                              "type": o["order_type"], "price": o["price"], "qty": o["qty"],
-                             "done": done, "why": why})
+                             "done": done, "fill": fp, "why": why})
             msgs = []
             try:
                 kst_next = _next_kst(sess)
@@ -335,6 +339,8 @@ def render_html(rep: dict) -> str:
            "padding:10px 12px;margin:10px 0}.err{color:#c0392b}.muted{color:#777;font-size:12px}")
     h = [f"<html><head><meta charset='utf-8'><style>{css}</style></head><body>",
          f"<h1 style='font-size:18px'>자동매매 일일 점검 — {d} 미국 세션</h1>",
+         "<div class='muted'>이 세션은 <b>이미 마감</b>됐습니다. 아래는 전부 <b>확정된 결과</b>이고, "
+         "앞으로 할 일이 아닙니다. 체결된 주문은 돈이 이미 오간 것입니다.</div>",
          f"<div class='muted'>생성 {rep['generated_at']} KST</div>"]
     if rep["suspects"]:
         h.append("<div class='warn'><b>코드 점검 필요 " + str(len(rep["suspects"])) + "건</b><ul>")
@@ -355,14 +361,20 @@ def render_html(rep: dict) -> str:
             h.append(f"<h3>{t['ticker']} <span class='muted'>종가 {cl}{extra}"
                      f"{'' if t['enabled'] else ' · 매매정지'}</span></h3>")
             if t["orders"]:
-                h.append("<table><tr><th>트렌치</th><th>구분</th><th>종류</th><th>가격</th>"
-                         "<th>수량</th><th>결과</th></tr>")
+                nb = sum(1 for r in t["orders"] if r["done"] and r["side"] == "매수")
+                ns = sum(1 for r in t["orders"] if r["done"] and r["side"] == "매도")
+                h.append(f"<div class='muted'>주문 {len(t['orders'])}건 중 "
+                         f"<b>매수 {nb}건 · 매도 {ns}건 체결됨</b> (나머지는 체결 안 됨)</div>")
+                h.append("<table><tr><th>자리</th><th>구분</th><th>종류</th><th>주문가(한도)</th>"
+                         "<th>수량</th><th>체결여부</th><th>체결가</th><th>설명</th></tr>")
                 for r in t["orders"]:
-                    mark = ("<span class='ok'>체결</span>" if r["done"]
-                            else "<span class='no'>미체결</span> —")
-                    px = f"${r['price']:.2f}" if r["price"] else "시장가"
-                    h.append(f"<tr><td>T{r['T']}</td><td>{r['side']}</td><td>{r['type']}</td>"
-                             f"<td>{px}</td><td>{r['qty']}</td><td>{mark} {r['why']}</td></tr>")
+                    mark = ("<span class='ok'>체결됨</span>" if r["done"]
+                            else "<span class='no'>체결 안 됨</span>")
+                    px = f"${r['price']:.2f}" if r["price"] else "시장가(MOC)"
+                    fx = f"<b>${r['fill']:.2f}</b>" if r.get("fill") else "—"
+                    h.append(f"<tr><td>{r['T']}</td><td>{r['side']}</td><td>{r['type']}</td>"
+                             f"<td>{px}</td><td>{r['qty']}</td><td>{mark}</td><td>{fx}</td>"
+                             f"<td>{r['why']}</td></tr>")
                 h.append("</table>")
             else:
                 h.append("<div class='muted'>제출된 주문 없음</div>")
