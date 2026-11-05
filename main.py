@@ -71,6 +71,14 @@ async def lifespan(app: FastAPI):
                 logger.info(f"[suite] 과거 합산 복원 갱신: {tail[0][:120]}")
             sched.add_job(_equity_backfill_run, "cron", hour=8, minute=40,
                           id="equity_backfill", max_instances=1, coalesce=True)
+            # 일일 점검 메일 — 매일 07:02 KST. 미국장 마감 06:00(서머타임 해제 기준) 직후라
+            # 직전 세션의 주문·체결이 모두 확정돼 있다. 조회 전용(주문 없음).
+            def _daily_review_run():
+                from core.daily_review import run_and_send
+                r = run_and_send()
+                logger.info(f"[suite] 일일 점검 메일: {r}")
+            sched.add_job(_daily_review_run, "cron", hour=7, minute=2,
+                          id="daily_review", max_instances=1, coalesce=True)
             # 토스 계좌 스냅샷(조회 전용): 10분 주기 + 기동 직후 1회. 대시보드는 캐시만 읽는다.
             try:
                 from core.toss_client import refresh as _toss_refresh, configured as _toss_ok
@@ -276,6 +284,29 @@ def api_toss_series():
     """토스 계좌 자산 추이 — 스냅샷마다 기록한 점들(평가+예수금). 조회만."""
     from core.toss_client import series
     return series()
+
+
+@app.get("/api/suite/daily_review")
+def api_daily_review(session: str | None = None, send: int = 0, fmt: str = "html"):
+    """일일 점검 — 직전 미국 세션의 전략별 매수·매도와 '왜 안 됐는지'.
+
+    조회 전용(주문 API 미호출). 스케줄은 매일 07:02 KST 메일 발송.
+      /api/suite/daily_review                → 오늘자 HTML 미리보기
+      /api/suite/daily_review?fmt=json       → 원본 데이터
+      /api/suite/daily_review?session=20261104&send=1 → 그 세션분 메일 재발송
+    """
+    from core.daily_review import build_report, render_html, send_mail
+    rep = build_report(session)
+    if send:
+        s = rep["session"]
+        n = len(rep["suspects"])
+        ok, detail = send_mail(
+            f"[자동매매] {s[:4]}-{s[4:6]}-{s[6:]} 일일점검 — "
+            + (f"점검 필요 {n}건" if n else "이상 없음"), render_html(rep))
+        return {"ok": ok, "detail": detail, "session": s, "suspects": rep["suspects"]}
+    if fmt == "json":
+        return rep
+    return HTMLResponse(render_html(rep))
 
 
 @app.get("/api/suite/nh_key")
