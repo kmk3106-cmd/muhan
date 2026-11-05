@@ -22,19 +22,34 @@ if [ -f "$ENVF" ]; then
   echo
 fi
 
-read -r -p "보내는 Gmail 주소 (예: kmk3106@gmail.com): " MFROM
-[ -z "${MFROM:-}" ] && { echo "중단: 주소가 비었습니다."; exit 1; }
+# 주소는 인자로 받는다 (비밀 아님). 그러면 물어보는 칸이 '앱 비밀번호' 하나뿐이라
+# 입력이 밀려서 비밀번호가 주소 칸에 들어가는 사고가 안 난다. (2026-11-05 실제로 발생)
+#   사용법: mail_setup.sh <보내는주소> [받는주소]
+MFROM=${1:-}
+MTO=${2:-$MFROM}
+if [ -z "$MFROM" ]; then
+  read -r -p "보내는 Gmail 주소 (예: kmk3106@gmail.com): " MFROM
+  [ -z "${MFROM:-}" ] && { echo "중단: 주소가 비었습니다."; exit 1; }
+  MTO=$MFROM
+fi
+case "$MFROM" in
+  *@*.*) ;;
+  *) echo "중단: '$MFROM' 은 메일 주소가 아닙니다. 앱 비밀번호를 여기 넣지 마세요."; exit 1 ;;
+esac
+echo "보내는/받는 주소: $MFROM -> $MTO"
+echo
 
-read -r -s -p "앱 비밀번호 16자리 (화면에 안 보임): " MPW
+echo "이제 앱 비밀번호 하나만 입력하면 됩니다. 쳐도 화면에 안 보이는 게 정상입니다."
+read -r -s -p "앱 비밀번호 16자리: " MPW
 echo
 MPW=$(echo "$MPW" | tr -d ' ')
 if [ ${#MPW} -ne 16 ]; then
   echo "중단: 앱 비밀번호는 공백 빼고 16자리입니다 (입력 ${#MPW}자리)."
   exit 1
 fi
-
-read -r -p "받는 주소 [기본 $MFROM, 쉼표로 여러 개]: " MTO
-MTO=${MTO:-$MFROM}
+case "$MPW" in
+  *@*) echo "중단: 메일 주소가 들어온 것 같습니다. 앱 비밀번호를 입력하세요."; exit 1 ;;
+esac
 
 umask 077
 cat > "$ENVF" <<EOF
