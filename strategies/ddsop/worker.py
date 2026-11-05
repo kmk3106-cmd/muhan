@@ -972,14 +972,24 @@ def _run_worker_once_impl(submit_orders: bool = True):
                             import yfinance as yf
                             t = yf.Ticker(ticker_obj.ticker)
                             info = t.info
-                            p = info.get("regularMarketPrice") or info.get("currentPrice") or info.get("previousClose")
+                            # [2026-11-05 수정] 여기서 필요한 건 '전일종가'다. 예전엔
+                            # regularMarketPrice(장중 현재가)를 먼저 집어서 그대로 prev_close 로
+                            # 썼고, 매수가 = 현재가×(1−x%) 가 되어 규칙보다 비싼 한도가 나왔다.
+                            # 실사고 2026-11-05 SPXL: 전일종가 $268.76 인데 현재가 $283.46 을 써서
+                            # 매수한도 $282.04(정상 $267.42). 자전거래 가드에 걸려 체결은 면했다.
+                            # 워커는 00:15~05:15 KST = 항상 미국 장중에 돈다. 이때 Yahoo 의
+                            # '현재 세션'은 그 진행중 세션이라 previousClose 가 곧 전일종가다.
+                            # (fast_info.previous_close 는 일봉과 안 맞아 쓰지 않는다 —
+                            #  2026-11-05 검증: SPXL 281.53 vs 실제 281.79, TECL 162.0 vs 163.95)
+                            # 전일종가를 못 구하면 '현재가로 대신'하지 않고 주문을 건너뛴다.
+                            p = info.get("previousClose") or info.get("regularMarketPreviousClose")
                             if p is not None:
                                 fp = float(p)
                                 if fp > 0:
                                     prev_close = fp
                                     price_src = "Yahoo(폴백)"
                                     _log_structured(session, "INFO", ticker_obj.ticker, "동기화",
-                                                    f"KIS 실패 → Yahoo 가격 ${prev_close:.2f} 사용")
+                                                    f"KIS 실패 → Yahoo 전일종가 ${prev_close:.2f} 사용")
                         except Exception as e:
                             logger.debug(f"yfinance 폴백 실패 ({ticker_obj.ticker}): {e}")
                     if prev_close <= 0:

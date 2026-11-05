@@ -779,7 +779,9 @@ def api_orders_today():
                     import yfinance as yf
                     t = yf.Ticker(tk.ticker)
                     info = t.info
-                    p = info.get("regularMarketPrice") or info.get("currentPrice") or info.get("previousClose")
+                    # [2026-11-05] prev_close 자리이므로 전일종가만 쓴다 (현재가 금지).
+                    # worker.py 와 같은 수정 — 화면 미리보기 매수가도 같은 값이어야 한다.
+                    p = info.get("previousClose") or info.get("regularMarketPreviousClose")
                     if p is not None:
                         fp = float(p)
                         if fp > 0:
