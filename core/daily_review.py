@@ -169,7 +169,9 @@ def _tranche_section(name: str, db, sess: str) -> dict:
             for o in orders:
                 done = (o["T"], o["side"]) in filled_keys or o["status"] == "filled"
                 if done:
-                    why = "체결"
+                    fp = next((f["price"] for f in fills
+                               if f["tranche_num"] == o["T"] and f["side"] == o["side"]), None)
+                    why = f"${fp:.2f} 에 체결" if fp else "체결"
                 elif o["status"] == "cancelled":
                     why = "취소 — 다음 워커가 갱신가로 재제출 (정상)"
                 elif o["status"] in ("failed",):
@@ -257,7 +259,8 @@ def _infinite_section(sess: str) -> dict:
             for o in orders:
                 done = (o.get("odno") in fodno) if fodno else ((o["side"], o["order_type"]) in fpair)
                 if done:
-                    why = "체결"
+                    fp = next((f["price"] for f in fills if f.get("odno") == o.get("odno")), None)
+                    why = f"${fp:.2f} 에 체결" if fp else "체결"
                 elif o["status"] == "cancelled":
                     why = "취소 — 다음 워커가 갱신가로 재제출 (정상)"
                 elif o["status"] == "failed":
@@ -355,10 +358,11 @@ def render_html(rep: dict) -> str:
                 h.append("<table><tr><th>트렌치</th><th>구분</th><th>종류</th><th>가격</th>"
                          "<th>수량</th><th>결과</th></tr>")
                 for r in t["orders"]:
-                    mark = "<span class='ok'>체결</span>" if r["done"] else "<span class='no'>미체결</span>"
+                    mark = ("<span class='ok'>체결</span>" if r["done"]
+                            else "<span class='no'>미체결</span> —")
                     px = f"${r['price']:.2f}" if r["price"] else "시장가"
                     h.append(f"<tr><td>T{r['T']}</td><td>{r['side']}</td><td>{r['type']}</td>"
-                             f"<td>{px}</td><td>{r['qty']}</td><td>{mark} — {r['why']}</td></tr>")
+                             f"<td>{px}</td><td>{r['qty']}</td><td>{mark} {r['why']}</td></tr>")
                 h.append("</table>")
             else:
                 h.append("<div class='muted'>제출된 주문 없음</div>")
