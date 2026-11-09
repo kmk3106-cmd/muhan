@@ -809,11 +809,12 @@ body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun G
 .oqp{flex:none;margin-left:auto;color:var(--c0);white-space:nowrap}
 .oam{flex:none;min-width:58px;text-align:right;white-space:nowrap}
 .ods{display:none;color:var(--c2);font-size:calc(10px*var(--ts-fs,1))}
-.orow.op .ods{display:block;flex-basis:100%;white-space:normal;padding-top:1px;line-height:1.5}
+/* 펼침: 설명을 맨 끝(order:9)으로 보내 수량·금액은 첫 줄에 그대로 두고 아래에 붙인다 */
+.orow.op .ods{display:block;order:9;flex-basis:100%;white-space:normal;padding-top:1px;line-height:1.5}
 @media(max-width:559px){.orow.otrd .oty{display:none}}
 @media(min-width:620px){
  .ods{display:block;flex:1 1 40px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
- .orow.op .ods{flex-basis:100%;white-space:normal;overflow:visible}}
+ .orow.op .ods{order:9;flex-basis:100%;white-space:normal;overflow:visible}}
 .osort{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--line);
  font-size:calc(11px*var(--ts-fs,1));color:var(--c2)}
 .osort select{padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-family:inherit;
