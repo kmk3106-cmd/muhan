@@ -1622,15 +1622,20 @@ function pgPort(){var ss=(MET.strategies||[]).concat(((MET.toss||{}).strategies)
   kpi('보유 종목','fa-briefcase','b',rows.length+' 종목','','전 전략 합산')+
   kpi('매입원가 합계','fa-coins','n',money(tc),'','평단×수량 기준')+
   kpi('전략 수','fa-layer-group','n',ss.length+' 개','보유 기준')+'</div>';
+ /* 주문·체결과 같은 규칙: 한 종목 한 줄, 전략은 그룹 머리글로 한 번만 (폴드 대응) */
+ var byS={},ord=[];
+ rows.forEach(function(r){if(!byS[r.d]){byS[r.d]={kill:r.kill,items:[]};ord.push(r.d);}
+  byS[r.d].items.push(r);});
  h+='<div class="grid">'+card('보유종목 현황','fa-briefcase',rows.length?
-  ('<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>종목</th><th>전략</th>'+
-  '<th style="text-align:right">보유수량</th><th style="text-align:right">평단가</th>'+
-  '<th style="text-align:right">매입금액</th><th>상태</th></tr></thead><tbody>'+
-  rows.map(function(r){return '<tr><td><b>'+esc(r.t)+'</b></td><td>'+esc(r.d)+
-  '</td><td style="text-align:right">'+r.q+'</td><td style="text-align:right">'+money(r.a,2)+
-  '</td><td style="text-align:right">'+money(r.c)+'</td><td><span class="bdg '+
-  (r.kill?'stop':'run')+'">'+(r.kill?'정지':'운용중')+'</span></td></tr>';}).join('')+
-  '</tbody></table></div>'):'<div class="muted">보유 종목 없음</div>')+'</div>';
+  ('<div class="olist">'+ord.map(function(d){var g=byS[d];
+   return '<div class="ogh"><b>'+esc(d)+'</b><i>'+g.items.length+'종목</i>'+
+    '<span class="bdg '+(g.kill?'stop':'run')+'" style="margin-left:auto">'+
+    (g.kill?'정지':'운용중')+'</span></div>'+
+   g.items.map(function(r){return '<div class="orow">'+
+    '<b class="otk">'+esc(r.t)+'</b>'+
+    '<span class="oqp">'+r.q+'주 × '+usd(r.a)+'</span>'+
+    '<span class="oam">'+money(r.c)+'</span></div>';}).join('');}).join('')+
+   '</div>'):'<div class="muted">보유 종목 없음</div>')+'</div>';
  h+='<div class="tip"><i class="fa-solid fa-circle-info"></i>단일 공용계좌라 종목별 실시간 '+
   '평가손익은 KIS 추가호출 없이 산출하지 않습니다. 계좌 단위 평가손익은 대시보드 KPI를 참고하세요.</div>';
  var dS=STRATS.filter(function(s){return s.kind!=='infinite';});
