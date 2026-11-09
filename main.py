@@ -785,6 +785,40 @@ body.ws-v3{background:#f4f5f3;color:#23372e;font-family:'Noto Sans KR','Malgun G
  .ws-next .ws-primary{grid-column:2;grid-row:1/4;align-self:center;width:auto;min-height:44px;padding:10px 14px}
 }</style>
 <!-- TS_DENSITY_END -->
+<!-- TS_ORDER_ROWS_START -->
+<style id="ts-order-rows">/* 주문·체결 = 한 주문 한 줄 (폴드 접힘 412px ~ 펼침 900px 기준).
+   표를 3줄짜리 카드로 쪼개거나 가로스크롤 시키던 것을 대신한다. 전략명은 그룹
+   머리글로 한 번만 쓰고, 설명(평단·싸이클·주문번호)은 좁으면 숨겼다가 행을 누르면 편다.
+   롤백: 이 블록 제거 + oTab()/renderTradesTable() 을 표 렌더로 되돌리면 끝. */
+.olist{padding:2px 0}
+.ogh{display:flex;align-items:baseline;gap:8px;padding:13px 14px 7px;border-top:1px solid var(--line)}
+.olist>.ogh:first-child{border-top:0}
+.ogh b{font-size:calc(11px*var(--ts-fs,1));font-weight:700;color:var(--c0)}
+.ogh i{font-style:normal;font-size:calc(10px*var(--ts-fs,1));color:var(--c2)}
+.orow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:9px 14px;
+ border-top:1px solid var(--line);min-height:42px;font-size:calc(12px*var(--ts-fs,1));
+ color:var(--c1);font-variant-numeric:tabular-nums}
+.orow.hasd{cursor:pointer}
+.orow:hover{background:#fafbfe}
+.orow .tag{flex:none;min-width:36px;text-align:center}
+.otk{flex:none;color:var(--c0);font-weight:700;min-width:44px}
+.otr{flex:none;font-size:calc(10px*var(--ts-fs,1));color:var(--c1);background:var(--bg);
+ border-radius:4px;padding:2px 4px}
+.oty{flex:none;font-size:calc(10px*var(--ts-fs,1));color:var(--c2)}
+.odt{flex:none;color:var(--c2);min-width:36px}
+.oqp{flex:none;margin-left:auto;color:var(--c0);white-space:nowrap}
+.oam{flex:none;min-width:58px;text-align:right;white-space:nowrap}
+.ods{display:none;color:var(--c2);font-size:calc(10px*var(--ts-fs,1))}
+.orow.op .ods{display:block;flex-basis:100%;white-space:normal;padding-top:1px;line-height:1.5}
+@media(max-width:559px){.orow.otrd .oty{display:none}}
+@media(min-width:620px){
+ .ods{display:block;flex:1 1 40px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .orow.op .ods{flex-basis:100%;white-space:normal;overflow:visible}}
+.osort{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--line);
+ font-size:calc(11px*var(--ts-fs,1));color:var(--c2)}
+.osort select{padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-family:inherit;
+ font-size:calc(11px*var(--ts-fs,1));background:#fff;color:var(--c0)}</style>
+<!-- TS_ORDER_ROWS_END -->
 <!-- TS_TYPE_SCALE_START -->
 <style id="ts-type-scale">/* 글자 크기 단일 조절 노브.
    모든 font-size 는 calc(원본px * var(--ts-fs,1)) 로 걸려 있다.
@@ -1659,45 +1693,70 @@ function trdSetSort(k){if(TRDS.k===k)TRDS.d=-TRDS.d;
  renderTradesTable();}
 function trdReset(){TRDF={s:'',t:'',d1:'',d2:''};TRDS={k:'trade_date',d:-1};renderTradesTable();}
 function _ymd2iso(s){s=String(s||'');return s.length===8?s.substr(0,4)+'-'+s.substr(4,2)+'-'+s.substr(6,2):'';}
+/* 주문·체결 한 줄 행. 값·열 구성은 그대로고 '보여주는 방식'만 표 → 한 줄이다.
+   opt: dt(앞 날짜) ty(유형 대체) cls(추가 클래스) ds(설명, 호출측에서 esc 끝낸 문자열)
+        noam(금액 칸 생략). 설명이 있으면 행을 눌러 펼칠 수 있다(.op). */
+function usd(n){return (n==null||n==='')?'—':'$'+Number(n).toLocaleString(undefined,
+ {minimumFractionDigits:2,maximumFractionDigits:2});}
+function oSide(o){var s=String(o.side||'')+' '+String(o.side_label||'');
+ if(s.indexOf('buy')>=0||s.indexOf('매수')>=0)return 'buy';
+ if(s.indexOf('sell')>=0||s.indexOf('매도')>=0)return 'sell';return '';}
+function oHead(label,n){return '<div class="ogh"><b>'+esc(label)+'</b><i>'+n+'건</i></div>';}
+function oGroups(rows,rowfn){/* 전략명은 그룹 머리글로 한 번만 (행마다 반복하지 않는다) */
+ var h='',cur=null,buf=[];
+ rows.forEach(function(o){if(o._s!==cur){if(cur!==null)h+=oHead(cur,buf.length)+buf.join('');
+  cur=o._s;buf=[];}buf.push(rowfn(o));});
+ if(cur!==null)h+=oHead(cur,buf.length)+buf.join('');
+ return '<div class="olist">'+h+'</div>';}
+function oRow(o,opt){opt=opt||{};
+ var sd=oSide(o),sl=(sd==='buy'?'매수':(sd==='sell'?'매도':esc(o.side||'-')));
+ var ty=esc(o.order_type||opt.ty||'');
+ var tn=(o.tranche_num!=null?o.tranche_num:(o.buy_seq!=null?o.buy_seq:null));
+ var qp=(o.price>0)?(o.qty+'주 × '+usd(o.price)):(o.qty+'주 시장가');
+ var ds=opt.ds||'';
+ return '<div class="orow'+(opt.cls?' '+opt.cls:'')+(ds?' hasd':'')+'"'+
+  (ds?' onclick="this.classList.toggle(\'op\')"':'')+'>'+
+  (opt.dt?'<span class="odt">'+esc(opt.dt)+'</span>':'')+
+  '<span class="tag '+sd+'">'+sl+'</span>'+
+  '<b class="otk">'+esc(o.ticker)+'</b>'+
+  (tn!=null?'<span class="otr">T'+esc(tn)+'</span>':'')+
+  (ty?'<span class="oty">'+ty+'</span>':'')+
+  (ds?'<span class="ods">'+ds+'</span>':'')+
+  '<span class="oqp">'+qp+'</span>'+
+  (opt.noam?'':'<span class="oam">'+(o.amount>0?usd(o.amount):'—')+'</span>')+'</div>';}
 function renderTradesTable(){var rows=trdSort(TRD.filter(trdMatch));
- var arrow=function(k){return TRDS.k===k?(TRDS.d>0?' ▲':' ▼'):' ↕';};
- var H=function(k,label,right){return '<th style="cursor:pointer;user-select:none'+
-   (right?';text-align:right':'')+'" onclick="trdSetSort(\''+k+'\')">'+label+
-   '<span style="color:var(--c3);font-size:calc(10px*var(--ts-fs,1))">'+arrow(k)+'</span></th>';};
+ var KEYS=[['trade_date','일자'],['ticker','티커'],['qty','수량'],['price','체결가'],
+   ['amount','금액'],['cycle_number','싸이클'],['tranche_num','회차'],['_s','전략']];
  var stratOpts='<option value="">전략 전체</option>'+STRATS.map(function(s){
    return '<option value="'+s.key+'"'+(TRDF.s===s.key?' selected':'')+'>'+esc(s.label)+'</option>';}).join('');
  var ipStyle='padding:7px 10px;border:1px solid var(--line);border-radius:8px;'+
-   'font-family:inherit;font-size:calc(12.5px*var(--ts-fs,1));background:#fff;color:var(--c0)';
- var bar='<div style="padding:12px 16px;border-bottom:1px solid var(--line);'+
-   'display:flex;flex-wrap:wrap;gap:8px;align-items:center">'+
+   'font-family:inherit;font-size:calc(11.5px*var(--ts-fs,1));background:#fff;color:var(--c0)';
+ var bar='<div style="padding:11px 14px;border-bottom:1px solid var(--line);'+
+   'display:flex;flex-wrap:wrap;gap:7px;align-items:center">'+
    '<select onchange="TRDF.s=this.value;renderTradesTable();" style="'+ipStyle+'">'+stratOpts+'</select>'+
    '<input placeholder="티커" value="'+esc(TRDF.t||'')+'" '+
-   'oninput="TRDF.t=this.value;renderTradesTable();" style="'+ipStyle+';width:100px;text-transform:uppercase">'+
+   'oninput="TRDF.t=this.value;renderTradesTable();" style="'+ipStyle+';width:88px;text-transform:uppercase">'+
    '<input type="date" value="'+_ymd2iso(TRDF.d1)+'" '+
    'onchange="TRDF.d1=this.value.replace(/-/g,\'\');renderTradesTable();" style="'+ipStyle+'">'+
-   '<span style="color:var(--c2);font-size:calc(11.5px*var(--ts-fs,1))">~</span>'+
    '<input type="date" value="'+_ymd2iso(TRDF.d2)+'" '+
    'onchange="TRDF.d2=this.value.replace(/-/g,\'\');renderTradesTable();" style="'+ipStyle+'">'+
-   '<button class="btn sm" onclick="trdReset();"><i class="fa-solid fa-rotate-left"></i> 초기화</button>'+
-   '<span style="color:var(--c2);font-size:calc(11.5px*var(--ts-fs,1));margin-left:auto">'+
-   rows.length+' / '+TRD.length+'건</span></div>';
- var tbl=rows.length?('<div style="overflow-x:auto"><table class="tbl"><thead><tr>'+
-   H('trade_date','일자')+H('_s','전략')+H('ticker','티커')+
-   H('cycle_number','싸이클',1)+H('tranche_num','회차',1)+H('side','구분')+
-   H('qty','수량',1)+H('price','체결가',1)+H('amount','금액',1)+'</tr></thead><tbody>'+
-   rows.map(function(o){var cy=(o.cycle_number!=null?'C'+o.cycle_number:'—');
-   var tr=(o.tranche_num!=null?'T'+o.tranche_num:(o.buy_seq!=null?'T'+o.buy_seq:'—'));
-   return '<tr><td>'+esc(o.trade_date)+'</td><td>'+esc(o._s)+
-   '</td><td><b>'+esc(o.ticker)+'</b></td>'+
-   '<td style="text-align:right;color:var(--c1)"><b>'+cy+'</b></td>'+
-   '<td style="text-align:right;color:var(--c1)">'+tr+'</td>'+
-   '<td><span class="tag '+(o.side==='buy'?'buy">매수':'sell">매도')+'</span></td>'+
-   '<td style="text-align:right">'+o.qty+'</td>'+
-   '<td style="text-align:right">'+money(o.price,2)+'</td>'+
-   '<td style="text-align:right">'+money(o.amount,2)+'</td></tr>';}).join('')+
-   '</tbody></table></div>'):
+   '<button class="btn sm" onclick="trdReset();"><i class="fa-solid fa-rotate-left"></i> 초기화</button></div>';
+ /* 표 머리글 클릭 정렬 → 좁은 화면에서도 쓸 수 있게 정렬 바로 옮겼다 (키·방향 동일) */
+ var sortbar='<div class="osort">정렬'+
+   '<select onchange="TRDS.k=this.value;renderTradesTable();">'+
+   KEYS.map(function(k){return '<option value="'+k[0]+'"'+(TRDS.k===k[0]?' selected':'')+
+     '>'+k[1]+'</option>';}).join('')+'</select>'+
+   '<button class="btn sm" onclick="TRDS.d=-TRDS.d;renderTradesTable();">'+
+   (TRDS.d>0?'▲ 오름차순':'▼ 내림차순')+'</button>'+
+   '<span style="margin-left:auto">'+rows.length+' / '+TRD.length+'건</span></div>';
+ var list=rows.length?('<div class="olist">'+rows.map(function(o){
+   var d=String(o.trade_date||'');d=d.length===8?(d.substr(4,2)+'/'+d.substr(6,2)):d;
+   var bits=[esc(o._s)];
+   if(o.cycle_number!=null)bits.push(o.cycle_number+'싸이클');
+   if(o.order_type)bits.push(esc(o.order_type));
+   return oRow(o,{dt:d,cls:'otrd',ds:bits.join(' · ')});}).join('')+'</div>'):
    '<div class="muted">조건에 맞는 체결 내역 없음</div>';
- $('otab').innerHTML=bar+tbl;}
+ $('otab').innerHTML=bar+sortbar+list;}
 function pgOrder(){$('page').innerHTML='<div class="grid">'+
  '<div class="card"><div class="ch"><span class="ct"><i class="fa-solid fa-receipt"></i>주문 · 체결</span>'+
  '<div class="seg" id="og"><button class="sgb on">예정</button>'+
@@ -1712,25 +1771,21 @@ function oTab(i){var box=$('otab');box.innerHTML='<div class="muted">불러오�
  if(i===0){Promise.all(paths.map(function(k){return fetch('/'+k+'/api/orders/today')
   .then(function(r){return r.json();}).then(function(d){return (d||[]).map(function(o){
    o._s=labelOf(k);return o;});}).catch(function(){return [];});})).then(function(rs){
-  var all=[].concat.apply([],rs);box.innerHTML=all.length?('<div style="overflow-x:auto"><table class="tbl"><thead><tr>'+
-  '<th>전략</th><th>티커</th><th>구분</th><th>유형</th><th style="text-align:right">수량</th>'+
-  '<th style="text-align:right">가격</th><th style="text-align:right">금액</th><th>설명</th></tr></thead><tbody>'+
-  all.map(function(o){return '<tr><td>'+esc(o._s)+'</td><td><b>'+esc(o.ticker)+'</b></td>'+
-  '<td><span class="tag '+(o.side==='buy'?'buy">매수':'sell">매도')+'</span></td><td>'+esc(o.order_type||'')+
-  '</td><td style="text-align:right">'+o.qty+'</td><td style="text-align:right">'+money(o.price,2)+
-  '</td><td style="text-align:right">'+money(o.amount,2)+'</td><td style="color:#9aa3b2;font-size:calc(11px*var(--ts-fs,1))">'+
-  esc(o.desc||'')+'</td></tr>';}).join('')+'</tbody></table></div>'):
+  var all=[].concat.apply([],rs);
+  box.innerHTML=all.length?oGroups(all,function(o){
+   var bits=[];
+   if(o.cycle_number!=null)bits.push(o.cycle_number+'싸이클');
+   if(o.desc)bits.push(esc(o.desc));
+   return oRow(o,{ds:bits.join(' · ')});}):
   '<div class="muted">오늘 예정 주문 없음 (장 시작 전이거나 조건 미충족)</div>';});}
  else if(i===1){Promise.all(paths.map(function(k){return fetch('/'+k+'/api/orders/pending')
   .then(function(r){return r.json();}).then(function(d){return ((d&&d.items)||[]).map(function(o){
    o._s=labelOf(k);return o;});}).catch(function(){return [];});})).then(function(rs){
-  var all=[].concat.apply([],rs);box.innerHTML=all.length?('<div style="overflow-x:auto"><table class="tbl"><thead><tr>'+
-  '<th>전략</th><th>티커</th><th>구분</th><th style="text-align:right">수량</th>'+
-  '<th style="text-align:right">가격</th><th>주문번호</th><th>주문시각</th></tr></thead><tbody>'+
-  all.map(function(o){return '<tr><td>'+esc(o._s)+'</td><td><b>'+esc(o.ticker)+'</b></td><td>'+
-  esc(o.side_label||o.side||'')+'</td><td style="text-align:right">'+o.qty+
-  '</td><td style="text-align:right">'+money(o.price,2)+'</td><td>'+esc(o.order_no||'')+'</td><td>'+
-  esc((o.ord_dt||'')+' '+(o.ord_tmd||''))+'</td></tr>';}).join('')+'</tbody></table></div>'):
+  var all=[].concat.apply([],rs);
+  box.innerHTML=all.length?oGroups(all,function(o){
+   var t=String(o.ord_tmd||'');t=(t.length>=6?t.substr(0,2)+':'+t.substr(2,2)+':'+t.substr(4,2):'');
+   return oRow(o,{noam:1,ty:String(o.side_label||'').replace(/매수|매도/g,'').trim(),
+    ds:(t?t+' · ':'')+'주문번호 '+esc(o.order_no||'')});}):
   '<div class="muted">미체결 주문 없음</div>';});}
  else{Promise.all(paths.map(function(k){return fetch('/'+k+'/api/trades?limit=500')
   .then(function(r){return r.json();}).then(function(d){return ((d&&d.items)||[]).map(function(o){
